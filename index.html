@@ -177,6 +177,26 @@ tr.expand-row td{background:#f7f9ff;padding:0}
 .copybox input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit}
 details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-top:14px}
 .ticket-item{cursor:pointer}
+
+/* 運営スレッド／Q&A（社内） */
+.ops-note{font-size:12px;color:var(--muted);background:#f4f6fb;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:14px}
+.chat{display:flex;flex-direction:column;gap:10px;max-height:440px;overflow-y:auto;padding:2px}
+.bubble{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.bubble .who{font-size:12px;color:var(--blue);font-weight:700}
+.bubble .when{font-size:11px;color:var(--muted);margin-left:8px}
+.bubble .body{white-space:pre-wrap;margin-top:3px}
+.bubble .del{float:right;color:var(--muted);border:0;background:transparent;font-size:12px;cursor:pointer;line-height:1}
+.composer{display:flex;flex-direction:column;gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.composer .crow{display:flex;gap:8px;align-items:center}
+.composer .author,.qa-author{width:160px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+.composer textarea{min-height:56px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical}
+.qa-item{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;background:#fff}
+.qa-item.resolved{background:#f6faf7}
+.qa-q{font-weight:600;display:flex;gap:8px;align-items:flex-start}
+.qa-meta{font-size:12px;color:var(--muted);margin:4px 0 10px}
+.qa-item textarea{width:100%;min-height:56px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical}
+.badge.open{background:#fff2df;color:var(--warn)}
+.badge.resolved{background:#e6f5ec;color:var(--ok)}
 </style>
 </head>
 <body data-view="organizer">
@@ -282,7 +302,7 @@ const Util = (() => {
 // ===== [2] DB（IndexedDB / Promise ラップ / onupgradeneeded） =====
 const DB = (() => {
   const NAME = "neo_event_tool";
-  const VERSION = 1;
+  const VERSION = 2; // v2: チケット廃止（ticketTypes除去・定員はevents）＋運営用 messages/tasks 追加
   let _db = null;
 
   function open() {
@@ -290,16 +310,14 @@ const DB = (() => {
       const req = indexedDB.open(NAME, VERSION);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        // 既存データを保持したままストアを追加できるよう、存在チェックしてから作る
+        // create-if-missing 方式（既存データを保持したままストアを追加できる / 3-5）
         if (!db.objectStoreNames.contains("events")) {
           const s = db.createObjectStore("events", { keyPath: "id" });
           s.createIndex("status", "status");
           s.createIndex("startAt", "startAt");
         }
-        if (!db.objectStoreNames.contains("ticketTypes")) {
-          const s = db.createObjectStore("ticketTypes", { keyPath: "id" });
-          s.createIndex("eventId", "eventId");
-        }
+        // チケット制の廃止: 申込は「申込」に一本化し、定員は events.capacity が持つ（旧 F-61/4-8 を反転）
+        if (db.objectStoreNames.contains("ticketTypes")) db.deleteObjectStore("ticketTypes");
         if (!db.objectStoreNames.contains("persons")) {
           const s = db.createObjectStore("persons", { keyPath: "id" });
           s.createIndex("emailKey", "emailKey", { unique: true });
@@ -315,6 +333,16 @@ const DB = (() => {
         if (!db.objectStoreNames.contains("savedTokens")) {
           const s = db.createObjectStore("savedTokens", { keyPath: "token" });
           s.createIndex("savedAt", "savedAt");
+        }
+        // 運営（社内）向け。同一ブラウザ内で永続。別端末との同期はサーバ導入時まで不可（4-1）
+        if (!db.objectStoreNames.contains("messages")) {
+          const s = db.createObjectStore("messages", { keyPath: "id" }); // スレッド＋Q&A兼用
+          s.createIndex("eventId", "eventId");
+          s.createIndex("eventId_channel", ["eventId", "channel"]);
+        }
+        if (!db.objectStoreNames.contains("tasks")) {
+          const s = db.createObjectStore("tasks", { keyPath: "id" }); // 運営タスク（次スライスで可視化）
+          s.createIndex("eventId", "eventId");
         }
       };
       req.onsuccess = () => { _db = req.result; resolve(_db); };
@@ -377,10 +405,10 @@ const Repo = (() => {
       put:  (e) => DB.put("events", e),
       remove: (id) => DB.remove("events", id),
     },
-    ticketTypes: {
-      byEvent: (eventId) => DB.getAllByIndex("ticketTypes", "eventId", eventId),
-      all: () => DB.getAll("ticketTypes"),
-      put: (t) => DB.put("ticketTypes", t),
+    messages: {
+      byEvent: (eventId) => DB.getAllByIndex("messages", "eventId", eventId),
+      put: (m) => DB.put("messages", m),
+      remove: (id) => DB.remove("messages", id),
     },
     persons: {
       all: () => DB.getAll("persons"),
@@ -418,27 +446,27 @@ const Domain = (() => {
     return { phase:"open", label:"受付中" };
   }
 
-  // 定員・残席は申込枠の合計から算出（F-61 / 4-8）
-  function capacity(tickets) { return tickets.reduce((s,t) => s + (t.capacity||0), 0); }
+  // 定員・残席はイベントが持つ（チケット廃止に伴い定員を events.capacity へ集約）
+  function capacity(ev) { return ev.capacity || 0; }
   // 有効な申込 = キャンセル済みを除き、チェックイン済みを含む（F-18）
   const isValidApp = a => a.status === "applied" || a.status === "checkedin";
   function usedSeats(apps) { return apps.filter(isValidApp).length; }
-  function remaining(tickets, apps) { return capacity(tickets) - usedSeats(apps); }
+  function remaining(ev, apps) { return capacity(ev) - usedSeats(apps); }
 
   // 申込ボタンの文言（F-08）
-  function applyButtonLabel(ev, tickets, apps) {
+  function applyButtonLabel(ev, apps) {
     const t = timing(ev);
     if (t.phase === "cancelled") return { text:"中止されました", disabled:true };
     if (t.phase === "held")      return { text:"終了しました",   disabled:true };
     if (t.phase === "closed")    return { text:"受付終了",       disabled:true };
-    if (remaining(tickets, apps) <= 0) return { text:"満席",     disabled:true };
+    if (remaining(ev, apps) <= 0) return { text:"満席",     disabled:true };
     return { text:"申込む", disabled:false };
   }
 
-  // 「定員間近」= 残席3以下 または 定員合計の10%以下（F-58）
-  function nearlyFull(tickets, apps) {
-    const cap = capacity(tickets); if (cap <= 0) return false;
-    const rem = remaining(tickets, apps);
+  // 「定員間近」= 残席3以下 または 定員の10%以下（F-58）
+  function nearlyFull(ev, apps) {
+    const cap = capacity(ev); if (cap <= 0) return false;
+    const rem = remaining(ev, apps);
     return rem > 0 && (rem <= 3 || rem <= cap * 0.1);
   }
   // 「下書き放置」= 下書きで7日以上更新なし（F-59）
@@ -505,38 +533,31 @@ const Seed = (() => {
     const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"社員全般",
       venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください" };
 
+    // 定員はイベントが持つ（チケット廃止）
     const events = [
       { id:"ev_public", title:"社内技術LT大会 2026夏", description:"部門横断のライトニングトーク大会です。登壇・聴講どちらも歓迎。",
-        startAt:day(14,18,30), endAt:day(14,20,30), venueName:"本社 大会議室",
+        startAt:day(14,18,30), endAt:day(14,20,30), venueName:"本社 大会議室", capacity:60,
         applyDeadline:dateStr(10), status:"published", visibility:"public",
         createdAt:day(-20), updatedAt:day(-5), ...base },
       { id:"ev_soon", title:"新人歓迎ランチ会", description:"今年度の新入社員を交えたカジュアルなランチ会。",
-        startAt:day(1,12,0), endAt:day(1,13,0), venueName:"7Fカフェテリア",
+        startAt:day(1,12,0), endAt:day(1,13,0), venueName:"7Fカフェテリア", capacity:20,
         applyDeadline:dateStr(0), status:"published", visibility:"public",
         createdAt:day(-15), updatedAt:day(-3), ...base },
       { id:"ev_limited", title:"（限定）経営戦略説明会", description:"招待者向けの限定公開イベントです。",
-        startAt:day(20,15,0), endAt:day(20,17,0), venueName:"役員会議室",
+        startAt:day(20,15,0), endAt:day(20,17,0), venueName:"役員会議室", capacity:15,
         applyDeadline:dateStr(18), status:"published", visibility:"limited",
         createdAt:day(-8), updatedAt:day(-2), ...base },
       { id:"ev_draft", title:"（下書き）秋の全社イベント", description:"",
-        startAt:null, endAt:null, venueName:"", applyDeadline:null,
+        startAt:null, endAt:null, venueName:"", applyDeadline:null, capacity:null,
         status:"draft", visibility:"public", createdAt:day(-12), updatedAt:day(-12), ...base },
       { id:"ev_past", title:"春の勉強会", description:"開催済のイベント。",
-        startAt:day(-30,14,0), endAt:day(-30,16,0), venueName:"3F研修室",
+        startAt:day(-30,14,0), endAt:day(-30,16,0), venueName:"3F研修室", capacity:30,
         applyDeadline:dateStr(-33), status:"published", visibility:"public",
         createdAt:day(-60), updatedAt:day(-30), ...base },
       { id:"ev_cancel", title:"中止になった懇親会", description:"諸事情により中止。",
-        startAt:day(7,19,0), endAt:day(7,21,0), venueName:"近隣レストラン",
+        startAt:day(7,19,0), endAt:day(7,21,0), venueName:"近隣レストラン", capacity:40,
         applyDeadline:dateStr(5), status:"cancelled", visibility:"public",
         createdAt:day(-10), updatedAt:day(-1), ...base },
-    ];
-    const tickets = [
-      { id:"tt_public", eventId:"ev_public", name:"一般参加", capacity:60, sortOrder:0 },
-      { id:"tt_soon",   eventId:"ev_soon",   name:"参加",     capacity:20, sortOrder:0 },
-      { id:"tt_limited",eventId:"ev_limited",name:"招待",     capacity:15, sortOrder:0 },
-      { id:"tt_draft",  eventId:"ev_draft",  name:"一般参加", capacity:100,sortOrder:0 },
-      { id:"tt_past",   eventId:"ev_past",   name:"参加",     capacity:30, sortOrder:0 },
-      { id:"tt_cancel", eventId:"ev_cancel", name:"参加",     capacity:40, sortOrder:0 },
     ];
     const people = [
       ["田中 太郎","タナカ タロウ","tanaka@example.com"],
@@ -550,35 +571,51 @@ const Seed = (() => {
       return { id:"p"+i, emailKey, email:p[2], name:p[0], nameKana:p[1],
         contactConsent:true, consentAt:day(-6), createdAt:day(-6) };
     });
-    // ev_public / ev_soon / ev_past に有効な申込を作る
+    // ev_public / ev_soon / ev_past に有効な申込を作る（チケット廃止＝ticketTypeIdなし）
     const apps = [];
-    const mkApp = (ev, tt, pi, status, offset) => {
+    const mkApp = (ev, pi, status, offset) => {
       const p = persons[pi];
       apps.push({
-        id:Util.uid(), eventId:ev, ticketTypeId:tt, personId:p.id, token:Util.newToken(),
+        id:Util.uid(), eventId:ev, personId:p.id, token:Util.newToken(),
         status, checkinAt: status==="checkedin" ? day(offset,9,30) : null,
         appliedAt: day(offset,9,0),
         searchText: Util.normalize(p.name + p.nameKana + p.email),
       });
     };
-    mkApp("ev_public","tt_public",0,"applied",-4);
-    mkApp("ev_public","tt_public",1,"applied",-3);
-    mkApp("ev_public","tt_public",2,"checkedin",-2);
-    mkApp("ev_soon","tt_soon",3,"applied",-1);
-    mkApp("ev_soon","tt_soon",4,"applied",-1);
-    mkApp("ev_past","tt_past",0,"checkedin",-31);
+    mkApp("ev_public",0,"applied",-4);
+    mkApp("ev_public",1,"applied",-3);
+    mkApp("ev_public",2,"checkedin",-2);
+    mkApp("ev_soon",3,"applied",-1);
+    mkApp("ev_soon",4,"applied",-1);
+    mkApp("ev_past",0,"checkedin",-31);
 
-    // この端末が保持する自分の申込トークン（F-56）。マイチケットに表示される
+    // 運営（社内）向けメッセージ: スレッド（チャット）＋Q&A。同一ブラウザ内で永続
+    const msgs = [
+      { id:Util.uid(), eventId:"ev_public", channel:"thread", author:"運営A",
+        body:"会場設営は17時から始めましょう。", createdAt:day(-3,10,0) },
+      { id:Util.uid(), eventId:"ev_public", channel:"thread", author:"運営B",
+        body:"了解です。プロジェクタの接続確認も忘れずに。", createdAt:day(-3,10,5) },
+      { id:Util.uid(), eventId:"ev_public", channel:"qa", author:"運営A",
+        body:"受付の荷物は地下と1階のどちらに運ぶ？", answer:"1階の搬入口に集約でOKです。",
+        resolved:true, createdAt:day(-2,9,0), resolvedAt:day(-2,11,0) },
+      { id:Util.uid(), eventId:"ev_public", channel:"qa", author:"運営C",
+        body:"懇親会の軽食は何人分手配する？", answer:"", resolved:false,
+        createdAt:day(-1,15,0), resolvedAt:null },
+      { id:Util.uid(), eventId:"ev_soon", channel:"thread", author:"運営A",
+        body:"カフェテリアの予約は取れています。", createdAt:day(-1,9,0) },
+    ];
+
+    // この端末が保持する自分の申込トークン（F-56）。マイ申込に表示される
     const saved = [apps[0], apps[3], apps[5]].map(a =>
       ({ token:a.token, eventId:a.eventId, savedAt:a.appliedAt }));
 
     // 1トランザクションで原子的に投入（複数ストア）
     const entries = [
       ...events.map(record => ({ store:"events", record })),
-      ...tickets.map(record => ({ store:"ticketTypes", record })),
       ...persons.map(record => ({ store:"persons", record })),
       ...apps.map(record => ({ store:"applications", record })),
       ...saved.map(record => ({ store:"savedTokens", record })),
+      ...msgs.map(record => ({ store:"messages", record })),
     ];
     await Repo.bulkPut(entries);
   }
@@ -590,9 +627,8 @@ const Seed = (() => {
 const Dashboard = (() => {
   async function render(el) {
     const now = Date.now();
-    const [events, tickets, apps] = await Promise.all([
-      Repo.events.all(), Repo.ticketTypes.all(), Repo.applications.all()]);
-    const ticketsByEv = groupBy(tickets, "eventId");
+    const [events, apps] = await Promise.all([
+      Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
 
     // 指標
@@ -608,14 +644,14 @@ const Dashboard = (() => {
     // 要対応リスト（F-31）
     const attn = [];
     for (const e of events) {
-      const ts = ticketsByEv[e.id]||[], ap = appsByEv[e.id]||[];
+      const ap = appsByEv[e.id]||[];
       if (e.status==="published" && e.startAt) {
         const d = Util.daysBetween(now, new Date(e.startAt).getTime());
         if (d===0 || d===1) attn.push({ ev:e, reason:d===0?"本日開催":"明日開催", kind:"date" });
       }
       if (e.status==="published") {
-        if (Domain.remaining(ts,ap) <= 0) attn.push({ ev:e, reason:"満席", kind:"full" });
-        else if (Domain.nearlyFull(ts,ap)) attn.push({ ev:e, reason:"定員間近", kind:"full" });
+        if (Domain.remaining(e,ap) <= 0) attn.push({ ev:e, reason:"満席", kind:"full" });
+        else if (Domain.nearlyFull(e,ap)) attn.push({ ev:e, reason:"定員間近", kind:"full" });
       }
       if (Domain.staleDraft(e, now)) attn.push({ ev:e, reason:"下書きのまま放置", kind:"draft" });
     }
@@ -658,9 +694,8 @@ const EventsList = (() => {
 
   async function render(el) {
     const now = Date.now();
-    const [events, tickets, apps] = await Promise.all([
-      Repo.events.all(), Repo.ticketTypes.all(), Repo.applications.all()]);
-    const ticketsByEv = groupBy(tickets, "eventId");
+    const [events, apps] = await Promise.all([
+      Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
 
     // 区分（F-44 表）
@@ -684,7 +719,7 @@ const EventsList = (() => {
       const arr = groups[k];
       if (!arr.length) return "";
       return `<tr class="grouprow"><td colspan="5">${label}（${arr.length}）</td></tr>` +
-        arr.map(e => rowFor(e, ticketsByEv[e.id]||[], appsByEv[e.id]||[])).join("");
+        arr.map(e => rowFor(e, appsByEv[e.id]||[])).join("");
     }).join("");
 
     const anyOn = order.length > 0;
@@ -714,8 +749,8 @@ const EventsList = (() => {
   const toggleBtn = (k,label) =>
     `<button class="${state[k]?'on':''}" data-k="${k}">${label}</button>`;
 
-  function rowFor(e, tickets, apps) {
-    const cap = Domain.capacity(tickets), used = Domain.usedSeats(apps);
+  function rowFor(e, apps) {
+    const cap = Domain.capacity(e), used = Domain.usedSeats(apps);
     const badges = [`<span class="badge ${e.status}">${Domain.STATUS[e.status]}</span>`];
     if (e.visibility === "limited" && e.status !== "cancelled")
       badges.push(`<span class="badge limited">限定公開</span>`);
@@ -735,14 +770,14 @@ const EventsList = (() => {
 const EventDetail = (() => {
   const STATUS_LABEL = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル" };
   const STATUS_CLASS = { applied:"phase", checkedin:"published", cancelled:"draft" };
-  let ctx = null;      // { ev, tickets, apps, ticketName, _persons, el }
+  let ctx = null;      // { ev, apps, _persons, el }
   let tab = "apply";   // 初期タブは申込（F-75）
   let expandedId = null;
 
   function paint() {
-    const { ev, tickets, apps, el } = ctx;
+    const { ev, apps, el } = ctx;
     const t = Domain.timing(ev);
-    const cap = Domain.capacity(tickets), used = Domain.usedSeats(apps), rem = Domain.remaining(tickets, apps);
+    const cap = Domain.capacity(ev), used = Domain.usedSeats(apps), rem = Domain.remaining(ev, apps);
     el.innerHTML = `
       <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button></div>
       <div class="card pad statusbar">
@@ -761,6 +796,8 @@ const EventDetail = (() => {
       </div>
       <div class="subtabs" id="subtabs">
         <button data-tab="apply" class="${tab==='apply'?'on':''}">申込</button>
+        <button data-tab="thread" class="${tab==='thread'?'on':''}">運営スレッド</button>
+        <button data-tab="qa" class="${tab==='qa'?'on':''}">運営Q&amp;A</button>
         <button data-tab="promo" class="${tab==='promo'?'on':''}">告知</button>
         <button data-tab="edit" class="${tab==='edit'?'on':''}">概要・編集</button>
       </div>
@@ -772,6 +809,8 @@ const EventDetail = (() => {
 
     const pane = el.querySelector("#subpane");
     if (tab === "apply") renderApply(pane);
+    else if (tab === "thread") Ops.renderThread(pane, ev.id);
+    else if (tab === "qa") Ops.renderQA(pane, ev.id);
     else if (tab === "promo") renderPromo(pane);
     else renderEdit(pane);
   }
@@ -784,7 +823,7 @@ const EventDetail = (() => {
         <button class="btn" id="csvBtn">CSV出力</button>
       </div>
       <div class="card"><table class="list">
-        <thead><tr><th>氏名</th><th>カナ</th><th>申込枠</th><th>状態</th><th style="width:120px">操作</th></tr></thead>
+        <thead><tr><th>氏名</th><th>カナ</th><th>状態</th><th style="width:120px">操作</th></tr></thead>
         <tbody id="appRows"></tbody>
       </table></div>
       <div class="mock-flag">チェックイン／取消・内容修正・キャンセルは表示のみのモック（保存は C-3 で実装）。検索・CSV出力は実データで動作します。</div>`;
@@ -797,13 +836,13 @@ const EventDetail = (() => {
   }
 
   function paintRows(pane, query) {
-    const { apps, ticketName } = ctx;
+    const { apps } = ctx;
     const q = Util.normalize(query);
     const rows = apps.filter(a => !q || a.searchText.includes(q));
     const persons = ctx._persons || {};
     const tbody = pane.querySelector("#appRows");
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5"><div class="empty">${apps.length ? "一致する申込がありません" : "申込がありません"}</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4"><div class="empty">${apps.length ? "一致する申込がありません" : "申込がありません"}</div></td></tr>`;
       return;
     }
     tbody.innerHTML = rows.map(a => {
@@ -814,10 +853,9 @@ const EventDetail = (() => {
       const main = `<tr class="clickable" data-row="${a.id}">
         <td>${Util.esc(p.name||"—")}</td>
         <td>${Util.esc(p.nameKana||"—")}</td>
-        <td>${Util.esc(ticketName[a.ticketTypeId]||"—")}</td>
         <td><span class="badge ${STATUS_CLASS[a.status]}">${STATUS_LABEL[a.status]}</span></td>
         <td>${opBtn}</td></tr>`;
-      const exp = expandedId === a.id ? `<tr class="expand-row"><td colspan="5"><div class="expand-inner">
+      const exp = expandedId === a.id ? `<tr class="expand-row"><td colspan="4"><div class="expand-inner">
         <div class="kv2">
           <div><div class="k">メールアドレス</div>${Util.esc(p.email||"—")}</div>
           <div><div class="k">申込日時</div>${Util.fmtDateTime(a.appliedAt)}</div>
@@ -842,12 +880,12 @@ const EventDetail = (() => {
   }
 
   function exportCsv() {
-    const { ev, apps, ticketName } = ctx;
+    const { ev, apps } = ctx;
     const persons = ctx._persons || {};
-    const header = ["申込番号","氏名","氏名（カナ）","メールアドレス","申込枠","状態","申込日時","チェックイン時刻"];
+    const header = ["申込番号","氏名","氏名（カナ）","メールアドレス","状態","申込日時","チェックイン時刻"];
     const body = apps.map(a => {
       const p = persons[a.personId] || {};
-      return [a.id, p.name||"", p.nameKana||"", p.email||"", ticketName[a.ticketTypeId]||"",
+      return [a.id, p.name||"", p.nameKana||"", p.email||"",
         STATUS_LABEL[a.status], Util.fmtDateTime(a.appliedAt), a.checkinAt?Util.fmtDateTime(a.checkinAt):""];
     });
     Util.downloadText(`applications_${ev.id}.csv`, Util.buildCsv([header, ...body]));
@@ -940,20 +978,117 @@ ${url}`;
 
   // persons をまとめて読んでおく（申込一覧の氏名・メール表示に必要）
   async function render(el, eventId) {
-    const [ev, tickets, apps, personsArr] = await Promise.all([
+    const [ev, apps, personsArr] = await Promise.all([
       Repo.events.get(eventId),
-      Repo.ticketTypes.byEvent(eventId),
       Repo.applications.byEvent(eventId),
       Repo.persons.all()]);
     if (!ev) { el.innerHTML = `<div class="empty"><div class="big">イベントが見つかりません</div></div>`; return; }
-    const ticketName = {}; tickets.forEach(t => ticketName[t.id] = t.name);
     const _persons = {}; personsArr.forEach(p => _persons[p.id] = p);
-    ctx = { ev, tickets, apps, ticketName, _persons, el };
+    ctx = { ev, apps, _persons, el };
     expandedId = null; tab = "apply";
     paint();
   }
 
   return { render };
+})();
+
+
+// ===== [9b] 主催者：運営スレッド／運営Q&A（社内・実データで永続 / messages ストア） =====
+/* 設計は複数人での共有管理を想定するが、サーバなし＝単一ブラウザのため実態は一人（同一
+   ブラウザ）で管理する。別端末との同期はサーバ導入時まで不可（引き継ぎ書 4-1）。 */
+const Ops = (() => {
+  let lastAuthor = "運営"; // 直近の投稿者名を保持（セッション内）
+
+  // ---- 運営スレッド（チャット） ----
+  async function renderThread(pane, eventId) {
+    const all = await Repo.messages.byEvent(eventId);
+    const msgs = all.filter(m => m.channel === "thread")
+      .sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+    pane.innerHTML = `
+      <div class="ops-note">運営メンバー間のチャットです。この端末内に保存されます（別端末との同期はサーバ導入まで不可 / 4-1）。</div>
+      <div class="chat" id="chatList">
+        ${msgs.length ? msgs.map(bubble).join("")
+          : `<div class="empty">まだ投稿がありません。最初のメッセージを送ってみましょう。</div>`}
+      </div>
+      <div class="composer">
+        <div class="crow"><input class="author" id="opAuthor" value="${Util.esc(lastAuthor)}" placeholder="名前"></div>
+        <textarea id="opBody" placeholder="メッセージを入力"></textarea>
+        <div><button class="btn primary" id="opSend">送信</button></div>
+      </div>`;
+    const list = pane.querySelector("#chatList");
+    list.scrollTop = list.scrollHeight;
+    pane.querySelector("#opSend").onclick = async () => {
+      const author = pane.querySelector("#opAuthor").value.trim() || "運営";
+      const body = pane.querySelector("#opBody").value.trim();
+      if (!body) { FB.toast("メッセージを入力してください"); return; }
+      lastAuthor = author;
+      await Repo.messages.put({ id:Util.uid(), eventId, channel:"thread",
+        author, body, createdAt:new Date().toISOString() });
+      renderThread(pane, eventId);
+    };
+    pane.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+      await Repo.messages.remove(b.dataset.del); renderThread(pane, eventId);
+    });
+  }
+  const bubble = (m) => `<div class="bubble">
+    <button class="del" data-del="${m.id}" title="削除">✕</button>
+    <span class="who">${Util.esc(m.author||"運営")}</span><span class="when">${Util.fmtDateTime(m.createdAt)}</span>
+    <div class="body">${Util.esc(m.body)}</div></div>`;
+
+  // ---- 運営Q&A（疑問の登録・解消。例:「この荷物は地下か1階か」） ----
+  async function renderQA(pane, eventId) {
+    const all = await Repo.messages.byEvent(eventId);
+    const qas = all.filter(m => m.channel === "qa")
+      .sort((a,b) => (a.resolved?1:0)-(b.resolved?1:0) || new Date(b.createdAt)-new Date(a.createdAt));
+    pane.innerHTML = `
+      <div class="ops-note">運営内の疑問を登録して解消します。この端末内に保存されます（4-1）。</div>
+      <div class="card pad" style="margin-bottom:14px">
+        <div class="field"><label>新しい疑問</label>
+          <textarea id="qaBody" placeholder="例: 受付の荷物は地下と1階のどちらに運ぶ？"></textarea></div>
+        <div class="crow" style="display:flex;gap:8px;align-items:center">
+          <input class="qa-author" id="qaAuthor" value="${Util.esc(lastAuthor)}" placeholder="名前">
+          <button class="btn primary" id="qaAdd">登録</button></div>
+      </div>
+      <div id="qaList">${qas.length ? qas.map(qaCard).join("")
+        : `<div class="empty">登録された疑問はありません。</div>`}</div>`;
+
+    pane.querySelector("#qaAdd").onclick = async () => {
+      const author = pane.querySelector("#qaAuthor").value.trim() || "運営";
+      const body = pane.querySelector("#qaBody").value.trim();
+      if (!body) { FB.toast("疑問の内容を入力してください"); return; }
+      lastAuthor = author;
+      await Repo.messages.put({ id:Util.uid(), eventId, channel:"qa", author, body,
+        answer:"", resolved:false, createdAt:new Date().toISOString(), resolvedAt:null });
+      renderQA(pane, eventId);
+    };
+    qas.forEach(q => {
+      const bodyOf = () => { const ta = pane.querySelector(`[data-ansbody="${q.id}"]`); return ta ? ta.value : q.answer; };
+      const ans = pane.querySelector(`[data-ans="${q.id}"]`);
+      if (ans) ans.onclick = async () => { q.answer = bodyOf(); await Repo.messages.put(q); FB.toast("回答を保存しました"); renderQA(pane, eventId); };
+      const tog = pane.querySelector(`[data-toggle="${q.id}"]`);
+      if (tog) tog.onclick = async () => {
+        q.answer = bodyOf();
+        q.resolved = !q.resolved; q.resolvedAt = q.resolved ? new Date().toISOString() : null;
+        await Repo.messages.put(q); renderQA(pane, eventId);
+      };
+      const del = pane.querySelector(`[data-qadel="${q.id}"]`);
+      if (del) del.onclick = () => FB.confirmModal({ title:"この疑問を削除しますか？",
+        okLabel:"削除する", danger:true, body:"登録された疑問と回答を削除します。",
+        onOk: async () => { await Repo.messages.remove(q.id); renderQA(pane, eventId); } });
+    });
+  }
+  const qaCard = (q) => `<div class="qa-item ${q.resolved?'resolved':''}">
+    <div class="qa-q"><span class="badge ${q.resolved?'resolved':'open'}">${q.resolved?'解決済み':'未解決'}</span>
+      <span>${Util.esc(q.body)}</span></div>
+    <div class="qa-meta">${Util.esc(q.author||"運営")}・${Util.fmtDateTime(q.createdAt)}</div>
+    <textarea data-ansbody="${q.id}" placeholder="回答・対応内容を入力">${Util.esc(q.answer||"")}</textarea>
+    <div class="row-actions" style="margin-top:8px">
+      <button class="btn sm primary" data-ans="${q.id}">回答を保存</button>
+      <button class="btn sm" data-toggle="${q.id}">${q.resolved?'未解決に戻す':'解決にする'}</button>
+      <button class="btn sm" data-qadel="${q.id}" style="color:var(--danger)">削除</button>
+    </div></div>`;
+
+  return { renderThread, renderQA };
 })();
 
 
@@ -982,10 +1117,15 @@ const Settings = (() => {
             ${implRow("イベント一覧（時期トグル）","C-1","done","実装済")}
             ${implRow("イベント作成・編集（5ステップ）","C-1","partial","モック（遷移・公開前チェックは動作／保存は未）")}
             ${implRow("イベント詳細・申込管理・CSV","C-3","partial","モック（検索・CSV出力は動作／チェックイン等の保存は未）")}
-            ${implRow("公開ページ・申込フロー・マイチケット ★","C-2","partial","モック（入力→確認→完了・マイチケット表示は動作／確定保存は未）")}
+            ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","partial","モック（入力→確認→完了・マイ申込表示は動作／確定保存は未）")}
             ${implRow("告知（URL・投稿文・SNS共有）","D-1","done","実装済（読み取りのみ）")}
+            ${implRow("運営スレッド（社内チャット）","E-1","done","実装済（単一ブラウザ内で永続。別端末同期は不可）")}
+            ${implRow("運営Q&A（疑問の登録・解消）","E-1","done","実装済（同上）")}
+            ${implRow("タスク可視化（backlog風）","E-2","partial","次スライス（GanttChart資産を流用予定）")}
+            ${implRow("ファイル共有","E-3","partial","後回し（ご指示により保留）")}
             ${implRow("メール送信・SNS自動投稿・SEO/OGP","—","out","対象外（サーバが必要）")}
             ${implRow("決済・キャンセル待ち・QR・レスポンシブ","—","out","対象外（意図的に除外）")}
+            ${implRow("チケット制","—","out","廃止（申込に一本化・定員はイベントが保持）")}
           </tbody>
         </table>
       </div>`;
@@ -1011,9 +1151,8 @@ const Participant = (() => {
   // 参加者ビューの一覧: 一般公開かつ公開中のイベントのみ（限定公開・下書き・中止/終了は出さない）
   async function renderList(el) {
     const now = Date.now();
-    const [events, tickets, apps] = await Promise.all([
-      Repo.events.all(), Repo.ticketTypes.all(), Repo.applications.all()]);
-    const ticketsByEv = groupBy(tickets, "eventId");
+    const [events, apps] = await Promise.all([
+      Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
     const visible = events.filter(e =>
       e.status === "published" && e.visibility === "public" &&
@@ -1023,8 +1162,8 @@ const Participant = (() => {
     el.innerHTML = `
       <div class="page-head"><h2>開催予定のイベント</h2></div>
       ${visible.length ? visible.map(e => {
-        const ts = ticketsByEv[e.id]||[], ap = appsByEv[e.id]||[];
-        const rem = Domain.remaining(ts, ap);
+        const ap = appsByEv[e.id]||[];
+        const rem = Domain.remaining(e, ap);
         return `<div class="card pad clickable" data-ev="${e.id}" style="cursor:pointer;margin-bottom:12px">
           <div style="font-weight:700;font-size:16px">${Util.esc(e.title)}</div>
           <div style="color:var(--muted);margin-top:4px">
@@ -1040,16 +1179,15 @@ const Participant = (() => {
 
   // 公開ページ（F-83 の並び）。限定公開もURL直接指定なら閲覧可（4-3）
   async function renderPublic(el, eventId) {
-    const [ev, tickets, apps] = await Promise.all([
+    const [ev, apps] = await Promise.all([
       Repo.events.get(eventId),
-      Repo.ticketTypes.byEvent(eventId),
       Repo.applications.byEvent(eventId)]);
     if (!ev || ev.status === "draft") {
       el.innerHTML = `<div class="empty"><div class="big">このイベントは表示できません</div></div>`; return;
     }
     const t = Domain.timing(ev);
-    const rem = Domain.remaining(tickets, apps);
-    const btn = Domain.applyButtonLabel(ev, tickets, apps);
+    const rem = Domain.remaining(ev, apps);
+    const btn = Domain.applyButtonLabel(ev, apps);
     const mapLink = ev.venueAddress
       ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.venueAddress)}" target="_blank" rel="noopener">地図を開く</a>` : "";
 
@@ -1069,7 +1207,7 @@ const Participant = (() => {
         <button class="btn primary apply" id="apply" ${btn.disabled?"disabled style='opacity:.55;cursor:not-allowed'":""}>${btn.text}</button>
         <div class="kv" style="margin-top:16px"><div class="row"><span class="k">問い合わせ</span>
           <span>${Util.esc(ev.contactInfo)||"—"}</span></div></div>
-        <div class="mock-flag">申込フロー（入力→確認→完了）とマイチケットは動作します。申込の確定・保存はモック（C-2 で永続化）。</div>
+        <div class="mock-flag">申込フロー（入力→確認→完了）とマイ申込は動作します。申込の確定・保存はモック（C-2 で永続化）。</div>
       </div>`;
     el.querySelector("#back").onclick = () => App.go("participant");
     const applyBtn = el.querySelector("#apply");
@@ -1077,23 +1215,22 @@ const Participant = (() => {
   }
 
   // ---- 申込フロー S-7（入力→確認 / F-16, F-52, F-53, F-54, F-80, F-84） ----
-  let flow = null; // { ev, ticket, phase:'input'|'confirm', data, host }
+  let flow = null; // { ev, phase:'input'|'confirm', data, host }
 
   async function renderApply(el, eventId) {
-    const [ev, tickets, apps] = await Promise.all([
+    const [ev, apps] = await Promise.all([
       Repo.events.get(eventId),
-      Repo.ticketTypes.byEvent(eventId),
       Repo.applications.byEvent(eventId)]);
     if (!ev || ev.status !== "published") {
       el.innerHTML = `<div class="empty"><div class="big">申込できないイベントです</div></div>`; return;
     }
-    if (Domain.remaining(tickets, apps) <= 0) {
+    if (Domain.remaining(ev, apps) <= 0) {
       el.innerHTML = `<div class="empty"><div class="big">満席のため申込できません</div>
         <button class="btn" id="back" style="margin-top:12px">← 戻る</button></div>`;
       el.querySelector("#back").onclick = () => App.openPublic(ev.id);
       return;
     }
-    flow = { ev, ticket: tickets[0], phase:"input", host:el,
+    flow = { ev, phase:"input", host:el,
       data:{ name:"", kana:"", email:"", consent:false } };
     paintFlow();
   }
@@ -1205,20 +1342,20 @@ const Participant = (() => {
           <div class="row"><span class="k">氏名</span><span>${Util.esc(data.name)}</span></div>
           <div class="row"><span class="k">メール</span><span>${Util.esc(data.email)}</span></div>
         </div>
-        <button class="btn primary" id="toTicket" style="width:100%;justify-content:center;padding:12px">マイチケットを見る</button>
+        <button class="btn primary" id="toTicket" style="width:100%;justify-content:center;padding:12px">マイ申込を見る</button>
         <details class="reveal"><summary>別の端末で確認する</summary>
           <div class="copybox"><input readonly value="${Util.esc(url)}">
             <button class="btn" id="copyUrl">コピー</button></div>
           <div class="hint" style="margin-top:6px">この確認URLからいつでも申込内容を確認できます。</div>
         </details>
-        <div class="mock-flag" style="text-align:left">この完了画面はモックです。実際にはトークンをブラウザに保存し、マイチケットに反映されます（C-2）。</div>
+        <div class="mock-flag" style="text-align:left">この完了画面はモックです。実際にはトークンをブラウザに保存し、マイ申込に反映されます（C-2）。</div>
       </div>`;
     el.querySelector("#toTicket").onclick = () => App.go("myticket");
     el.querySelector("#copyUrl").onclick = async () =>
       FB.toast(await Util.copy(url) ? "URLをコピーしました" : "コピーできませんでした");
   }
 
-  // ---- マイチケット S-9（F-56, F-57, F-89, F-90）— savedTokens を実データで読む ----
+  // ---- マイ申込 S-9（F-56, F-57, F-89, F-90）— savedTokens を実データで読む ----
   let selectedToken = null;
 
   async function renderMyTicket(el) {
@@ -1234,9 +1371,9 @@ const Participant = (() => {
     if (selectedToken) { renderTicketDetail(el, items); return; }
 
     if (!items.length) {
-      el.innerHTML = `<div class="page-head"><h2>マイチケット</h2></div>
+      el.innerHTML = `<div class="page-head"><h2>マイ申込</h2></div>
         <div class="empty"><div class="big">保存された申込はありません</div>
-        イベントに申込むと、確認用のチケットがこの端末に保存されます。</div>`;
+        イベントに申込むと、確認用の申込控えがこの端末に保存されます。</div>`;
       return;
     }
     // 並び: これから開催 → 終了済み → キャンセル済み（F-89）
@@ -1247,7 +1384,7 @@ const Participant = (() => {
 
     const label = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル済" };
     const cls = { applied:"phase", checkedin:"published", cancelled:"draft" };
-    el.innerHTML = `<div class="page-head"><h2>マイチケット</h2></div>
+    el.innerHTML = `<div class="page-head"><h2>マイ申込</h2></div>
       ${items.map(it => `
         <div class="card pad ticket-item" data-token="${it.token}" style="margin-bottom:12px">
           <div style="font-weight:700;font-size:15px">${Util.esc(it.ev.title)}</div>
@@ -1267,7 +1404,7 @@ const Participant = (() => {
     const mapLink = ev.venueAddress
       ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.venueAddress)}" target="_blank" rel="noopener">地図を開く</a>` : "";
     el.innerHTML = `
-      <div class="page-head"><button class="btn ghost" id="back">← マイチケット</button></div>
+      <div class="page-head"><button class="btn ghost" id="back">← マイ申込</button></div>
       <div class="card pad">
         <h2 style="font-size:18px">${Util.esc(ev.title)}</h2>
         <div class="summary" style="margin:14px 0">
@@ -1326,16 +1463,15 @@ const Wizard = (() => {
     el = host; step = 0;
     isEdit = !!eventId;
     if (isEdit) {
-      const [ev, tickets] = await Promise.all([Repo.events.get(eventId), Repo.ticketTypes.byEvent(eventId)]);
-      const tt = tickets[0] || {};
+      const ev = await Repo.events.get(eventId);
       form = { id:ev.id, title:ev.title||"", startAt:isoToLocalInput(ev.startAt), endAt:isoToLocalInput(ev.endAt),
         venueName:ev.venueName||"", venueAddress:ev.venueAddress||"", description:ev.description||"",
         targetAudience:ev.targetAudience||"", coverImageName: ev.coverImage?"（設定済み）":"",
-        ticketName:tt.name||"一般参加", capacity:tt.capacity||"", applyDeadline:ev.applyDeadline||"",
+        capacity:ev.capacity||"", applyDeadline:ev.applyDeadline||"",
         visibility:ev.visibility||"public", contactInfo:ev.contactInfo||"" };
     } else {
       form = { id:null, title:"", startAt:"", endAt:"", venueName:"", venueAddress:"", description:"",
-        targetAudience:"", coverImageName:"", ticketName:"一般参加", capacity:"", applyDeadline:"",
+        targetAudience:"", coverImageName:"", capacity:"", applyDeadline:"",
         visibility:"public", contactInfo:"" };
     }
     paint();
@@ -1469,10 +1605,7 @@ const Wizard = (() => {
           <input type="file" accept="image/*" data-f="__cover">
           <div class="hint">任意。未設定時はプレースホルダーを表示（F-03）。※モックでは保存しません</div></div>`;
       case "apply": return `
-        <div class="form-2col">
-          ${T("ticketName","申込枠の名称",{ph:"一般参加"})}
-          ${T("capacity","定員",{type:"number",hint:"1〜9999（F-55）"})}
-        </div>
+        ${T("capacity","定員",{type:"number",hint:"1〜9999（F-55）。チケット制は廃止し、申込は「申込」に一本化"})}
         ${T("applyDeadline","申込締切",{type:"date",hint:"当日23:59:59まで受付（F-45）"})}`;
       case "setting": return `
         <div class="field"><label>公開範囲</label>
@@ -1496,7 +1629,7 @@ const App = (() => {
   let completeData = null; // S-8 へ渡す申込内容（トランジェント）
 
   const ORG_TABS  = [["dashboard","ダッシュボード"],["events","イベント"],["settings","設定"]];
-  const PART_TABS = [["list","イベントを探す"],["myticket","マイチケット"]];
+  const PART_TABS = [["list","イベントを探す"],["myticket","マイ申込"]];
 
   function renderTabs() {
     const host = document.getElementById("tabs");
