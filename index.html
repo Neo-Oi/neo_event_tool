@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1024">
+<title>イベント管理システム</title>
+<style>
+/* ===== [0] スタイル（インライン。青基調・濃紺ヘッダー） ===== */
+:root{
+  --navy:#12294d; --navy-2:#1b3a6b; --blue:#2563eb; --blue-weak:#e8f0fe;
+  --ink:#1f2733; --muted:#6b7686; --line:#e2e6ee; --bg:#f4f6fb; --card:#fff;
+  --ok:#137a4b; --warn:#b26a00; --danger:#c02828; --draft:#6b7280;
+  --radius:10px; --shadow:0 1px 3px rgba(20,40,80,.08),0 4px 16px rgba(20,40,80,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
+  color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6;min-width:1024px}
+button{font:inherit;cursor:pointer}
+a{color:var(--blue)}
+h1,h2,h3{margin:0}
+
+/* ヘッダー */
+header.appbar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:16px;
+  padding:0 20px;height:56px;position:sticky;top:0;z-index:20}
+header.appbar .brand{font-weight:700;font-size:16px;letter-spacing:.02em}
+header.appbar .spacer{flex:1}
+header.appbar .role{display:flex;background:rgba(255,255,255,.12);border-radius:999px;padding:3px}
+header.appbar .role button{background:transparent;border:0;color:#cdd7ea;padding:5px 14px;border-radius:999px;font-size:13px}
+header.appbar .role button.on{background:#fff;color:var(--navy);font-weight:600}
+header.appbar .user{font-size:13px;color:#cdd7ea;display:flex;align-items:center;gap:8px}
+header.appbar .user .avatar{width:26px;height:26px;border-radius:50%;background:var(--blue);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+
+/* タブ */
+nav.tabs{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:2px;padding:0 20px;position:sticky;top:56px;z-index:15}
+nav.tabs button{background:transparent;border:0;padding:14px 16px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
+nav.tabs button.on{color:var(--blue);border-bottom-color:var(--blue)}
+body[data-view="participant"] nav.tabs{background:#fbfcff}
+
+/* コンテンツ */
+main{max-width:1000px;margin:0 auto;padding:24px 20px 80px}
+body[data-view="participant"] main{max-width:640px}
+.page-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.page-head h2{font-size:20px}
+.page-head .sub{color:var(--muted);font-size:13px}
+
+/* カード */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card.pad{padding:18px}
+.grid{display:grid;gap:14px}
+.grid.cols-4{grid-template-columns:repeat(4,1fr)}
+.grid.cols-2{grid-template-columns:repeat(2,1fr)}
+
+/* 指標カード */
+.metric{padding:16px 18px}
+.metric .label{color:var(--muted);font-size:12px;font-weight:600}
+.metric .value{font-size:30px;font-weight:800;line-height:1.2;margin-top:4px}
+.metric .value small{font-size:14px;font-weight:600;color:var(--muted)}
+.metric.attn .value{color:var(--warn)}
+
+/* テーブル */
+table.list{width:100%;border-collapse:collapse;background:#fff}
+table.list th,table.list td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+table.list th{color:var(--muted);font-size:12px;font-weight:700;background:#fafbfe}
+table.list tr.grouprow td{background:#f1f4fb;color:var(--muted);font-weight:700;font-size:12px}
+table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
+
+/* バッジ */
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;line-height:1.7}
+.badge.draft{background:#eef0f3;color:var(--draft)}
+.badge.published{background:#e6f5ec;color:var(--ok)}
+.badge.cancelled{background:#fbe9e9;color:var(--danger)}
+.badge.limited{background:#fff2df;color:var(--warn)}
+.badge.phase{background:var(--blue-weak);color:var(--blue)}
+.badge.phase.ended{background:#eef0f3;color:var(--draft)}
+.badge.phase.full{background:#fbe9e9;color:var(--danger)}
+
+/* ボタン */
+.btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);color:var(--ink);
+  padding:8px 14px;border-radius:8px;font-weight:600;font-size:13px}
+.btn:hover{border-color:#c7cfdd}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{background:#1d54cf}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--blue)}
+.btn.sm{padding:5px 10px;font-size:12px}
+
+/* トグル */
+.toggles{display:flex;gap:8px;margin-left:auto}
+.toggles button{background:#fff;border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:999px;font-weight:600;font-size:12px}
+.toggles button.on{background:var(--blue-weak);border-color:#bcd0fb;color:var(--blue)}
+
+/* 空状態 */
+.empty{padding:44px 20px;text-align:center;color:var(--muted)}
+.empty .big{font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px}
+
+/* 参加者：公開ページ */
+.pub .cover{height:200px;border-radius:var(--radius);background:linear-gradient(120deg,#2a4b86,#4f74c0);display:grid;place-items:center;color:#dbe6ff;font-weight:600}
+.pub h1{font-size:24px;margin:18px 0 6px}
+.pub .kv{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+.pub .kv .row{display:flex;gap:10px;padding:5px 0}
+.pub .kv .row .k{width:96px;color:var(--muted);flex:none}
+.pub .seats{font-size:15px;font-weight:700;margin:10px 0 6px;text-align:center}
+.pub .apply{width:100%;justify-content:center;padding:14px;font-size:15px}
+
+/* フィードバック：トースト（右下） */
+#toastHost{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:60}
+.toast{background:#12241f;color:#eafaf0;padding:12px 16px;border-radius:8px;box-shadow:var(--shadow);font-size:13px;
+  border-left:3px solid var(--ok);animation:tin .2s ease}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* フィードバック：エラーバナー（上部・自動で消えない） */
+#bannerHost{position:sticky;top:56px;z-index:18}
+.banner{background:#fbe9e9;color:var(--danger);border-bottom:1px solid #f0c9c9;padding:10px 20px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:600}
+.banner button{margin-left:auto;background:transparent;border:0;color:var(--danger);font-weight:700}
+
+/* 実装区分（設定） */
+.impl td .st{font-weight:700}
+.impl .done{color:var(--ok)} .impl .partial{color:var(--warn)} .impl .out{color:var(--muted)}
+
+.note{background:#fffbea;border:1px solid #f0e3a8;border-radius:var(--radius);padding:14px 16px;font-size:13px;color:#6a5a12}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.row-actions{display:flex;gap:8px}
+</style>
+</head>
+<body data-view="organizer">
+
+<header class="appbar">
+  <div class="brand">📋 イベント管理システム</div>
+  <div class="spacer"></div>
+  <div class="role" id="roleSwitch">
+    <button data-role="organizer" class="on">主催者ビュー</button>
+    <button data-role="participant">参加者ビュー</button>
+  </div>
+  <div class="user"><span class="avatar">運</span><span>運営担当</span></div>
+</header>
+
+<div id="bannerHost"></div>
+
+<nav class="tabs" id="tabs"></nav>
+
+<main id="content"></main>
+
+<div id="toastHost"></div>
+
+<script>
+"use strict";
+
+/* ===== [1] ユーティリティ ===== */
+const Util = (() => {
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => (
+    {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  // ID・トークンは crypto。Math.random() は使用しない（禁止事項）
+  const randHex = (bytes) => {
+    const a = new Uint8Array(bytes);
+    crypto.getRandomValues(a);
+    return Array.from(a, b => b.toString(16).padStart(2, "0")).join("");
+  };
+  const uid = () => randHex(8);
+  const newToken = () => randHex(16);
+
+  // 検索用正規化（F-47 / 7-5）: NFKC → 小文字 → カタカナ→ひらがな → 空白除去
+  const normalize = (s) => {
+    let t = String(s ?? "").normalize("NFKC").toLowerCase();
+    t = t.replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+    return t.replace(/\s+/g, "");
+  };
+  // カナ欄の保存: ひらがな→カタカナ（F-52）
+  const toKatakana = (s) => String(s ?? "").replace(/[ぁ-ゖ]/g,
+    ch => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+
+  // 日時（すべて端末ローカル時刻 / F-46）
+  const pad = n => String(n).padStart(2, "0");
+  const fmtDateTime = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const fmtDate = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
+  };
+  // 申込締切は日付のみ。当日 23:59:59 まで受付（F-45）
+  const deadlineEnd = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr + "T23:59:59");
+    return d.getTime();
+  };
+  // 「今週」は月曜起点（F-60）
+  const weekStartMonday = (now) => {
+    const d = new Date(now); d.setHours(0,0,0,0);
+    const dow = (d.getDay() + 6) % 7; // 月=0
+    d.setDate(d.getDate() - dow);
+    return d.getTime();
+  };
+  const daysBetween = (a, b) => Math.floor((b - a) / 86400000);
+
+  return { esc, randHex, uid, newToken, normalize, toKatakana,
+           fmtDateTime, fmtDate, deadlineEnd, weekStartMonday, daysBetween };
+})();
+
+
+/* ===== [2] DB（IndexedDB / Promise ラップ / onupgradeneeded） ===== */
+const DB = (() => {
+  const NAME = "neo_event_tool";
+  const VERSION = 1;
+  let _db = null;
+
+  function open() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(NAME, VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        // 既存データを保持したままストアを追加できるよう、存在チェックしてから作る
+        if (!db.objectStoreNames.contains("events")) {
+          const s = db.createObjectStore("events", { keyPath: "id" });
+          s.createIndex("status", "status");
+          s.createIndex("startAt", "startAt");
+        }
+        if (!db.objectStoreNames.contains("ticketTypes")) {
+          const s = db.createObjectStore("ticketTypes", { keyPath: "id" });
+          s.createIndex("eventId", "eventId");
+        }
+        if (!db.objectStoreNames.contains("persons")) {
+          const s = db.createObjectStore("persons", { keyPath: "id" });
+          s.createIndex("emailKey", "emailKey", { unique: true });
+        }
+        if (!db.objectStoreNames.contains("applications")) {
+          const s = db.createObjectStore("applications", { keyPath: "id" });
+          s.createIndex("eventId", "eventId");
+          s.createIndex("personId", "personId");
+          s.createIndex("token", "token", { unique: true });
+          s.createIndex("eventId_status", ["eventId", "status"]);
+          // 注意: [eventId, personId] に unique を張らない（キャンセル後の再申込を許可 / 禁止事項）
+        }
+        if (!db.objectStoreNames.contains("savedTokens")) {
+          const s = db.createObjectStore("savedTokens", { keyPath: "token" });
+          s.createIndex("savedAt", "savedAt");
+        }
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  const db = () => _db;
+
+  // 単一レコード操作（各呼び出しが独立したトランザクション）
+  function _tx(store, mode) { return _db.transaction(store, mode).objectStore(store); }
+  function _wrap(req) {
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  const put    = (store, rec) => _wrap(_tx(store, "readwrite").put(rec));
+  const get    = (store, key) => _wrap(_tx(store, "readonly").get(key));
+  const getAll = (store)      => _wrap(_tx(store, "readonly").getAll());
+  const remove = (store, key) => _wrap(_tx(store, "readwrite").delete(key));
+  const getAllByIndex = (store, index, value) =>
+    _wrap(_tx(store, "readonly").index(index).getAll(value));
+
+  // 複数ストアを1トランザクションで原子的に投入（3-5 / 7-1）。
+  // トランザクション内では IndexedDB 以外の await を挟まない。
+  function bulkPut(entries) {
+    return new Promise((resolve, reject) => {
+      const stores = [...new Set(entries.map(e => e.store))];
+      const tx = _db.transaction(stores, "readwrite");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+      for (const { store, record } of entries) tx.objectStore(store).put(record);
+    });
+  }
+
+  // DB全削除→再作成（F-32 / A-1 の確認項目4）
+  function reset() {
+    return new Promise((resolve, reject) => {
+      if (_db) { _db.close(); _db = null; }
+      const del = indexedDB.deleteDatabase(NAME);
+      del.onsuccess = () => open().then(resolve, reject);
+      del.onerror = () => reject(del.error);
+      del.onblocked = () => reject(new Error("削除がブロックされました（他タブで開いている可能性）"));
+    });
+  }
+
+  return { open, db, put, get, getAll, remove, getAllByIndex, bulkPut, reset };
+})();
+
+
+/* ===== [3] Repository 層（業務ロジックからは常に Promise を返す） ===== */
+/* 将来サーバ API へ差し替えられるよう、IndexedDB をここに閉じ込める（引き継ぎ書 4-2）。 */
+const Repo = (() => {
+  return {
+    events: {
+      all:  () => DB.getAll("events"),
+      get:  (id) => DB.get("events", id),
+      put:  (e) => DB.put("events", e),
+      remove: (id) => DB.remove("events", id),
+    },
+    ticketTypes: {
+      byEvent: (eventId) => DB.getAllByIndex("ticketTypes", "eventId", eventId),
+      all: () => DB.getAll("ticketTypes"),
+      put: (t) => DB.put("ticketTypes", t),
+    },
+    persons: {
+      all: () => DB.getAll("persons"),
+      byEmailKey: (k) => DB.getAllByIndex("persons", "emailKey", k).then(a => a[0] || null),
+      put: (p) => DB.put("persons", p),
+    },
+    applications: {
+      all: () => DB.getAll("applications"),
+      byEvent: (eventId) => DB.getAllByIndex("applications", "eventId", eventId),
+      byToken: (token) => DB.getAllByIndex("applications", "token", token).then(a => a[0] || null),
+      put: (a) => DB.put("applications", a),
+    },
+    savedTokens: {
+      all: () => DB.getAll("savedTokens"),
+      put: (t) => DB.put("savedTokens", t),
+    },
+    bulkPut: (entries) => DB.bulkPut(entries),
+    reset:   () => DB.reset(),
+  };
+})();
+
+
+/* ===== [4] ドメインロジック（時期の都度算出・残席・要対応判定） ===== */
+const Domain = (() => {
+  // 明示状態（保存する）
+  const STATUS = { draft:"下書き", published:"公開中", cancelled:"中止" };
+
+  // 時期（保存しない。締切日時と現在時刻から都度算出 / F-05）
+  // 戻り値: {phase, label} phase ∈ before|open|closed|held|cancelled
+  function timing(ev, now = Date.now()) {
+    if (ev.status === "cancelled") return { phase:"cancelled", label:"中止" };
+    if (ev.endAt && new Date(ev.endAt).getTime() < now) return { phase:"held", label:"開催済" };
+    const dl = Util.deadlineEnd(ev.applyDeadline);
+    if (dl != null && now > dl) return { phase:"closed", label:"受付終了" };
+    return { phase:"open", label:"受付中" };
+  }
+
+  // 定員・残席は申込枠の合計から算出（F-61 / 4-8）
+  function capacity(tickets) { return tickets.reduce((s,t) => s + (t.capacity||0), 0); }
+  // 有効な申込 = キャンセル済みを除き、チェックイン済みを含む（F-18）
+  const isValidApp = a => a.status === "applied" || a.status === "checkedin";
+  function usedSeats(apps) { return apps.filter(isValidApp).length; }
+  function remaining(tickets, apps) { return capacity(tickets) - usedSeats(apps); }
+
+  // 申込ボタンの文言（F-08）
+  function applyButtonLabel(ev, tickets, apps) {
+    const t = timing(ev);
+    if (t.phase === "cancelled") return { text:"中止されました", disabled:true };
+    if (t.phase === "held")      return { text:"終了しました",   disabled:true };
+    if (t.phase === "closed")    return { text:"受付終了",       disabled:true };
+    if (remaining(tickets, apps) <= 0) return { text:"満席",     disabled:true };
+    return { text:"申込む", disabled:false };
+  }
+
+  // 「定員間近」= 残席3以下 または 定員合計の10%以下（F-58）
+  function nearlyFull(tickets, apps) {
+    const cap = capacity(tickets); if (cap <= 0) return false;
+    const rem = remaining(tickets, apps);
+    return rem > 0 && (rem <= 3 || rem <= cap * 0.1);
+  }
+  // 「下書き放置」= 下書きで7日以上更新なし（F-59）
+  function staleDraft(ev, now = Date.now()) {
+    return ev.status === "draft" && ev.updatedAt &&
+      Util.daysBetween(new Date(ev.updatedAt).getTime(), now) >= 7;
+  }
+
+  return { STATUS, timing, capacity, isValidApp, usedSeats, remaining,
+           applyButtonLabel, nearlyFull, staleDraft };
+})();
+
+
+/* ===== [5] フィードバック（トースト / エラーバナー） ===== */
+const FB = (() => {
+  // 完了はトースト、数秒で自動消滅（F-85）
+  function toast(msg) {
+    const host = document.getElementById("toastHost");
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    host.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+  // システムエラーは上部バナー、閉じるまで残す（F-86）
+  function error(msg) {
+    const host = document.getElementById("bannerHost");
+    host.innerHTML = `<div class="banner"><span>⚠ ${Util.esc(msg)}</span>
+      <button id="bannerClose">閉じる</button></div>`;
+    document.getElementById("bannerClose").onclick = () => host.innerHTML = "";
+  }
+  return { toast, error };
+})();
+
+
+/* ===== [6] シードデータ（デモ用 / F-33。開発補助は最初に用意 / 7-4） ===== */
+const Seed = (() => {
+  async function load() {
+    const now = new Date();
+    const day = (offset, h=10, m=0) => {
+      const d = new Date(now); d.setDate(d.getDate()+offset); d.setHours(h,m,0,0);
+      return d.toISOString();
+    };
+    const dateStr = (offset) => {
+      const d = new Date(now); d.setDate(d.getDate()+offset);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    };
+    const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"社員全般",
+      venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください" };
+
+    const events = [
+      { id:"ev_public", title:"社内技術LT大会 2026夏", description:"部門横断のライトニングトーク大会です。登壇・聴講どちらも歓迎。",
+        startAt:day(14,18,30), endAt:day(14,20,30), venueName:"本社 大会議室",
+        applyDeadline:dateStr(10), status:"published", visibility:"public",
+        createdAt:day(-20), updatedAt:day(-5), ...base },
+      { id:"ev_soon", title:"新人歓迎ランチ会", description:"今年度の新入社員を交えたカジュアルなランチ会。",
+        startAt:day(1,12,0), endAt:day(1,13,0), venueName:"7Fカフェテリア",
+        applyDeadline:dateStr(0), status:"published", visibility:"public",
+        createdAt:day(-15), updatedAt:day(-3), ...base },
+      { id:"ev_limited", title:"（限定）経営戦略説明会", description:"招待者向けの限定公開イベントです。",
+        startAt:day(20,15,0), endAt:day(20,17,0), venueName:"役員会議室",
+        applyDeadline:dateStr(18), status:"published", visibility:"limited",
+        createdAt:day(-8), updatedAt:day(-2), ...base },
+      { id:"ev_draft", title:"（下書き）秋の全社イベント", description:"",
+        startAt:null, endAt:null, venueName:"", applyDeadline:null,
+        status:"draft", visibility:"public", createdAt:day(-12), updatedAt:day(-12), ...base },
+      { id:"ev_past", title:"春の勉強会", description:"開催済のイベント。",
+        startAt:day(-30,14,0), endAt:day(-30,16,0), venueName:"3F研修室",
+        applyDeadline:dateStr(-33), status:"published", visibility:"public",
+        createdAt:day(-60), updatedAt:day(-30), ...base },
+      { id:"ev_cancel", title:"中止になった懇親会", description:"諸事情により中止。",
+        startAt:day(7,19,0), endAt:day(7,21,0), venueName:"近隣レストラン",
+        applyDeadline:dateStr(5), status:"cancelled", visibility:"public",
+        createdAt:day(-10), updatedAt:day(-1), ...base },
+    ];
+    const tickets = [
+      { id:"tt_public", eventId:"ev_public", name:"一般参加", capacity:60, sortOrder:0 },
+      { id:"tt_soon",   eventId:"ev_soon",   name:"参加",     capacity:20, sortOrder:0 },
+      { id:"tt_limited",eventId:"ev_limited",name:"招待",     capacity:15, sortOrder:0 },
+      { id:"tt_draft",  eventId:"ev_draft",  name:"一般参加", capacity:100,sortOrder:0 },
+      { id:"tt_past",   eventId:"ev_past",   name:"参加",     capacity:30, sortOrder:0 },
+      { id:"tt_cancel", eventId:"ev_cancel", name:"参加",     capacity:40, sortOrder:0 },
+    ];
+    const people = [
+      ["田中 太郎","タナカ タロウ","tanaka@example.com"],
+      ["鈴木 花子","スズキ ハナコ","suzuki@example.com"],
+      ["佐藤 次郎","サトウ ジロウ","sato@example.com"],
+      ["高橋 美咲","タカハシ ミサキ","takahashi@example.com"],
+      ["伊藤 健","イトウ ケン","ito@example.com"],
+    ];
+    const persons = people.map((p, i) => {
+      const emailKey = p[2].trim().toLowerCase();
+      return { id:"p"+i, emailKey, email:p[2], name:p[0], nameKana:p[1],
+        contactConsent:true, consentAt:day(-6), createdAt:day(-6) };
+    });
+    // ev_public / ev_soon / ev_past に有効な申込を作る
+    const apps = [];
+    const mkApp = (ev, tt, pi, status, offset) => {
+      const p = persons[pi];
+      apps.push({
+        id:Util.uid(), eventId:ev, ticketTypeId:tt, personId:p.id, token:Util.newToken(),
+        status, checkinAt: status==="checkedin" ? day(offset,9,30) : null,
+        appliedAt: day(offset,9,0),
+        searchText: Util.normalize(p.name + p.nameKana + p.email),
+      });
+    };
+    mkApp("ev_public","tt_public",0,"applied",-4);
+    mkApp("ev_public","tt_public",1,"applied",-3);
+    mkApp("ev_public","tt_public",2,"checkedin",-2);
+    mkApp("ev_soon","tt_soon",3,"applied",-1);
+    mkApp("ev_soon","tt_soon",4,"applied",-1);
+    mkApp("ev_past","tt_past",0,"checkedin",-31);
+
+    // 1トランザクションで原子的に投入（複数ストア）
+    const entries = [
+      ...events.map(record => ({ store:"events", record })),
+      ...tickets.map(record => ({ store:"ticketTypes", record })),
+      ...persons.map(record => ({ store:"persons", record })),
+      ...apps.map(record => ({ store:"applications", record })),
+    ];
+    await Repo.bulkPut(entries);
+  }
+  return { load };
+})();
+
+
+/* ===== [7] 主催者：ダッシュボード（S-1 / F-30, F-31） ===== */
+const Dashboard = (() => {
+  async function render(el) {
+    const now = Date.now();
+    const [events, tickets, apps] = await Promise.all([
+      Repo.events.all(), Repo.ticketTypes.all(), Repo.applications.all()]);
+    const ticketsByEv = groupBy(tickets, "eventId");
+    const appsByEv = groupBy(apps, "eventId");
+
+    // 指標
+    const ongoing = events.filter(e => e.status==="published" &&
+      (!e.endAt || new Date(e.endAt).getTime() >= now)).length;
+    const drafts = events.filter(e => e.status==="draft").length;
+    // 今週の申込数（月曜起点 / 中止イベントの申込は除外 F-40）
+    const wk = Util.weekStartMonday(now);
+    const cancelledIds = new Set(events.filter(e=>e.status==="cancelled").map(e=>e.id));
+    const weekApps = apps.filter(a => Domain.isValidApp(a) && !cancelledIds.has(a.eventId) &&
+      new Date(a.appliedAt).getTime() >= wk).length;
+
+    // 要対応リスト（F-31）
+    const attn = [];
+    for (const e of events) {
+      const ts = ticketsByEv[e.id]||[], ap = appsByEv[e.id]||[];
+      if (e.status==="published" && e.startAt) {
+        const d = Util.daysBetween(now, new Date(e.startAt).getTime());
+        if (d===0 || d===1) attn.push({ ev:e, reason:d===0?"本日開催":"明日開催", kind:"date" });
+      }
+      if (e.status==="published") {
+        if (Domain.remaining(ts,ap) <= 0) attn.push({ ev:e, reason:"満席", kind:"full" });
+        else if (Domain.nearlyFull(ts,ap)) attn.push({ ev:e, reason:"定員間近", kind:"full" });
+      }
+      if (Domain.staleDraft(e, now)) attn.push({ ev:e, reason:"下書きのまま放置", kind:"draft" });
+    }
+
+    el.innerHTML = `
+      <div class="page-head"><h2>ダッシュボード</h2>
+        <span class="sub">運営の全体状況</span></div>
+      <div class="grid cols-4">
+        ${metric("進行中のイベント", ongoing)}
+        ${metric("今週の申込数", weekApps)}
+        ${metric("要対応", attn.length, "attn")}
+        ${metric("下書き", drafts)}
+      </div>
+      <h3 style="margin:26px 0 10px;font-size:15px">要対応リスト</h3>
+      <div class="card">
+        ${attn.length ? `<table class="list"><tbody>${attn.map(a=>`
+          <tr class="clickable" data-ev="${a.ev.id}">
+            <td style="width:70%">${Util.esc(a.ev.title)}</td>
+            <td><span class="badge ${a.kind==='draft'?'draft':a.kind==='full'?'cancelled':'phase'}">${a.reason}</span></td>
+            <td style="text-align:right;color:var(--muted)">${a.ev.startAt?Util.fmtDateTime(a.ev.startAt):"日程未定"}</td>
+          </tr>`).join("")}</tbody></table>`
+          : `<div class="empty"><div class="big">対応が必要な項目はありません</div>
+             すべて順調です。</div>`}
+      </div>`;
+
+    el.querySelectorAll("tr[data-ev]").forEach(tr =>
+      tr.onclick = () => App.openEvent(tr.dataset.ev));
+  }
+  const metric = (label, value, cls="") =>
+    `<div class="card metric ${cls}"><div class="label">${label}</div>
+      <div class="value">${value}<small> 件</small></div></div>`;
+  return { render };
+})();
+
+
+/* ===== [8] 主催者：イベント一覧（S-2 / F-44, F-79） ===== */
+const EventsList = (() => {
+  // 時期トグル。初期は 未定+これから ON、終了・中止 OFF（F-44）
+  const state = { undated:true, upcoming:true, past:false };
+
+  async function render(el) {
+    const now = Date.now();
+    const [events, tickets, apps] = await Promise.all([
+      Repo.events.all(), Repo.ticketTypes.all(), Repo.applications.all()]);
+    const ticketsByEv = groupBy(tickets, "eventId");
+    const appsByEv = groupBy(apps, "eventId");
+
+    // 区分（F-44 表）
+    const groups = { undated:[], upcoming:[], past:[] };
+    for (const e of events) {
+      const started = e.startAt ? new Date(e.startAt).getTime() : null;
+      if (started == null && e.status !== "cancelled") groups.undated.push(e);
+      else if (e.status === "cancelled") groups.past.push(e);
+      else if (started < now) groups.past.push(e);
+      else groups.upcoming.push(e); // 開催日 ≧ 今日（中止を除く）
+    }
+    groups.undated.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt)); // 作成日降順
+    groups.upcoming.sort((a,b)=> new Date(a.startAt)-new Date(b.startAt));    // 開催日昇順
+    groups.past.sort((a,b)=> new Date(b.startAt||b.createdAt)-new Date(a.startAt||a.createdAt)); // 降順
+
+    const order = [
+      ["undated","日程未定"], ["upcoming","これから"], ["past","終了・中止"]
+    ].filter(([k]) => state[k]);
+
+    const rowsHtml = order.map(([k,label]) => {
+      const arr = groups[k];
+      if (!arr.length) return "";
+      return `<tr class="grouprow"><td colspan="5">${label}（${arr.length}）</td></tr>` +
+        arr.map(e => rowFor(e, ticketsByEv[e.id]||[], appsByEv[e.id]||[])).join("");
+    }).join("");
+
+    const anyOn = order.length > 0;
+    el.innerHTML = `
+      <div class="page-head"><h2>イベント</h2>
+        <button class="btn primary" id="newEvent">＋ 新規作成</button>
+        <div class="toggles">
+          ${toggleBtn("undated","日程未定")}
+          ${toggleBtn("upcoming","これから")}
+          ${toggleBtn("past","終了・中止")}
+        </div></div>
+      <div class="card">
+        ${anyOn && rowsHtml ? `<table class="list">
+          <thead><tr><th>イベント名</th><th>状態</th><th>開催日時</th><th>会場</th><th>申込／定員</th></tr></thead>
+          <tbody>${rowsHtml}</tbody></table>`
+          : `<div class="empty"><div class="big">表示するイベントがありません</div>
+             ${!anyOn?"時期トグルをONにしてください。":"設定画面からシードデータを投入できます。"}</div>`}
+      </div>`;
+
+    el.querySelector("#newEvent").onclick = () => App.openCreate();
+    el.querySelectorAll(".toggles button").forEach(b =>
+      b.onclick = () => { state[b.dataset.k] = !state[b.dataset.k]; render(el); });
+    el.querySelectorAll("tr[data-ev]").forEach(tr =>
+      tr.onclick = () => App.openEvent(tr.dataset.ev));
+  }
+
+  const toggleBtn = (k,label) =>
+    `<button class="${state[k]?'on':''}" data-k="${k}">${label}</button>`;
+
+  function rowFor(e, tickets, apps) {
+    const cap = Domain.capacity(tickets), used = Domain.usedSeats(apps);
+    const badges = [`<span class="badge ${e.status}">${Domain.STATUS[e.status]}</span>`];
+    if (e.visibility === "limited" && e.status !== "cancelled")
+      badges.push(`<span class="badge limited">限定公開</span>`);
+    return `<tr class="clickable" data-ev="${e.id}">
+      <td>${Util.esc(e.title)}</td>
+      <td>${badges.join(" ")}</td>
+      <td>${e.startAt ? Util.fmtDateTime(e.startAt) : '<span style="color:var(--muted)">日程未定</span>'}</td>
+      <td>${Util.esc(e.venueName) || '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${used}／${cap||"—"}</td>
+    </tr>`;
+  }
+  return { render };
+})();
+
+
+/* ===== [9] 主催者：イベント詳細（S-4 プレースホルダ。次スライスで実装） ===== */
+const EventDetail = (() => {
+  async function render(el, eventId) {
+    const [ev, tickets, apps] = await Promise.all([
+      Repo.events.get(eventId),
+      Repo.ticketTypes.byEvent(eventId),
+      Repo.applications.byEvent(eventId)]);
+    if (!ev) { el.innerHTML = `<div class="empty"><div class="big">イベントが見つかりません</div></div>`; return; }
+    const t = Domain.timing(ev);
+    const cap = Domain.capacity(tickets), used = Domain.usedSeats(apps), rem = Domain.remaining(tickets, apps);
+    el.innerHTML = `
+      <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button></div>
+      <div class="card pad">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+          <h2 style="font-size:20px">${Util.esc(ev.title)}</h2>
+          <span class="badge ${ev.status}">${Domain.STATUS[ev.status]}</span>
+          <span class="badge phase ${t.phase==='held'?'ended':''}">${t.label}</span>
+          ${ev.visibility==="limited"&&ev.status!=="cancelled"?'<span class="badge limited">限定公開</span>':""}
+        </div>
+        <div style="color:var(--muted)">
+          ${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}${ev.venueName?" ／ "+Util.esc(ev.venueName):""}
+          ／ 申込 ${used}／${cap||"—"}（残席 ${cap?rem:"—"}）
+        </div>
+      </div>
+      <div class="note" style="margin-top:16px">
+        <b>この詳細画面（S-4）は次のスライスで実装します。</b><br>
+        予定: 上部の状況固定表示＋サブタブ（申込一覧・検索・チェックイン・CSV／告知／概要・編集）。
+        現時点では基盤（DB・Repository・時期算出・残席計算）が動作していることの確認用です。
+        申込レコード ${apps.length} 件を読み込めています。
+      </div>`;
+    el.querySelector("#back").onclick = () => App.go("events");
+  }
+  return { render };
+})();
+
+
+/* ===== [10] 主催者：設定（S-5 / F-32, F-33, F-36） ===== */
+const Settings = (() => {
+  async function render(el) {
+    el.innerHTML = `
+      <div class="page-head"><h2>設定</h2></div>
+      <div class="card pad">
+        <h3 style="font-size:15px;margin-bottom:8px">データ</h3>
+        <p style="color:var(--muted);margin:0 0 12px">
+          全データはブラウザの IndexedDB に保存されます。デモ用のシードを投入するか、初期化できます。</p>
+        <div class="row-actions">
+          <button class="btn primary" id="seed">デモデータを投入</button>
+          <button class="btn" id="reset">データベースを初期化</button>
+        </div>
+      </div>
+      <div class="card pad" style="margin-top:16px">
+        <h3 style="font-size:15px;margin-bottom:10px">実装区分（F-36）</h3>
+        <table class="list impl">
+          <thead><tr><th>領域</th><th>区分</th><th>状態</th></tr></thead>
+          <tbody>
+            ${implRow("DB基盤・Repository・シード/初期化","B-1","done","実装済")}
+            ${implRow("アプリシェル・役割切替・タブ","B-2","partial","一部（画面遷移とフィードバックは配線済）")}
+            ${implRow("ダッシュボード（指標・要対応）","D-2","done","実装済")}
+            ${implRow("イベント一覧（時期トグル）","C-1","done","実装済")}
+            ${implRow("イベント作成・編集（5ステップ）","C-1","partial","未実装（次スライス）")}
+            ${implRow("イベント詳細・申込管理・CSV","C-3","partial","未実装（次スライス）")}
+            ${implRow("公開ページ・申込フロー・マイチケット ★","C-2","partial","未実装（最優先の次スライス）")}
+            ${implRow("告知（URL・投稿文・SNS共有）","D-1","partial","未実装")}
+            ${implRow("メール送信・SNS自動投稿・SEO/OGP","—","out","対象外（サーバが必要）")}
+            ${implRow("決済・キャンセル待ち・QR・レスポンシブ","—","out","対象外（意図的に除外）")}
+          </tbody>
+        </table>
+      </div>`;
+    el.querySelector("#seed").onclick = async () => {
+      try { await Seed.load(); FB.toast("デモデータを投入しました"); App.refresh(); }
+      catch (e) { FB.error("シード投入に失敗: " + e.message); }
+    };
+    el.querySelector("#reset").onclick = async () => {
+      if (!confirm("データベースを初期化します。すべてのデータが削除されます。よろしいですか？")) return;
+      try { await Repo.reset(); FB.toast("初期化しました"); App.refresh(); }
+      catch (e) { FB.error("初期化に失敗: " + e.message); }
+    };
+  }
+  const implRow = (area, task, cls, st) =>
+    `<tr><td>${area}</td><td class="mono" style="color:var(--muted)">${task}</td>
+      <td class="st ${cls}">${st}</td></tr>`;
+  return { render };
+})();
+
+
+/* ===== [11] 参加者：公開ページ一覧＋公開ページ（S-6 / F-65, F-83, 4-3） ===== */
+const Participant = (() => {
+  // 参加者ビューの一覧: 一般公開かつ公開中のイベントのみ（限定公開・下書き・中止/終了は出さない）
+  async function renderList(el) {
+    const now = Date.now();
+    const [events, tickets, apps] = await Promise.all([
+      Repo.events.all(), Repo.ticketTypes.all(), Repo.applications.all()]);
+    const ticketsByEv = groupBy(tickets, "eventId");
+    const appsByEv = groupBy(apps, "eventId");
+    const visible = events.filter(e =>
+      e.status === "published" && e.visibility === "public" &&
+      (!e.endAt || new Date(e.endAt).getTime() >= now))
+      .sort((a,b)=> new Date(a.startAt||0)-new Date(b.startAt||0));
+
+    el.innerHTML = `
+      <div class="page-head"><h2>開催予定のイベント</h2></div>
+      ${visible.length ? visible.map(e => {
+        const ts = ticketsByEv[e.id]||[], ap = appsByEv[e.id]||[];
+        const rem = Domain.remaining(ts, ap);
+        return `<div class="card pad clickable" data-ev="${e.id}" style="cursor:pointer;margin-bottom:12px">
+          <div style="font-weight:700;font-size:16px">${Util.esc(e.title)}</div>
+          <div style="color:var(--muted);margin-top:4px">
+            ${e.startAt?Util.fmtDateTime(e.startAt):"日程未定"}${e.venueName?" ／ "+Util.esc(e.venueName):""}</div>
+          <div style="margin-top:6px">残席 ${rem>0?rem:"満席"}</div>
+        </div>`;
+      }).join("")
+      : `<div class="empty"><div class="big">公開中のイベントはありません</div>
+         主催者ビューでイベントを公開すると、ここに表示されます。</div>`}`;
+    el.querySelectorAll("[data-ev]").forEach(c =>
+      c.onclick = () => App.openPublic(c.dataset.ev));
+  }
+
+  // 公開ページ（F-83 の並び）。限定公開もURL直接指定なら閲覧可（4-3）
+  async function renderPublic(el, eventId) {
+    const [ev, tickets, apps] = await Promise.all([
+      Repo.events.get(eventId),
+      Repo.ticketTypes.byEvent(eventId),
+      Repo.applications.byEvent(eventId)]);
+    if (!ev || ev.status === "draft") {
+      el.innerHTML = `<div class="empty"><div class="big">このイベントは表示できません</div></div>`; return;
+    }
+    const t = Domain.timing(ev);
+    const rem = Domain.remaining(tickets, apps);
+    const btn = Domain.applyButtonLabel(ev, tickets, apps);
+    const mapLink = ev.venueAddress
+      ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.venueAddress)}" target="_blank" rel="noopener">地図を開く</a>` : "";
+
+    el.innerHTML = `
+      <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button></div>
+      <div class="pub">
+        <div class="cover">カバー画像（未設定）</div>
+        <h1>${Util.esc(ev.title)}</h1>
+        ${ev.status==="cancelled" ? `<div class="banner" style="position:static;border-radius:8px">このイベントは中止されました</div>`:""}
+        <div class="kv">
+          <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}〜${ev.endAt?Util.fmtDateTime(ev.endAt):""}</span></div>
+          <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"} ${mapLink}</span></div>
+          <div class="row"><span class="k">対象者</span><span>${Util.esc(ev.targetAudience)||"—"}</span></div>
+        </div>
+        <div style="white-space:pre-wrap;margin:14px 0">${Util.esc(ev.description)||""}</div>
+        <div class="seats">残席 ${rem>0?rem:"満席"}</div>
+        <button class="btn primary apply" id="apply" ${btn.disabled?"disabled style='opacity:.55;cursor:not-allowed'":""}>${btn.text}</button>
+        <div class="kv" style="margin-top:16px"><div class="row"><span class="k">問い合わせ</span>
+          <span>${Util.esc(ev.contactInfo)||"—"}</span></div></div>
+        <div class="note" style="margin-top:16px">
+          申込フロー（S-7 入力→確認→完了）とマイチケット（S-9）は次スライス（★最優先）で実装します。</div>
+      </div>`;
+    el.querySelector("#back").onclick = () => App.go("participant");
+    const applyBtn = el.querySelector("#apply");
+    if (applyBtn && !btn.disabled) applyBtn.onclick = () =>
+      FB.toast("申込フローは次スライスで実装します（C-2）");
+  }
+  return { renderList, renderPublic };
+})();
+
+
+/* ===== [12] 汎用ヘルパ ===== */
+function groupBy(arr, key) {
+  const m = {};
+  for (const x of arr) (m[x[key]] ||= []).push(x);
+  return m;
+}
+
+
+/* ===== [13] アプリシェル（ヘッダー・タブ・役割切替・ルータ） ===== */
+const App = (() => {
+  // route: {view:'organizer'|'participant', page, param}
+  let route = { view:"organizer", page:"dashboard", param:null };
+
+  const ORG_TABS = [["dashboard","ダッシュボード"],["events","イベント"],["settings","設定"]];
+
+  function renderTabs() {
+    const host = document.getElementById("tabs");
+    if (route.view === "organizer") {
+      host.innerHTML = ORG_TABS.map(([k,label]) =>
+        `<button data-page="${k}" class="${isActive(k)?'on':''}">${label}</button>`).join("");
+      host.querySelectorAll("button").forEach(b => b.onclick = () => go(b.dataset.page));
+    } else {
+      host.innerHTML = `<button class="on">イベントを探す</button>`;
+    }
+  }
+  const isActive = (k) =>
+    route.page === k ||
+    (k==="events" && (route.page==="eventDetail" || route.page==="create")) ||
+    (k==="dashboard" && route.page==="dashboard");
+
+  async function renderContent() {
+    const el = document.getElementById("content");
+    el.innerHTML = `<div class="empty">読み込み中…</div>`;
+    try {
+      if (route.view === "organizer") {
+        if (route.page === "dashboard") await Dashboard.render(el);
+        else if (route.page === "events") await EventsList.render(el);
+        else if (route.page === "eventDetail") await EventDetail.render(el, route.param);
+        else if (route.page === "settings") await Settings.render(el);
+        else if (route.page === "create") renderCreatePlaceholder(el);
+      } else {
+        if (route.page === "public") await Participant.renderPublic(el, route.param);
+        else await Participant.renderList(el);
+      }
+    } catch (e) {
+      console.error(e);
+      FB.error("画面の描画に失敗しました: " + e.message);
+      el.innerHTML = `<div class="empty"><div class="big">読み込みに失敗しました</div>${Util.esc(e.message)}</div>`;
+    }
+  }
+
+  function renderCreatePlaceholder(el) {
+    el.innerHTML = `
+      <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button>
+        <h2>イベントを作成</h2></div>
+      <div class="note"><b>作成・編集ウィザード（S-3 / 5ステップ）は次スライスで実装します。</b><br>
+        1.基本情報 → 2.会場 → 3.詳細 → 4.申込 → 5.設定。ステップ1保存で下書きを新規作成（F-69〜F-74）。</div>`;
+    el.querySelector("#back").onclick = () => go("events");
+  }
+
+  // 公開API（各モジュールから遷移に使う）
+  function go(page, param=null) { route = { ...route, page, param }; render(); }
+  function openEvent(id) { route = { view:"organizer", page:"eventDetail", param:id }; render(); }
+  function openCreate() { route = { view:"organizer", page:"create", param:null }; render(); }
+  function openPublic(id) { route = { view:"participant", page:"public", param:id }; render(); }
+  function refresh() { renderContent(); } // データ変更後に現在ページを再描画
+  function setView(view) {
+    route = view === "organizer"
+      ? { view, page:"dashboard", param:null }
+      : { view, page:"list", param:null };
+    document.body.dataset.view = view;
+    document.querySelectorAll("#roleSwitch button").forEach(b =>
+      b.classList.toggle("on", b.dataset.role === view));
+    render();
+  }
+
+  function render() { renderTabs(); renderContent(); }
+
+  function wire() {
+    document.querySelectorAll("#roleSwitch button").forEach(b =>
+      b.onclick = () => setView(b.dataset.role));
+  }
+
+  return { go, openEvent, openCreate, openPublic, refresh, setView, wire, render };
+})();
+
+
+/* ===== [14] 起動 ===== */
+(async function boot() {
+  try {
+    App.wire();
+    await DB.open();
+    // 初回はデータが無いので、空状態の案内が出る（F-35）。設定からシード投入できる。
+    const events = await Repo.events.all();
+    App.render();
+    if (!events.length) {
+      // 起動直後に自動でシードは投入しない（初期化の確認をしやすくするため）。案内のみ。
+      FB.toast("データがありません。設定 → デモデータを投入 で開始できます");
+    }
+  } catch (e) {
+    console.error(e);
+    FB.error("初期化に失敗しました: " + e.message +
+      "（file:// ではなくローカルHTTPサーバ経由で開いてください）");
+  }
+})();
+</script>
+</body>
+</html>
