@@ -118,8 +118,65 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .impl .done{color:var(--ok)} .impl .partial{color:var(--warn)} .impl .out{color:var(--muted)}
 
 .note{background:#fffbea;border:1px solid #f0e3a8;border-radius:var(--radius);padding:14px 16px;font-size:13px;color:#6a5a12}
+.mock-flag{background:#eef2ff;border:1px dashed #b9c6f5;color:#3550b0;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin-top:12px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .row-actions{display:flex;gap:8px}
+
+/* サブタブ（S-4） */
+.subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:16px 0}
+.subtabs button{background:transparent;border:0;padding:10px 14px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
+.subtabs button.on{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* 状況固定表示（F-76） */
+.statusbar h2{font-size:19px;margin-bottom:4px}
+.statusbar .meta{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.statusbar .meta b{color:var(--ink)}
+
+/* フォーム */
+.field{margin-bottom:14px}
+.field label{display:block;font-weight:600;font-size:13px;margin-bottom:5px}
+.field .req{color:var(--danger);font-size:11px;margin-left:4px}
+.field input,.field textarea,.field select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+.field input[type=checkbox]{width:auto}
+.field textarea{min-height:82px;resize:vertical}
+.field .err{color:var(--danger);font-size:12px;margin-top:4px}
+.field .invalid{border-color:var(--danger)}
+.field .hint{color:var(--muted);font-size:12px;margin-top:4px}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+
+/* ウィザード（S-3） */
+.steps{display:flex;gap:6px;margin-bottom:20px}
+.steps .step{flex:1;text-align:center;padding:9px 6px;border-radius:8px;background:#eef1f7;color:var(--muted);font-size:12px;font-weight:700;border:1px solid transparent;cursor:default}
+.steps .step.clickable{cursor:pointer}
+.steps .step.on{background:var(--blue-weak);color:var(--blue);border-color:#bcd0fb}
+.steps .step.done{background:#e6f5ec;color:var(--ok)}
+.wizard-actions{display:flex;justify-content:space-between;margin-top:22px}
+
+/* 行展開（S-4 申込一覧） */
+tr.expand-row td{background:#f7f9ff;padding:0}
+.expand-inner{padding:14px 16px}
+.expand-inner .kv2{display:flex;gap:28px;margin-bottom:12px;flex-wrap:wrap}
+.expand-inner .kv2 .k{color:var(--muted);font-size:12px}
+
+/* モーダル（F-87） */
+#modalHost{position:fixed;inset:0;background:rgba(15,25,45,.42);display:none;place-items:center;z-index:50}
+#modalHost.on{display:grid}
+.modal{background:#fff;border-radius:12px;box-shadow:var(--shadow);width:420px;max-width:90vw;padding:22px}
+.modal h3{font-size:17px;margin-bottom:8px}
+.modal p{color:var(--muted);margin:0}
+.modal .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+
+/* 申込フロー（S-7/8/9） */
+.flow-steps{display:flex;gap:10px;justify-content:center;margin-bottom:20px;color:var(--muted);font-size:13px;font-weight:600}
+.flow-steps .on{color:var(--blue)}
+.summary{border:1px solid var(--line);border-radius:8px;padding:14px;background:#fafbfe}
+.summary .row{display:flex;padding:4px 0}
+.summary .row .k{width:120px;color:var(--muted);flex:none}
+.consent{display:flex;gap:8px;align-items:flex-start;margin:14px 0}
+.copybox{display:flex;gap:8px;margin-top:8px}
+.copybox input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit}
+details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-top:14px}
+.ticket-item{cursor:pointer}
 </style>
 </head>
 <body data-view="organizer">
@@ -141,11 +198,12 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 <main id="content"></main>
 
 <div id="toastHost"></div>
+<div id="modalHost"></div>
 
 <script>
 "use strict";
 
-/* ===== [1] ユーティリティ ===== */
+// ===== [1] ユーティリティ =====
 const Util = (() => {
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => (
     {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -196,12 +254,32 @@ const Util = (() => {
   };
   const daysBetween = (a, b) => Math.floor((b - a) / 86400000);
 
+  // CSV（BOM付きUTF-8・CRLF・値のエスケープ / F-48, F-49）
+  const csvCell = (v) => {
+    const s = String(v ?? "");
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const buildCsv = (rows) => "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+  const downloadText = (filename, text, mime = "text/csv") => {
+    const blob = new Blob([text], { type: mime + ";charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+  const copy = async (text) => {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch { return false; }
+  };
+
   return { esc, randHex, uid, newToken, normalize, toKatakana,
-           fmtDateTime, fmtDate, deadlineEnd, weekStartMonday, daysBetween };
+           fmtDateTime, fmtDate, deadlineEnd, weekStartMonday, daysBetween,
+           csvCell, buildCsv, downloadText, copy };
 })();
 
 
-/* ===== [2] DB（IndexedDB / Promise ラップ / onupgradeneeded） ===== */
+// ===== [2] DB（IndexedDB / Promise ラップ / onupgradeneeded） =====
 const DB = (() => {
   const NAME = "neo_event_tool";
   const VERSION = 1;
@@ -289,7 +367,7 @@ const DB = (() => {
 })();
 
 
-/* ===== [3] Repository 層（業務ロジックからは常に Promise を返す） ===== */
+// ===== [3] Repository 層（業務ロジックからは常に Promise を返す） =====
 /* 将来サーバ API へ差し替えられるよう、IndexedDB をここに閉じ込める（引き継ぎ書 4-2）。 */
 const Repo = (() => {
   return {
@@ -325,7 +403,7 @@ const Repo = (() => {
 })();
 
 
-/* ===== [4] ドメインロジック（時期の都度算出・残席・要対応判定） ===== */
+// ===== [4] ドメインロジック（時期の都度算出・残席・要対応判定） =====
 const Domain = (() => {
   // 明示状態（保存する）
   const STATUS = { draft:"下書き", published:"公開中", cancelled:"中止" };
@@ -374,7 +452,7 @@ const Domain = (() => {
 })();
 
 
-/* ===== [5] フィードバック（トースト / エラーバナー） ===== */
+// ===== [5] フィードバック（トースト / エラーバナー） =====
 const FB = (() => {
   // 完了はトースト、数秒で自動消滅（F-85）
   function toast(msg) {
@@ -392,11 +470,27 @@ const FB = (() => {
       <button id="bannerClose">閉じる</button></div>`;
     document.getElementById("bannerClose").onclick = () => host.innerHTML = "";
   }
-  return { toast, error };
+  // 取り消せない操作の確認モーダル（F-87）。呼び出しごとにホストの中身を全置換
+  function confirmModal({ title, body, okLabel = "実行", danger = false, onOk }) {
+    const host = document.getElementById("modalHost");
+    host.innerHTML = `<div class="modal">
+      <h3>${Util.esc(title)}</h3>
+      <p>${body}</p>
+      <div class="modal-actions">
+        <button class="btn" id="mCancel">キャンセル</button>
+        <button class="btn ${danger ? "" : "primary"}" id="mOk"
+          ${danger ? 'style="background:var(--danger);border-color:var(--danger);color:#fff"' : ""}>${Util.esc(okLabel)}</button>
+      </div></div>`;
+    host.classList.add("on");
+    const close = () => { host.classList.remove("on"); host.innerHTML = ""; };
+    host.querySelector("#mCancel").onclick = close;
+    host.querySelector("#mOk").onclick = () => { close(); onOk && onOk(); };
+  }
+  return { toast, error, confirmModal };
 })();
 
 
-/* ===== [6] シードデータ（デモ用 / F-33。開発補助は最初に用意 / 7-4） ===== */
+// ===== [6] シードデータ（デモ用 / F-33。開発補助は最初に用意 / 7-4） =====
 const Seed = (() => {
   async function load() {
     const now = new Date();
@@ -474,12 +568,17 @@ const Seed = (() => {
     mkApp("ev_soon","tt_soon",4,"applied",-1);
     mkApp("ev_past","tt_past",0,"checkedin",-31);
 
+    // この端末が保持する自分の申込トークン（F-56）。マイチケットに表示される
+    const saved = [apps[0], apps[3], apps[5]].map(a =>
+      ({ token:a.token, eventId:a.eventId, savedAt:a.appliedAt }));
+
     // 1トランザクションで原子的に投入（複数ストア）
     const entries = [
       ...events.map(record => ({ store:"events", record })),
       ...tickets.map(record => ({ store:"ticketTypes", record })),
       ...persons.map(record => ({ store:"persons", record })),
       ...apps.map(record => ({ store:"applications", record })),
+      ...saved.map(record => ({ store:"savedTokens", record })),
     ];
     await Repo.bulkPut(entries);
   }
@@ -487,7 +586,7 @@ const Seed = (() => {
 })();
 
 
-/* ===== [7] 主催者：ダッシュボード（S-1 / F-30, F-31） ===== */
+// ===== [7] 主催者：ダッシュボード（S-1 / F-30, F-31） =====
 const Dashboard = (() => {
   async function render(el) {
     const now = Date.now();
@@ -552,7 +651,7 @@ const Dashboard = (() => {
 })();
 
 
-/* ===== [8] 主催者：イベント一覧（S-2 / F-44, F-79） ===== */
+// ===== [8] 主催者：イベント一覧（S-2 / F-44, F-79） =====
 const EventsList = (() => {
   // 時期トグル。初期は 未定+これから ON、終了・中止 OFF（F-44）
   const state = { undated:true, upcoming:true, past:false };
@@ -632,43 +731,233 @@ const EventsList = (() => {
 })();
 
 
-/* ===== [9] 主催者：イベント詳細（S-4 プレースホルダ。次スライスで実装） ===== */
+// ===== [9] 主催者：イベント詳細 S-4（固定表示＋サブタブ 申込/告知/概要編集） =====
 const EventDetail = (() => {
-  async function render(el, eventId) {
-    const [ev, tickets, apps] = await Promise.all([
-      Repo.events.get(eventId),
-      Repo.ticketTypes.byEvent(eventId),
-      Repo.applications.byEvent(eventId)]);
-    if (!ev) { el.innerHTML = `<div class="empty"><div class="big">イベントが見つかりません</div></div>`; return; }
+  const STATUS_LABEL = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル" };
+  const STATUS_CLASS = { applied:"phase", checkedin:"published", cancelled:"draft" };
+  let ctx = null;      // { ev, tickets, apps, ticketName, _persons, el }
+  let tab = "apply";   // 初期タブは申込（F-75）
+  let expandedId = null;
+
+  function paint() {
+    const { ev, tickets, apps, el } = ctx;
     const t = Domain.timing(ev);
     const cap = Domain.capacity(tickets), used = Domain.usedSeats(apps), rem = Domain.remaining(tickets, apps);
     el.innerHTML = `
       <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button></div>
-      <div class="card pad">
+      <div class="card pad statusbar">
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
-          <h2 style="font-size:20px">${Util.esc(ev.title)}</h2>
+          <h2>${Util.esc(ev.title)}</h2>
           <span class="badge ${ev.status}">${Domain.STATUS[ev.status]}</span>
           <span class="badge phase ${t.phase==='held'?'ended':''}">${t.label}</span>
           ${ev.visibility==="limited"&&ev.status!=="cancelled"?'<span class="badge limited">限定公開</span>':""}
         </div>
-        <div style="color:var(--muted)">
-          ${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}${ev.venueName?" ／ "+Util.esc(ev.venueName):""}
-          ／ 申込 ${used}／${cap||"—"}（残席 ${cap?rem:"—"}）
+        <div class="meta">
+          <span>🗓 <b>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}</b></span>
+          <span>📍 <b>${Util.esc(ev.venueName)||"—"}</b></span>
+          <span>👥 申込 <b>${used}</b>／${cap||"—"}</span>
+          <span>🪑 残席 <b>${cap?rem:"—"}</b></span>
         </div>
       </div>
-      <div class="note" style="margin-top:16px">
-        <b>この詳細画面（S-4）は次のスライスで実装します。</b><br>
-        予定: 上部の状況固定表示＋サブタブ（申込一覧・検索・チェックイン・CSV／告知／概要・編集）。
-        現時点では基盤（DB・Repository・時期算出・残席計算）が動作していることの確認用です。
-        申込レコード ${apps.length} 件を読み込めています。
-      </div>`;
+      <div class="subtabs" id="subtabs">
+        <button data-tab="apply" class="${tab==='apply'?'on':''}">申込</button>
+        <button data-tab="promo" class="${tab==='promo'?'on':''}">告知</button>
+        <button data-tab="edit" class="${tab==='edit'?'on':''}">概要・編集</button>
+      </div>
+      <div id="subpane"></div>`;
+
     el.querySelector("#back").onclick = () => App.go("events");
+    el.querySelectorAll("#subtabs button").forEach(b =>
+      b.onclick = () => { tab = b.dataset.tab; expandedId = null; paint(); });
+
+    const pane = el.querySelector("#subpane");
+    if (tab === "apply") renderApply(pane);
+    else if (tab === "promo") renderPromo(pane);
+    else renderEdit(pane);
   }
+
+  // ---- 申込タブ（一覧・検索・チェックイン・CSV / F-22〜F-28, F-77, F-78） ----
+  function renderApply(pane) {
+    pane.innerHTML = `
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <input id="searchBox" placeholder="氏名・カナ・メールで絞り込み" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit">
+        <button class="btn" id="csvBtn">CSV出力</button>
+      </div>
+      <div class="card"><table class="list">
+        <thead><tr><th>氏名</th><th>カナ</th><th>申込枠</th><th>状態</th><th style="width:120px">操作</th></tr></thead>
+        <tbody id="appRows"></tbody>
+      </table></div>
+      <div class="mock-flag">チェックイン／取消・内容修正・キャンセルは表示のみのモック（保存は C-3 で実装）。検索・CSV出力は実データで動作します。</div>`;
+
+    const box = pane.querySelector("#searchBox");
+    box.oninput = () => paintRows(pane, box.value);
+    paintRows(pane, "");
+
+    pane.querySelector("#csvBtn").onclick = () => exportCsv();
+  }
+
+  function paintRows(pane, query) {
+    const { apps, ticketName } = ctx;
+    const q = Util.normalize(query);
+    const rows = apps.filter(a => !q || a.searchText.includes(q));
+    const persons = ctx._persons || {};
+    const tbody = pane.querySelector("#appRows");
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty">${apps.length ? "一致する申込がありません" : "申込がありません"}</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(a => {
+      const p = persons[a.personId] || {};
+      const checkedin = a.status === "checkedin";
+      const opBtn = a.status === "cancelled" ? "—"
+        : `<button class="btn sm ${checkedin?'':'primary'}" data-checkin="${a.id}">${checkedin?"受付取消":"チェックイン"}</button>`;
+      const main = `<tr class="clickable" data-row="${a.id}">
+        <td>${Util.esc(p.name||"—")}</td>
+        <td>${Util.esc(p.nameKana||"—")}</td>
+        <td>${Util.esc(ticketName[a.ticketTypeId]||"—")}</td>
+        <td><span class="badge ${STATUS_CLASS[a.status]}">${STATUS_LABEL[a.status]}</span></td>
+        <td>${opBtn}</td></tr>`;
+      const exp = expandedId === a.id ? `<tr class="expand-row"><td colspan="5"><div class="expand-inner">
+        <div class="kv2">
+          <div><div class="k">メールアドレス</div>${Util.esc(p.email||"—")}</div>
+          <div><div class="k">申込日時</div>${Util.fmtDateTime(a.appliedAt)}</div>
+          <div><div class="k">チェックイン時刻</div>${a.checkinAt?Util.fmtDateTime(a.checkinAt):"—"}</div>
+        </div>
+        <div class="row-actions">
+          <button class="btn sm" data-edit="${a.id}">内容を修正</button>
+          <button class="btn sm" data-cancel="${a.id}" style="color:var(--danger)">申込をキャンセル</button>
+        </div></div></td></tr>` : "";
+      return main + exp;
+    }).join("");
+
+    // 行クリックで展開（操作ボタンのクリックは伝播させない）
+    tbody.querySelectorAll("tr[data-row]").forEach(tr =>
+      tr.onclick = () => { expandedId = expandedId === tr.dataset.row ? null : tr.dataset.row; paintRows(pane, query); });
+    tbody.querySelectorAll("[data-checkin]").forEach(b =>
+      b.onclick = (e) => { e.stopPropagation(); FB.toast("チェックインはモックです（保存は C-3 で実装）"); });
+    tbody.querySelectorAll("[data-edit]").forEach(b =>
+      b.onclick = (e) => { e.stopPropagation(); FB.toast("内容修正はモックです（保存は C-3 で実装）"); });
+    tbody.querySelectorAll("[data-cancel]").forEach(b =>
+      b.onclick = (e) => { e.stopPropagation(); FB.toast("キャンセルはモックです（保存は C-3 で実装）"); });
+  }
+
+  function exportCsv() {
+    const { ev, apps, ticketName } = ctx;
+    const persons = ctx._persons || {};
+    const header = ["申込番号","氏名","氏名（カナ）","メールアドレス","申込枠","状態","申込日時","チェックイン時刻"];
+    const body = apps.map(a => {
+      const p = persons[a.personId] || {};
+      return [a.id, p.name||"", p.nameKana||"", p.email||"", ticketName[a.ticketTypeId]||"",
+        STATUS_LABEL[a.status], Util.fmtDateTime(a.appliedAt), a.checkinAt?Util.fmtDateTime(a.checkinAt):""];
+    });
+    Util.downloadText(`applications_${ev.id}.csv`, Util.buildCsv([header, ...body]));
+    FB.toast("CSVを出力しました");
+  }
+
+  // ---- 告知タブ（共有URL・投稿文・X/LINE / F-10〜F-15） ----
+  function renderPromo(pane) {
+    const { ev } = ctx;
+    const url = shareUrl(ev);
+    const text = postText(ev, url);
+    pane.innerHTML = `
+      <div class="card pad">
+        <h3 style="font-size:15px;margin-bottom:8px">共有URL</h3>
+        <div class="copybox"><input id="urlBox" readonly value="${Util.esc(url)}">
+          <button class="btn" id="copyUrl">コピー</button></div>
+      </div>
+      <div class="card pad" style="margin-top:14px">
+        <h3 style="font-size:15px;margin-bottom:8px">投稿文</h3>
+        <div class="field"><textarea id="postBox" style="min-height:120px">${Util.esc(text)}</textarea></div>
+        <div class="row-actions">
+          <button class="btn primary" id="copyPost">投稿文をコピー</button>
+          <a class="btn" id="xShare" target="_blank" rel="noopener">Xで共有</a>
+          <a class="btn" id="lineShare" target="_blank" rel="noopener">LINEで共有</a>
+        </div>
+      </div>`;
+    pane.querySelector("#copyUrl").onclick = async () =>
+      FB.toast(await Util.copy(url) ? "URLをコピーしました" : "コピーできませんでした");
+    pane.querySelector("#copyPost").onclick = async () =>
+      FB.toast(await Util.copy(pane.querySelector("#postBox").value) ? "投稿文をコピーしました" : "コピーできませんでした");
+    const setLinks = () => {
+      const body = pane.querySelector("#postBox").value;
+      pane.querySelector("#xShare").href =
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}&hashtags=${encodeURIComponent("社内イベント")}`;
+      pane.querySelector("#lineShare").href =
+        `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`; // URLのみ（F-15）
+    };
+    pane.querySelector("#postBox").oninput = setLinks;
+    setLinks();
+  }
+  const shareUrl = (ev) => `${location.origin}${location.pathname}?event=${ev.id}`;
+  const postText = (ev, url) =>
+`【${ev.title}】を開催します！
+🗓 ${ev.startAt ? Util.fmtDateTime(ev.startAt) : "日程調整中"}
+📍 ${ev.venueName || "会場調整中"}
+参加申込はこちら👇
+${url}`;
+
+  // ---- 概要・編集タブ（編集導線＋状態遷移 / F-04, F-37, F-38, F-87） ----
+  function renderEdit(pane) {
+    const { ev } = ctx;
+    const canPublish = ev.status === "draft";
+    const canCancel = ev.status === "published";
+    const canDelete = ev.status === "draft"; // 削除は下書きのみ（F-01）
+    pane.innerHTML = `
+      <div class="card pad">
+        <div class="summary">
+          <div class="row"><span class="k">説明</span><span style="white-space:pre-wrap">${Util.esc(ev.description)||"—"}</span></div>
+          <div class="row"><span class="k">対象者</span><span>${Util.esc(ev.targetAudience)||"—"}</span></div>
+          <div class="row"><span class="k">住所</span><span>${Util.esc(ev.venueAddress)||"—"}</span></div>
+          <div class="row"><span class="k">申込締切</span><span>${ev.applyDeadline?Util.fmtDate(ev.applyDeadline):"—"}</span></div>
+          <div class="row"><span class="k">公開範囲</span><span>${ev.visibility==="limited"?"限定公開":"一般公開"}</span></div>
+          <div class="row"><span class="k">問い合わせ先</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
+        </div>
+        <div class="row-actions" style="margin-top:16px">
+          <button class="btn" id="editBtn">✎ 編集する</button>
+          ${canPublish?'<button class="btn primary" id="publishBtn">公開する</button>':""}
+          ${canCancel?'<button class="btn" id="cancelBtn" style="color:var(--danger)">中止する</button>':""}
+          ${canDelete?'<button class="btn" id="deleteBtn" style="color:var(--danger)">削除</button>':""}
+        </div>
+      </div>
+      <div class="mock-flag">編集の保存・公開・中止・削除はモックです（状態遷移の永続化は C-1 で実装）。一方向遷移（下書き→公開→中止）と確認モーダルは実装済み。</div>`;
+    pane.querySelector("#editBtn").onclick = () => App.openCreate(ev.id);
+    const pub = pane.querySelector("#publishBtn");
+    if (pub) pub.onclick = () => FB.confirmModal({
+      title:"イベントを公開しますか？", okLabel:"公開する",
+      body:"公開すると下書きには戻せません。この操作は取り消せません。",
+      onOk:() => FB.toast("公開はモックです（保存は C-1 で実装）") });
+    const can = pane.querySelector("#cancelBtn");
+    if (can) can.onclick = () => FB.confirmModal({
+      title:"イベントを中止しますか？", okLabel:"中止する", danger:true,
+      body:"中止すると元に戻せません。既存の申込は変更されません。",
+      onOk:() => FB.toast("中止はモックです（保存は C-1 で実装）") });
+    const del = pane.querySelector("#deleteBtn");
+    if (del) del.onclick = () => FB.confirmModal({
+      title:"下書きを削除しますか？", okLabel:"削除する", danger:true,
+      body:"この下書きを削除します。",
+      onOk:() => FB.toast("削除はモックです（保存は C-1 で実装）") });
+  }
+
+  // persons をまとめて読んでおく（申込一覧の氏名・メール表示に必要）
+  async function render(el, eventId) {
+    const [ev, tickets, apps, personsArr] = await Promise.all([
+      Repo.events.get(eventId),
+      Repo.ticketTypes.byEvent(eventId),
+      Repo.applications.byEvent(eventId),
+      Repo.persons.all()]);
+    if (!ev) { el.innerHTML = `<div class="empty"><div class="big">イベントが見つかりません</div></div>`; return; }
+    const ticketName = {}; tickets.forEach(t => ticketName[t.id] = t.name);
+    const _persons = {}; personsArr.forEach(p => _persons[p.id] = p);
+    ctx = { ev, tickets, apps, ticketName, _persons, el };
+    expandedId = null; tab = "apply";
+    paint();
+  }
+
   return { render };
 })();
 
 
-/* ===== [10] 主催者：設定（S-5 / F-32, F-33, F-36） ===== */
+// ===== [10] 主催者：設定（S-5 / F-32, F-33, F-36） =====
 const Settings = (() => {
   async function render(el) {
     el.innerHTML = `
@@ -691,10 +980,10 @@ const Settings = (() => {
             ${implRow("アプリシェル・役割切替・タブ","B-2","partial","一部（画面遷移とフィードバックは配線済）")}
             ${implRow("ダッシュボード（指標・要対応）","D-2","done","実装済")}
             ${implRow("イベント一覧（時期トグル）","C-1","done","実装済")}
-            ${implRow("イベント作成・編集（5ステップ）","C-1","partial","未実装（次スライス）")}
-            ${implRow("イベント詳細・申込管理・CSV","C-3","partial","未実装（次スライス）")}
-            ${implRow("公開ページ・申込フロー・マイチケット ★","C-2","partial","未実装（最優先の次スライス）")}
-            ${implRow("告知（URL・投稿文・SNS共有）","D-1","partial","未実装")}
+            ${implRow("イベント作成・編集（5ステップ）","C-1","partial","モック（遷移・公開前チェックは動作／保存は未）")}
+            ${implRow("イベント詳細・申込管理・CSV","C-3","partial","モック（検索・CSV出力は動作／チェックイン等の保存は未）")}
+            ${implRow("公開ページ・申込フロー・マイチケット ★","C-2","partial","モック（入力→確認→完了・マイチケット表示は動作／確定保存は未）")}
+            ${implRow("告知（URL・投稿文・SNS共有）","D-1","done","実装済（読み取りのみ）")}
             ${implRow("メール送信・SNS自動投稿・SEO/OGP","—","out","対象外（サーバが必要）")}
             ${implRow("決済・キャンセル待ち・QR・レスポンシブ","—","out","対象外（意図的に除外）")}
           </tbody>
@@ -717,7 +1006,7 @@ const Settings = (() => {
 })();
 
 
-/* ===== [11] 参加者：公開ページ一覧＋公開ページ（S-6 / F-65, F-83, 4-3） ===== */
+// ===== [11] 参加者：公開ページ一覧＋公開ページ（S-6 / F-65, F-83, 4-3） =====
 const Participant = (() => {
   // 参加者ビューの一覧: 一般公開かつ公開中のイベントのみ（限定公開・下書き・中止/終了は出さない）
   async function renderList(el) {
@@ -780,19 +1069,235 @@ const Participant = (() => {
         <button class="btn primary apply" id="apply" ${btn.disabled?"disabled style='opacity:.55;cursor:not-allowed'":""}>${btn.text}</button>
         <div class="kv" style="margin-top:16px"><div class="row"><span class="k">問い合わせ</span>
           <span>${Util.esc(ev.contactInfo)||"—"}</span></div></div>
-        <div class="note" style="margin-top:16px">
-          申込フロー（S-7 入力→確認→完了）とマイチケット（S-9）は次スライス（★最優先）で実装します。</div>
+        <div class="mock-flag">申込フロー（入力→確認→完了）とマイチケットは動作します。申込の確定・保存はモック（C-2 で永続化）。</div>
       </div>`;
     el.querySelector("#back").onclick = () => App.go("participant");
     const applyBtn = el.querySelector("#apply");
-    if (applyBtn && !btn.disabled) applyBtn.onclick = () =>
-      FB.toast("申込フローは次スライスで実装します（C-2）");
+    if (applyBtn && !btn.disabled) applyBtn.onclick = () => App.openApply(ev.id);
   }
-  return { renderList, renderPublic };
+
+  // ---- 申込フロー S-7（入力→確認 / F-16, F-52, F-53, F-54, F-80, F-84） ----
+  let flow = null; // { ev, ticket, phase:'input'|'confirm', data, host }
+
+  async function renderApply(el, eventId) {
+    const [ev, tickets, apps] = await Promise.all([
+      Repo.events.get(eventId),
+      Repo.ticketTypes.byEvent(eventId),
+      Repo.applications.byEvent(eventId)]);
+    if (!ev || ev.status !== "published") {
+      el.innerHTML = `<div class="empty"><div class="big">申込できないイベントです</div></div>`; return;
+    }
+    if (Domain.remaining(tickets, apps) <= 0) {
+      el.innerHTML = `<div class="empty"><div class="big">満席のため申込できません</div>
+        <button class="btn" id="back" style="margin-top:12px">← 戻る</button></div>`;
+      el.querySelector("#back").onclick = () => App.openPublic(ev.id);
+      return;
+    }
+    flow = { ev, ticket: tickets[0], phase:"input", host:el,
+      data:{ name:"", kana:"", email:"", consent:false } };
+    paintFlow();
+  }
+
+  function collectFlow() {
+    const el = flow.host;
+    const g = id => el.querySelector(id);
+    if (g("#fName")) {
+      flow.data = { name:g("#fName").value, kana:g("#fKana").value,
+        email:g("#fEmail").value, consent:g("#fConsent").checked };
+    }
+  }
+
+  function validateApply(d) {
+    const e = {};
+    if (!d.name.trim()) e.name = "氏名を入力してください";
+    else if (d.name.length > 50) e.name = "50文字以内で入力してください";
+    if (!d.kana.trim()) e.kana = "カナを入力してください";
+    else if (!/^[ぁ-んァ-ヶー\s]+$/.test(d.kana)) e.kana = "ひらがな・カタカナで入力してください";
+    else if (d.kana.length > 50) e.kana = "50文字以内で入力してください";
+    if (!d.email.trim()) e.email = "メールアドレスを入力してください";
+    else {
+      const parts = d.email.split("@");
+      if (parts.length !== 2 || !parts[0] || !parts[1] || !parts[1].includes("."))
+        e.email = "メールアドレスの形式が正しくありません";
+      else if (d.email.length > 254) e.email = "254文字以内で入力してください";
+    }
+    return e;
+  }
+
+  function paintFlow() {
+    const { ev, phase, data } = flow, el = flow.host;
+    const steps = `<div class="flow-steps">
+      <span class="${phase==='input'?'on':''}">1. 入力</span>›
+      <span class="${phase==='confirm'?'on':''}">2. 確認</span>› <span>3. 完了</span></div>`;
+
+    if (phase === "input") {
+      const err = flow.errors || {};
+      const fld = (id, label, val, opts={}) => `
+        <div class="field"><label>${label}<span class="req">必須</span></label>
+        <input id="${id}" type="${opts.type||'text'}" value="${Util.esc(val)}" ${opts.ph?`placeholder="${Util.esc(opts.ph)}"`:''} class="${err[opts.key]?'invalid':''}">
+        ${err[opts.key]?`<div class="err">${Util.esc(err[opts.key])}</div>`:''}
+        ${opts.hint?`<div class="hint">${opts.hint}</div>`:''}</div>`;
+      el.innerHTML = `
+        <div class="page-head"><button class="btn ghost" id="back">← ${Util.esc(ev.title)}</button></div>
+        ${steps}
+        <div class="card pad">
+          <h3 style="font-size:16px;margin-bottom:14px">${Util.esc(ev.title)} に申込</h3>
+          ${fld("fName","氏名",data.name,{key:"name",ph:"山田 太郎"})}
+          ${fld("fKana","氏名（カナ）",data.kana,{key:"kana",ph:"ヤマダ タロウ",hint:"ひらがな・カタカナで入力（保存時にカタカナへ変換）"})}
+          ${fld("fEmail","メールアドレス",data.email,{key:"email",type:"email",ph:"taro@example.com"})}
+          <div class="consent"><input type="checkbox" id="fConsent" ${data.consent?"checked":""}>
+            <label for="fConsent" style="font-weight:400">今後のイベント案内の受け取りに同意する（任意）</label></div>
+          <button class="btn primary" id="toConfirm" style="width:100%;justify-content:center;padding:12px">確認へ進む</button>
+        </div>`;
+      el.querySelector("#back").onclick = () => App.openPublic(ev.id);
+      el.querySelector("#toConfirm").onclick = () => {
+        collectFlow();
+        const errors = validateApply(flow.data);
+        if (Object.keys(errors).length) {
+          flow.errors = errors; paintFlow();
+          const first = el.querySelector(".invalid"); if (first) first.focus(); // F-84
+          return;
+        }
+        flow.errors = null;
+        flow.data.kana = Util.toKatakana(flow.data.kana); // 保存時カタカナへ（F-52）
+        flow.phase = "confirm"; paintFlow();
+      };
+    } else { // confirm
+      const d = data;
+      el.innerHTML = `
+        <div class="page-head"><button class="btn ghost" id="back">← 入力へ戻る</button></div>
+        ${steps}
+        <div class="card pad">
+          <h3 style="font-size:16px;margin-bottom:12px">この内容で申込みます</h3>
+          <div class="summary">
+            <div class="row"><span class="k">イベント</span><span>${Util.esc(ev.title)}</span></div>
+            <div class="row"><span class="k">氏名</span><span>${Util.esc(d.name)}</span></div>
+            <div class="row"><span class="k">カナ</span><span>${Util.esc(d.kana)}</span></div>
+            <div class="row"><span class="k">メール</span><span>${Util.esc(d.email)}</span></div>
+            <div class="row"><span class="k">案内の受取</span><span>${d.consent?"同意する":"同意しない"}</span></div>
+          </div>
+          <div class="row-actions" style="margin-top:16px">
+            <button class="btn" id="back2">修正する</button>
+            <button class="btn primary" id="submit" style="flex:1;justify-content:center">申込む</button>
+          </div>
+        </div>
+        <div class="mock-flag">「申込む」は申込レコードを保存せずに完了画面へ進むモックです（定員判定・トークン発行・保存は C-2 で実装）。</div>`;
+      const back = () => { flow.phase = "input"; paintFlow(); };
+      el.querySelector("#back").onclick = back;
+      el.querySelector("#back2").onclick = back;
+      el.querySelector("#submit").onclick = () =>
+        App.openComplete(ev.id, { ...d, token: Util.newToken() });
+    }
+  }
+
+  // ---- 申込完了 S-8（F-88） ----
+  async function renderComplete(el, eventId, data) {
+    if (!data) { App.go("list"); return; } // 直接遷移などでデータが無い場合は一覧へ
+    const ev = await Repo.events.get(eventId);
+    const url = `${location.origin}${location.pathname}?ticket=${data.token}`;
+    el.innerHTML = `
+      <div class="flow-steps"><span>1. 入力</span>› <span>2. 確認</span>› <span class="on">3. 完了</span></div>
+      <div class="card pad" style="text-align:center">
+        <div style="font-size:40px">✅</div>
+        <h2 style="margin:8px 0">申込が完了しました</h2>
+        <p style="color:var(--muted)">${ev?Util.esc(ev.title):""} への申込を受け付けました。</p>
+        <div class="summary" style="text-align:left;margin:18px 0">
+          <div class="row"><span class="k">氏名</span><span>${Util.esc(data.name)}</span></div>
+          <div class="row"><span class="k">メール</span><span>${Util.esc(data.email)}</span></div>
+        </div>
+        <button class="btn primary" id="toTicket" style="width:100%;justify-content:center;padding:12px">マイチケットを見る</button>
+        <details class="reveal"><summary>別の端末で確認する</summary>
+          <div class="copybox"><input readonly value="${Util.esc(url)}">
+            <button class="btn" id="copyUrl">コピー</button></div>
+          <div class="hint" style="margin-top:6px">この確認URLからいつでも申込内容を確認できます。</div>
+        </details>
+        <div class="mock-flag" style="text-align:left">この完了画面はモックです。実際にはトークンをブラウザに保存し、マイチケットに反映されます（C-2）。</div>
+      </div>`;
+    el.querySelector("#toTicket").onclick = () => App.go("myticket");
+    el.querySelector("#copyUrl").onclick = async () =>
+      FB.toast(await Util.copy(url) ? "URLをコピーしました" : "コピーできませんでした");
+  }
+
+  // ---- マイチケット S-9（F-56, F-57, F-89, F-90）— savedTokens を実データで読む ----
+  let selectedToken = null;
+
+  async function renderMyTicket(el) {
+    const saved = await Repo.savedTokens.all();
+    const items = [];
+    for (const s of saved) {
+      const app = await Repo.applications.byToken(s.token);
+      if (!app) continue;
+      const ev = await Repo.events.get(app.eventId);
+      if (!ev) continue;
+      items.push({ token:s.token, app, ev });
+    }
+    if (selectedToken) { renderTicketDetail(el, items); return; }
+
+    if (!items.length) {
+      el.innerHTML = `<div class="page-head"><h2>マイチケット</h2></div>
+        <div class="empty"><div class="big">保存された申込はありません</div>
+        イベントに申込むと、確認用のチケットがこの端末に保存されます。</div>`;
+      return;
+    }
+    // 並び: これから開催 → 終了済み → キャンセル済み（F-89）
+    const now = Date.now();
+    const rank = (it) => it.app.status === "cancelled" ? 2
+      : (it.ev.endAt && new Date(it.ev.endAt).getTime() < now) ? 1 : 0;
+    items.sort((a,b) => rank(a) - rank(b) || new Date(a.ev.startAt||0) - new Date(b.ev.startAt||0));
+
+    const label = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル済" };
+    const cls = { applied:"phase", checkedin:"published", cancelled:"draft" };
+    el.innerHTML = `<div class="page-head"><h2>マイチケット</h2></div>
+      ${items.map(it => `
+        <div class="card pad ticket-item" data-token="${it.token}" style="margin-bottom:12px">
+          <div style="font-weight:700;font-size:15px">${Util.esc(it.ev.title)}</div>
+          <div style="color:var(--muted);margin-top:4px">${it.ev.startAt?Util.fmtDateTime(it.ev.startAt):"日程未定"}</div>
+          <div style="margin-top:6px"><span class="badge ${cls[it.app.status]}">${label[it.app.status]}</span></div>
+        </div>`).join("")}`;
+    el.querySelectorAll(".ticket-item").forEach(c =>
+      c.onclick = () => { selectedToken = c.dataset.token; renderMyTicket(el); });
+  }
+
+  async function renderTicketDetail(el, items) {
+    const it = items.find(x => x.token === selectedToken);
+    if (!it) { selectedToken = null; return renderMyTicket(el); }
+    const { ev, app } = it;
+    const cancelled = app.status === "cancelled";
+    const label = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル済" };
+    const mapLink = ev.venueAddress
+      ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.venueAddress)}" target="_blank" rel="noopener">地図を開く</a>` : "";
+    el.innerHTML = `
+      <div class="page-head"><button class="btn ghost" id="back">← マイチケット</button></div>
+      <div class="card pad">
+        <h2 style="font-size:18px">${Util.esc(ev.title)}</h2>
+        <div class="summary" style="margin:14px 0">
+          <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}</span></div>
+          <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"} ${mapLink}</span></div>
+          <div class="row"><span class="k">問い合わせ</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
+          <div class="row"><span class="k">申込状態</span><span><span class="badge ${cancelled?'draft':'phase'}">${label[app.status]}</span></span></div>
+          <div class="row"><span class="k">申込日時</span><span>${Util.fmtDateTime(app.appliedAt)}</span></div>
+        </div>
+        <div class="row-actions">
+          <a class="btn" id="toPublic">公開ページを開く</a>
+          ${cancelled ? "" : '<button class="btn" id="cancelBtn" style="color:var(--danger)">申込をキャンセル</button>'}
+        </div>
+      </div>
+      <div class="mock-flag">キャンセルはモックです（保存は C-2 で実装）。表示は savedTokens ストアの実データです。</div>`;
+    el.querySelector("#back").onclick = () => { selectedToken = null; renderMyTicket(el); };
+    el.querySelector("#toPublic").onclick = () => App.openPublic(ev.id);
+    const cb = el.querySelector("#cancelBtn");
+    if (cb) cb.onclick = () => FB.confirmModal({
+      title:"申込をキャンセルしますか？", okLabel:"キャンセルする", danger:true,
+      body:"この申込をキャンセルします。",
+      onOk:() => FB.toast("キャンセルはモックです（保存は C-2 で実装）") });
+  }
+  function resetMyTicket() { selectedToken = null; }
+
+  return { renderList, renderPublic, renderApply, renderComplete, renderMyTicket, resetMyTicket };
 })();
 
 
-/* ===== [12] 汎用ヘルパ ===== */
+// ===== [12] 汎用ヘルパ =====
 function groupBy(arr, key) {
   const m = {};
   for (const x of arr) (m[x[key]] ||= []).push(x);
@@ -800,27 +1305,213 @@ function groupBy(arr, key) {
 }
 
 
-/* ===== [13] アプリシェル（ヘッダー・タブ・役割切替・ルータ） ===== */
+// ===== [12b] 主催者：イベント作成・編集ウィザード S-3（5ステップ / F-69〜F-74） =====
+const Wizard = (() => {
+  const STEPS = [
+    { key:"basic",   label:"1. 基本情報" },
+    { key:"venue",   label:"2. 会場" },
+    { key:"detail",  label:"3. 詳細" },
+    { key:"apply",   label:"4. 申込" },
+    { key:"setting", label:"5. 設定" },
+  ];
+  let form = null, step = 0, isEdit = false, el = null;
+
+  const isoToLocalInput = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso), p = n => String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+
+  async function render(host, eventId) {
+    el = host; step = 0;
+    isEdit = !!eventId;
+    if (isEdit) {
+      const [ev, tickets] = await Promise.all([Repo.events.get(eventId), Repo.ticketTypes.byEvent(eventId)]);
+      const tt = tickets[0] || {};
+      form = { id:ev.id, title:ev.title||"", startAt:isoToLocalInput(ev.startAt), endAt:isoToLocalInput(ev.endAt),
+        venueName:ev.venueName||"", venueAddress:ev.venueAddress||"", description:ev.description||"",
+        targetAudience:ev.targetAudience||"", coverImageName: ev.coverImage?"（設定済み）":"",
+        ticketName:tt.name||"一般参加", capacity:tt.capacity||"", applyDeadline:ev.applyDeadline||"",
+        visibility:ev.visibility||"public", contactInfo:ev.contactInfo||"" };
+    } else {
+      form = { id:null, title:"", startAt:"", endAt:"", venueName:"", venueAddress:"", description:"",
+        targetAudience:"", coverImageName:"", ticketName:"一般参加", capacity:"", applyDeadline:"",
+        visibility:"public", contactInfo:"" };
+    }
+    paint();
+  }
+
+  function collect() { // 現在ステップの入力を form に退避（戻る操作でも保持 / F-72）
+    el.querySelectorAll("[data-f]").forEach(inp => {
+      form[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : inp.value;
+    });
+  }
+
+  function paint() {
+    const stepsHtml = STEPS.map((s,i) => {
+      const cls = i===step ? "on" : (isEdit || i<step) ? "done clickable" : "";
+      return `<div class="step ${cls}" data-step="${i}">${s.label}</div>`;
+    }).join("");
+    el.innerHTML = `
+      <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button>
+        <h2>${isEdit ? "イベントを編集" : "イベントを作成"}</h2></div>
+      <div class="steps">${stepsHtml}</div>
+      <div class="card pad" id="stepBody">${stepBody()}</div>
+      <div class="wizard-actions">
+        <button class="btn" id="prev" ${step===0?'style="visibility:hidden"':''}>← 戻る</button>
+        <div class="row-actions">${footerRight()}</div>
+      </div>
+      <div class="mock-flag">保存はモックです（下書き作成・公開の永続化は C-1 で実装）。ステップ遷移・入力保持・公開前チェック（F-06）は動作します。</div>`;
+
+    el.querySelector("#back").onclick = () => { collect(); App.go("events"); };
+    el.querySelector("#prev").onclick = () => { collect(); if (step>0) { step--; paint(); } };
+    // ステップ見出しでの直接移動（編集時は任意、新規は完了済みのみ / F-73）
+    el.querySelectorAll(".step.clickable").forEach(s =>
+      s.onclick = () => { collect(); step = +s.dataset.step; paint(); });
+    wireFooter();
+  }
+
+  function footerRight() {
+    if (step < STEPS.length - 1)
+      return `<button class="btn primary" id="next">保存して次へ →</button>`;
+    return `<button class="btn" id="check">公開前チェック</button>
+            <button class="btn" id="saveDraft">下書き保存</button>
+            <button class="btn primary" id="publish">公開する</button>`;
+  }
+
+  function wireFooter() {
+    const next = el.querySelector("#next");
+    if (next) next.onclick = () => {
+      collect();
+      if (step === 0 && !form.title.trim()) { // ステップ1はイベント名必須（F-70）
+        showErr("title", "イベント名を入力してください");
+        return;
+      }
+      if (step === 0 && !isEdit) FB.toast("下書きを作成しました（モック）");
+      step++; paint();
+    };
+    const check = el.querySelector("#check");
+    if (check) check.onclick = () => { collect(); runPublishCheck(); };
+    const sd = el.querySelector("#saveDraft");
+    if (sd) sd.onclick = () => { collect(); FB.toast("下書きを保存しました（モック / 保存は C-1 で実装）"); };
+    const pub = el.querySelector("#publish");
+    if (pub) pub.onclick = () => {
+      collect();
+      const issues = publishIssues();
+      if (issues.length) { runPublishCheck(); return; } // 不備があれば公開させない（F-06）
+      FB.confirmModal({ title:"イベントを公開しますか？", okLabel:"公開する",
+        body:"公開すると下書きには戻せません。この操作は取り消せません。",
+        onOk:() => FB.toast("公開しました（モック / 保存は C-1 で実装）") });
+    };
+  }
+
+  function showErr(field, msg) {
+    const inp = el.querySelector(`[data-f="${field}"]`);
+    if (!inp) return;
+    inp.classList.add("invalid");
+    let e = inp.parentElement.querySelector(".err");
+    if (!e) { e = document.createElement("div"); e.className = "err"; inp.parentElement.appendChild(e); }
+    e.textContent = msg;
+    inp.focus(); // 最初のエラー項目へフォーカス（F-84）
+  }
+
+  // 公開前チェック（F-06 / F-50）— 読み取り専用ロジックなので実データで動作
+  function publishIssues() {
+    const f = form, issues = [];
+    if (!f.title.trim()) issues.push("イベント名が未入力です");
+    if (!f.description.trim()) issues.push("説明が未入力です");
+    if (!f.startAt) issues.push("開始日時が未設定です");
+    if (!f.endAt) issues.push("終了日時が未設定です");
+    if (!f.venueName.trim()) issues.push("会場名が未入力です");
+    if (!f.capacity || +f.capacity < 1) issues.push("定員が未設定です");
+    if (!f.applyDeadline) issues.push("申込締切が未設定です");
+    if (f.startAt && f.endAt && new Date(f.endAt) < new Date(f.startAt))
+      issues.push("終了日時が開始日時より前です");
+    if (f.applyDeadline && f.startAt &&
+        Util.deadlineEnd(f.applyDeadline) > new Date(f.startAt).getTime())
+      issues.push("申込締切が開催日より後です");
+    if (f.startAt && new Date(f.startAt).getTime() < Date.now())
+      issues.push("開催日が過去の日時です");
+    return issues;
+  }
+  function runPublishCheck() {
+    const issues = publishIssues();
+    if (!issues.length) FB.toast("公開前チェック：不備はありません ✅");
+    else FB.error("公開できません: " + issues.join(" / "));
+  }
+
+  function stepBody() {
+    const f = form;
+    const T = (field, label, opts={}) => `
+      <div class="field"><label>${label}${opts.req?'<span class="req">必須</span>':''}</label>
+      <input type="${opts.type||'text'}" data-f="${field}" value="${Util.esc(f[field])}"
+        ${opts.ph?`placeholder="${Util.esc(opts.ph)}"`:''}>
+      ${opts.hint?`<div class="hint">${opts.hint}</div>`:''}</div>`;
+    const A = (field, label, opts={}) => `
+      <div class="field"><label>${label}</label>
+      <textarea data-f="${field}" ${opts.ph?`placeholder="${Util.esc(opts.ph)}"`:''}>${Util.esc(f[field])}</textarea>
+      ${opts.hint?`<div class="hint">${opts.hint}</div>`:''}</div>`;
+
+    switch (STEPS[step].key) {
+      case "basic": return `
+        ${T("title","イベント名",{req:true,ph:"社内技術LT大会 2026夏"})}
+        <div class="form-2col">
+          ${T("startAt","開始日時",{type:"datetime-local"})}
+          ${T("endAt","終了日時",{type:"datetime-local"})}
+        </div>`;
+      case "venue": return `
+        ${T("venueName","会場名",{ph:"本社 大会議室"})}
+        ${T("venueAddress","住所",{ph:"東京都千代田区1-1-1",hint:"入力すると公開ページに地図リンクを表示します（F-68）"})}`;
+      case "detail": return `
+        ${A("description","説明",{ph:"イベントの概要を入力"})}
+        ${T("targetAudience","対象者",{ph:"社員全般"})}
+        <div class="field"><label>カバー画像</label>
+          <input type="file" accept="image/*" data-f="__cover">
+          <div class="hint">任意。未設定時はプレースホルダーを表示（F-03）。※モックでは保存しません</div></div>`;
+      case "apply": return `
+        <div class="form-2col">
+          ${T("ticketName","申込枠の名称",{ph:"一般参加"})}
+          ${T("capacity","定員",{type:"number",hint:"1〜9999（F-55）"})}
+        </div>
+        ${T("applyDeadline","申込締切",{type:"date",hint:"当日23:59:59まで受付（F-45）"})}`;
+      case "setting": return `
+        <div class="field"><label>公開範囲</label>
+          <select data-f="visibility">
+            <option value="public" ${f.visibility==="public"?"selected":""}>一般公開</option>
+            <option value="limited" ${f.visibility==="limited"?"selected":""}>限定公開（URLを知る人のみ）</option>
+          </select>
+          <div class="hint">限定公開→一般公開は可、逆は不可（F-66）</div></div>
+        ${A("contactInfo","問い合わせ先",{ph:"運営事務局まで",hint:"任意・200文字以内（F-64）"})}`;
+    }
+    return "";
+  }
+  return { render };
+})();
+
+
+// ===== [13] アプリシェル（ヘッダー・タブ・役割切替・ルータ） =====
 const App = (() => {
   // route: {view:'organizer'|'participant', page, param}
   let route = { view:"organizer", page:"dashboard", param:null };
+  let completeData = null; // S-8 へ渡す申込内容（トランジェント）
 
-  const ORG_TABS = [["dashboard","ダッシュボード"],["events","イベント"],["settings","設定"]];
+  const ORG_TABS  = [["dashboard","ダッシュボード"],["events","イベント"],["settings","設定"]];
+  const PART_TABS = [["list","イベントを探す"],["myticket","マイチケット"]];
 
   function renderTabs() {
     const host = document.getElementById("tabs");
-    if (route.view === "organizer") {
-      host.innerHTML = ORG_TABS.map(([k,label]) =>
-        `<button data-page="${k}" class="${isActive(k)?'on':''}">${label}</button>`).join("");
-      host.querySelectorAll("button").forEach(b => b.onclick = () => go(b.dataset.page));
-    } else {
-      host.innerHTML = `<button class="on">イベントを探す</button>`;
-    }
+    const tabs = route.view === "organizer" ? ORG_TABS : PART_TABS;
+    const active = route.view === "organizer" ? orgActive : partActive;
+    host.innerHTML = tabs.map(([k,label]) =>
+      `<button data-page="${k}" class="${active(k)?'on':''}">${label}</button>`).join("");
+    host.querySelectorAll("button").forEach(b => b.onclick = () => go(b.dataset.page));
   }
-  const isActive = (k) =>
+  const orgActive = (k) =>
     route.page === k ||
-    (k==="events" && (route.page==="eventDetail" || route.page==="create")) ||
-    (k==="dashboard" && route.page==="dashboard");
+    (k==="events" && (route.page==="eventDetail" || route.page==="create"));
+  const partActive = (k) => k==="myticket"
+    ? route.page==="myticket"
+    : ["list","public","apply","complete"].includes(route.page);
 
   async function renderContent() {
     const el = document.getElementById("content");
@@ -831,9 +1522,12 @@ const App = (() => {
         else if (route.page === "events") await EventsList.render(el);
         else if (route.page === "eventDetail") await EventDetail.render(el, route.param);
         else if (route.page === "settings") await Settings.render(el);
-        else if (route.page === "create") renderCreatePlaceholder(el);
+        else if (route.page === "create") await Wizard.render(el, route.param);
       } else {
         if (route.page === "public") await Participant.renderPublic(el, route.param);
+        else if (route.page === "apply") await Participant.renderApply(el, route.param);
+        else if (route.page === "complete") await Participant.renderComplete(el, route.param, completeData);
+        else if (route.page === "myticket") { Participant.resetMyTicket(); await Participant.renderMyTicket(el); }
         else await Participant.renderList(el);
       }
     } catch (e) {
@@ -843,20 +1537,13 @@ const App = (() => {
     }
   }
 
-  function renderCreatePlaceholder(el) {
-    el.innerHTML = `
-      <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button>
-        <h2>イベントを作成</h2></div>
-      <div class="note"><b>作成・編集ウィザード（S-3 / 5ステップ）は次スライスで実装します。</b><br>
-        1.基本情報 → 2.会場 → 3.詳細 → 4.申込 → 5.設定。ステップ1保存で下書きを新規作成（F-69〜F-74）。</div>`;
-    el.querySelector("#back").onclick = () => go("events");
-  }
-
   // 公開API（各モジュールから遷移に使う）
   function go(page, param=null) { route = { ...route, page, param }; render(); }
   function openEvent(id) { route = { view:"organizer", page:"eventDetail", param:id }; render(); }
-  function openCreate() { route = { view:"organizer", page:"create", param:null }; render(); }
+  function openCreate(id=null) { route = { view:"organizer", page:"create", param:id }; render(); }
   function openPublic(id) { route = { view:"participant", page:"public", param:id }; render(); }
+  function openApply(id) { route = { view:"participant", page:"apply", param:id }; render(); }
+  function openComplete(id, data) { completeData = data; route = { view:"participant", page:"complete", param:id }; render(); }
   function refresh() { renderContent(); } // データ変更後に現在ページを再描画
   function setView(view) {
     route = view === "organizer"
@@ -875,11 +1562,12 @@ const App = (() => {
       b.onclick = () => setView(b.dataset.role));
   }
 
-  return { go, openEvent, openCreate, openPublic, refresh, setView, wire, render };
+  return { go, openEvent, openCreate, openPublic, openApply, openComplete,
+           refresh, setView, wire, render };
 })();
 
 
-/* ===== [14] 起動 ===== */
+// ===== [14] 起動 =====
 (async function boot() {
   try {
     App.wire();
