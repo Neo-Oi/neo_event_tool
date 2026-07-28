@@ -4172,13 +4172,16 @@ const EventsList = (() => {
     const tasksByEv = groupBy(tasks, "eventId");
     const reads = Ops.readMap(readRows);
 
-    // 区分（F-44 表）
+    // 区分（F-44 表）。「これから」は開催日 ≧ 今日の**日単位**判定——
+    // 開始時刻との比較にすると、開催当日の開始時刻を過ぎた瞬間（開催中！）に
+    // 「終了・中止」へ落ちてしまう
+    const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
     const groups = { undated:[], upcoming:[], past:[] };
     for (const e of events) {
       const started = e.startAt ? new Date(e.startAt).getTime() : null;
       if (started == null && e.status !== "cancelled") groups.undated.push(e);
       else if (e.status === "cancelled") groups.past.push(e);
-      else if (started < now) groups.past.push(e);
+      else if (started < todayStart.getTime()) groups.past.push(e);
       else groups.upcoming.push(e); // 開催日 ≧ 今日（中止を除く）
     }
     groups.undated.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt)); // 作成日降順
