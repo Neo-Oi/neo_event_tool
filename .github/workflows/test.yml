@@ -29,10 +29,13 @@ jobs:
 
       # CDN の URL が実在することを確認する。過去に 404 のパスを書いて
       # QR 生成が動かなかったため（引き継ぎ書 7-10）。
+      # 抽出は空白・タグ終端でも打ち切ること。[^"]+ だけだと HTML コメント内の
+      # URL に続く日本語（index.html の再取得メモ）まで拾い、curl が
+      # ホスト解決に失敗して bash -e でステップごと落ちる（実際に3コミット落ちた）。
       - name: CDN の URL が実在するか
         run: |
           set -e
-          urls=$(grep -oE 'https://cdn\.jsdelivr\.net/npm/[^"]+' index.html | sort -u)
+          urls=$(grep -oE 'https://cdn\.jsdelivr\.net/npm/[^"<> ]+' index.html | sort -u)
           if [ -z "$urls" ]; then echo "::error::CDN URL が見つかりません"; exit 1; fi
           for u in $urls; do
             code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$u")
