@@ -46,7 +46,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   const nonEmpty = (l) => { if (!content.innerHTML || content.innerHTML.length < 20) throw new Error(l + " が空"); };
   const clickTab = (i) => { content.querySelectorAll("#subtabs button")[i].click(); };
 
-  await step("DB open (v2)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); if (!M.DB.db().objectStoreNames.contains("messages")) throw new Error("messagesストアなし"); if (!M.DB.db().objectStoreNames.contains("tasks")) throw new Error("tasksストアなし"); });
+  await step("DB open (v3)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().version !== 3) throw new Error("バージョンが3でない: " + M.DB.db().version); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); for (const s of ["events","persons","applications","savedTokens","messages","tasks","readStates"]) if (!M.DB.db().objectStoreNames.contains(s)) throw new Error(s + "ストアなし"); });
   await step("Seed.load", async () => { await M.Seed.load(); });
   await step("Seed件数（チケット廃止後）", async () => {
     const [ev, ps, ap, sv, msg, tk] = await Promise.all([
@@ -113,8 +113,32 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
   await step("EventDetail CSV出力（申込枠列なし）", async () => { content.querySelector("#csvBtn").click(); await wait(20); });
 
+  // 未読スレッド（readStates / v3）
+  await step("未読: 未読の投稿がカードに出る", async () => {
+    await M.EventsList.render(content); await wait(40);
+    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_public");
+    if (!card.textContent.includes("未読のスレッド投稿 2件")) throw new Error("未読が出ない: " + card.textContent);
+    if (!card.className.includes("unread")) throw new Error("未読の見た目になっていない");
+  });
+  await step("未読: サブタブにバッジが出る", async () => {
+    await M.EventDetail.render(content, "ev_public"); await wait(40);
+    const dot = content.querySelector('#subtabs [data-tab="thread"] .tabdot');
+    if (!dot || dot.textContent !== "2") throw new Error("サブタブの未読バッジが不正");
+  });
+
   // 運営スレッド（実データで永続）
-  await step("運営スレッド 表示", async () => { clickTab(1); await wait(20); if (!content.querySelector("#opSend")) throw new Error("送信ボタンなし"); if (content.querySelectorAll(".bubble").length !== 2) throw new Error("シードのスレッド2件が出ない"); });
+  await step("運営スレッド 表示", async () => { clickTab(1); await wait(40); if (!content.querySelector("#opSend")) throw new Error("送信ボタンなし"); if (content.querySelectorAll(".bubble").length !== 2) throw new Error("シードのスレッド2件が出ない"); });
+  await step("未読: 開いたら既読になり、バッジが消える", async () => {
+    if (content.querySelector('#subtabs [data-tab="thread"] .tabdot')) throw new Error("バッジが消えない");
+    const r = await M.Repo.readStates.get("ev_public:thread");
+    if (!r || !r.lastReadAt) throw new Error("既読位置が保存されない");
+    await M.EventsList.render(content); await wait(40);
+    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_public");
+    if (card.textContent.includes("未読のスレッド投稿")) throw new Error("一覧でも未読が消えるはず");
+    // 後続のスレッドテストのため、詳細＋スレッドタブに戻しておく
+    await M.EventDetail.render(content, "ev_public"); await wait(40);
+    clickTab(1); await wait(40);
+  });
   await step("運営スレッド 送信で永続", async () => {
     content.querySelector("#opAuthor").value = "運営D";
     content.querySelector("#opBody").value = "リハーサルは16時からです。";

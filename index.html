@@ -127,6 +127,8 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:16px 0}
 .subtabs button{background:transparent;border:0;padding:10px 14px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
 .subtabs button.on{color:var(--blue);border-bottom-color:var(--blue)}
+.subtabs .tabdot{display:inline-block;margin-left:6px;background:var(--blue);color:#fff;
+  border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;line-height:1.5;vertical-align:middle}
 
 /* 状況固定表示（F-76） */
 .statusbar h2{font-size:19px;margin-bottom:4px}
@@ -182,7 +184,7 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 /* イベント一覧のカード（S-2 / F-79） */
 .grouphead{font-size:12px;font-weight:700;color:var(--muted);margin:18px 0 8px}
 .grouphead:first-of-type{margin-top:0}
-.evgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.evgrid{display:flex;flex-direction:column;gap:10px}
 .evcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   box-shadow:var(--shadow);padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:9px}
 .evcard:hover{border-color:#bcd0fb;box-shadow:0 2px 6px rgba(20,40,80,.12)}
@@ -190,7 +192,7 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .evcard .badges{display:flex;gap:6px;flex-wrap:wrap}
 .evcard .ttl{font-size:15px;font-weight:700;line-height:1.4;word-break:break-word}
 .evcard .meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px}
-.evcard .bars{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.evcard .bars{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:2px}
 .evcard .bl{display:flex;align-items:baseline;gap:7px;font-size:12px;margin-bottom:3px}
 .evcard .bl>span:first-child{color:var(--muted);font-weight:600;width:30px;flex:none}
 .evcard .bl b{font-size:13px}
@@ -206,6 +208,8 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .evcard .fl.warn{background:#fff2df;color:var(--warn)}
 .evcard .fl.ok{background:#e6f5ec;color:var(--ok)}
 .evcard .fl.mute{background:#eef0f3;color:var(--draft)}
+.evcard .fl.new{background:var(--blue);color:#fff}
+.evcard.unread{border-left:3px solid var(--blue)}
 
 /* 参加者名簿（横断 / F-b） */
 .hist{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:13px;flex-wrap:wrap}
@@ -411,6 +415,19 @@ const Util = (() => {
     const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + "T00:00:00") : new Date(iso);
     return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
   };
+  /* 開催日時は開始と終了の両方を出す。同じ日なら終了は時刻だけにする（F-46b）。
+     主催者側・参加者側で同じ表記にするため、ここに集約する。 */
+  const fmtRange = (startAt, endAt) => {
+    if (!startAt) return "日程未定";
+    const s = fmtDateTime(startAt);
+    if (!endAt) return s;
+    const a = new Date(startAt), b = new Date(endAt);
+    const sameDay = a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    return sameDay ? `${s} 〜 ${pad(b.getHours())}:${pad(b.getMinutes())}`
+                   : `${s} 〜 ${fmtDateTime(endAt)}`;
+  };
+
   // 申込締切は日付のみ。当日 23:59:59 まで受付（F-45）
   const deadlineEnd = (dateStr) => {
     if (!dateStr) return null;
@@ -468,7 +485,7 @@ const Util = (() => {
   };
 
   return { esc, randHex, uid, newToken, normalize, toKatakana,
-           fmtDateTime, fmtDate, deadlineEnd, dayStart, weekStartMonday, daysBetween,
+           fmtDateTime, fmtDate, fmtRange, deadlineEnd, dayStart, weekStartMonday, daysBetween,
            csvCell, buildCsv, downloadText, copy, loadScript };
 })();
 
@@ -476,7 +493,7 @@ const Util = (() => {
 // ===== [2] DB（IndexedDB / Promise ラップ / onupgradeneeded） =====
 const DB = (() => {
   const NAME = "neo_event_tool";
-  const VERSION = 2; // v2: チケット廃止（ticketTypes除去・定員はevents）＋運営用 messages/tasks 追加
+  const VERSION = 3; // v3: 既読位置 readStates を追加（v2: チケット廃止＋運営用 messages/tasks）
   let _db = null;
 
   function open() {
@@ -516,7 +533,13 @@ const DB = (() => {
           s.createIndex("eventId_channel", ["eventId", "channel"]);
         }
         if (!db.objectStoreNames.contains("tasks")) {
-          const s = db.createObjectStore("tasks", { keyPath: "id" }); // 運営タスク（次スライスで可視化）
+          const s = db.createObjectStore("tasks", { keyPath: "id" }); // 運営タスク
+          s.createIndex("eventId", "eventId");
+        }
+        // 既読位置（v3）。key は `${eventId}:${channel}`。未読件数はこれと messages から都度算出し、
+        // 「未読かどうか」自体は保存しない（時期を保存しないのと同じ考え方 / 4-3）
+        if (!db.objectStoreNames.contains("readStates")) {
+          const s = db.createObjectStore("readStates", { keyPath: "key" });
           s.createIndex("eventId", "eventId");
         }
       };
@@ -589,6 +612,11 @@ const Repo = (() => {
       byEvent: (eventId) => DB.getAllByIndex("tasks", "eventId", eventId),
       put: (t) => DB.put("tasks", t),
       remove: (id) => DB.remove("tasks", id),
+    },
+    readStates: {
+      all: () => DB.getAll("readStates"),
+      get: (key) => DB.get("readStates", key),
+      put: (r) => DB.put("readStates", r),
     },
     persons: {
       all: () => DB.getAll("persons"),
@@ -1079,9 +1107,11 @@ const EventsList = (() => {
       Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
     // 運営状況（未解決Q&A・未対応タスク・準備の進捗）もカードに出すので、まとめて読む
-    const [msgs, tasks] = await Promise.all([DB.getAll("messages"), DB.getAll("tasks")]);
+    const [msgs, tasks, readRows] = await Promise.all([
+      DB.getAll("messages"), DB.getAll("tasks"), Repo.readStates.all()]);
     const msgsByEv = groupBy(msgs, "eventId");
     const tasksByEv = groupBy(tasks, "eventId");
+    const reads = Ops.readMap(readRows);
 
     // 区分（F-44 表）
     const groups = { undated:[], upcoming:[], past:[] };
@@ -1105,7 +1135,7 @@ const EventsList = (() => {
       if (!arr.length) return "";
       return `<div class="grouphead">${label}（${arr.length}）</div>
         <div class="evgrid">${arr.map(e => cardFor(e,
-          appsByEv[e.id]||[], msgsByEv[e.id]||[], tasksByEv[e.id]||[])).join("")}</div>`;
+          appsByEv[e.id]||[], msgsByEv[e.id]||[], tasksByEv[e.id]||[], reads)).join("")}</div>`;
     }).join("");
 
     const anyOn = order.length > 0;
@@ -1134,7 +1164,7 @@ const EventsList = (() => {
   /* イベントカード（S-2 / F-79）。1行のテーブルでは運営の状況が見えないため、
      カードにして「申込・残席」と「準備の進み具合」を並べて出す。
      準備の進捗は運営タスク（E-2）の完了率をそのまま使う。 */
-  function cardFor(e, apps, msgs, tasks) {
+  function cardFor(e, apps, msgs, tasks, reads) {
     const cap = Domain.capacity(e), used = Domain.usedSeats(apps);
     const rem = Domain.remaining(e, apps);
     const t = Domain.timing(e);
@@ -1151,9 +1181,11 @@ const EventsList = (() => {
     const ts = Domain.taskSummary(tasks);
     const openQa = msgs.filter(m => m.channel === "qa" && !m.resolved).length;
     const todo = ts.by.todo + ts.by.doing;
+    const unread = Ops.unreadOf(msgs, "thread", reads, e.id);
 
-    // 要対応の見出し。終了・中止したイベントでは出さない
+    // 要対応の見出し。終了・中止したイベントでは出さない（未読だけは終了後も出す）
     const flags = [];
+    if (unread) flags.push(`<span class="fl new">💬 未読のスレッド投稿 ${unread}件</span>`);
     if (!done) {
       if (ts.overdue) flags.push(`<span class="fl danger">⚠ 期限超過 ${ts.overdue}</span>`);
       if (todo)       flags.push(`<span class="fl warn">未対応タスク ${todo}</span>`);
@@ -1163,11 +1195,11 @@ const EventsList = (() => {
     }
 
     const seatPct = cap ? Math.min(100, Math.round(used / cap * 100)) : 0;
-    return `<div class="evcard ${done?"done":""}" data-ev="${e.id}">
+    return `<div class="evcard ${done?"done":""} ${unread?"unread":""}" data-ev="${e.id}">
       <div class="badges">${badges.join(" ")}</div>
       <div class="ttl">${Util.esc(e.title)}</div>
       <div class="meta">
-        <span>🗓 ${e.startAt ? Util.fmtDateTime(e.startAt) : "日程未定"}</span>
+        <span>🗓 ${Util.fmtRange(e.startAt, e.endAt)}</span>
         <span>📍 ${Util.esc(e.venueName) || "—"}</span>
       </div>
       <div class="bars">
@@ -1212,7 +1244,7 @@ const EventDetail = (() => {
           ${ev.visibility==="limited"&&ev.status!=="cancelled"?'<span class="badge limited">限定公開</span>':""}
         </div>
         <div class="meta">
-          <span>🗓 <b>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}</b></span>
+          <span>🗓 <b>${Util.fmtRange(ev.startAt, ev.endAt)}</b></span>
           <span>📍 <b>${Util.esc(ev.venueName)||"—"}</b></span>
           <span>👥 申込 <b>${used}</b>／${cap||"—"}</span>
           <span>🪑 残席 <b>${cap?rem:"—"}</b></span>
@@ -1221,7 +1253,8 @@ const EventDetail = (() => {
       </div>
       <div class="subtabs" id="subtabs">
         <button data-tab="apply" class="${tab==='apply'?'on':''}">申込</button>
-        <button data-tab="thread" class="${tab==='thread'?'on':''}">運営スレッド</button>
+        <button data-tab="thread" class="${tab==='thread'?'on':''}">運営スレッド${
+          ctx.unread ? `<span class="tabdot">${ctx.unread}</span>` : ""}</button>
         <button data-tab="qa" class="${tab==='qa'?'on':''}">運営Q&amp;A</button>
         <button data-tab="tasks" class="${tab==='tasks'?'on':''}">運営タスク</button>
         <button data-tab="notice" class="${tab==='notice'?'on':''}">お知らせ</button>
@@ -1236,7 +1269,7 @@ const EventDetail = (() => {
 
     const pane = el.querySelector("#subpane");
     if (tab === "apply") renderApply(pane);
-    else if (tab === "thread") Ops.renderThread(pane, ev.id);
+    else if (tab === "thread") Ops.renderThread(pane, ev.id, clearUnread);
     else if (tab === "qa") Ops.renderQA(pane, ev.id);
     else if (tab === "tasks") Tasks.render(pane, ev.id, refreshTaskChip);
     else if (tab === "notice") Ops.renderNotice(pane, ev.id);
@@ -1251,6 +1284,14 @@ const EventDetail = (() => {
     return `✅ タスク <b>${s.done}/${s.total}</b>` +
       (s.overdue ? ` <span style="color:var(--danger);font-weight:700">超過${s.overdue}</span>` : "");
   }
+  // スレッドを開いたらサブタブの未読バッジを消す（ペインは再描画しない）
+  function clearUnread() {
+    if (!ctx || !ctx.unread) return;
+    ctx.unread = 0;
+    const b = ctx.el.querySelector('#subtabs [data-tab="thread"] .tabdot');
+    if (b) b.remove();
+  }
+
   // Tasks 側の更新後に固定表示だけを差し替える（サブペインは再描画しない）
   async function refreshTaskChip() {
     ctx.tasks = await Repo.tasks.byEvent(ctx.ev.id);
@@ -1567,6 +1608,10 @@ ${url}`;
     pane.innerHTML = `
       <div class="card pad">
         <div class="summary">
+          <div class="row"><span class="k">開催日時</span><span>${Util.fmtRange(ev.startAt, ev.endAt)}</span></div>
+          <div class="row"><span class="k">開催形式</span><span>${Domain.FORMAT[ev.eventFormat||"onsite"]}${
+            ev.onlineUrl ? `<span class="hint" style="display:inline;margin-left:8px">視聴URLあり（申込者のみに表示）</span>` : ""}</span></div>
+          <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"}</span></div>
           <div class="row"><span class="k">説明</span><span style="white-space:pre-wrap">${Util.esc(ev.description)||"—"}</span></div>
           <div class="row"><span class="k">対象者</span><span>${Util.esc(ev.targetAudience)||"—"}</span></div>
           <div class="row"><span class="k">住所</span><span>${Util.esc(ev.venueAddress)||"—"}</span></div>
@@ -1639,14 +1684,17 @@ ${url}`;
 
   // persons をまとめて読んでおく（申込一覧の氏名・メール表示に必要）
   async function render(el, eventId) {
-    const [ev, apps, personsArr, tasks] = await Promise.all([
+    const [ev, apps, personsArr, tasks, msgs, readRows] = await Promise.all([
       Repo.events.get(eventId),
       Repo.applications.byEvent(eventId),
       Repo.persons.all(),
-      Repo.tasks.byEvent(eventId)]);
+      Repo.tasks.byEvent(eventId),
+      Repo.messages.byEvent(eventId),
+      Repo.readStates.all()]);
     if (!ev) { el.innerHTML = `<div class="empty"><div class="big">イベントが見つかりません</div></div>`; return; }
     const _persons = {}; personsArr.forEach(p => _persons[p.id] = p);
-    ctx = { ev, apps, _persons, tasks, el };
+    const unread = Ops.unreadOf(msgs, "thread", Ops.readMap(readRows), eventId);
+    ctx = { ev, apps, _persons, tasks, unread, el };
     // 別のイベントを開いたら絞り込みは解除する（操作後の再描画では保持する）
     expandedId = null; tab = "apply"; query = "";
     paint();
@@ -1662,11 +1710,30 @@ ${url}`;
 const Ops = (() => {
   let lastAuthor = "運営"; // 直近の投稿者名を保持（セッション内）
 
+  /* 既読位置（v3 の readStates）。「未読かどうか」は保存せず、既読時刻と投稿時刻から
+     都度算出する。時期を保存しないのと同じ考え方（4-3）。
+     既読位置が無いイベントは「全部未読」になる——まだ一度も開いていない、が正しい。 */
+  const readKey = (eventId, channel) => `${eventId}:${channel}`;
+  const unreadOf = (msgs, channel, readStates, eventId) => {
+    const r = readStates[readKey(eventId, channel)];
+    const since = r ? new Date(r.lastReadAt).getTime() : 0;
+    return msgs.filter(m => m.channel === channel && new Date(m.createdAt).getTime() > since).length;
+  };
+  async function markRead(eventId, channel) {
+    await Repo.readStates.put({ key:readKey(eventId, channel), eventId, channel,
+      lastReadAt:new Date().toISOString() });
+  }
+  // 一覧など、複数イベントぶんをまとめて扱うとき用
+  const readMap = (rows) => { const m = {}; rows.forEach(r => m[r.key] = r); return m; };
+
   // ---- 運営スレッド（チャット） ----
-  async function renderThread(pane, eventId) {
+  async function renderThread(pane, eventId, onRead) {
     const all = await Repo.messages.byEvent(eventId);
     const msgs = all.filter(m => m.channel === "thread")
       .sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+    // 開いた時点で既読にする。以降の投稿だけが未読になる
+    await markRead(eventId, "thread");
+    onRead && onRead();
     pane.innerHTML = `
       <div class="ops-note">運営メンバー間のチャットです。この端末内に保存されます（別端末との同期はサーバ導入まで不可 / 4-1）。</div>
       <div class="chat" id="chatList">
@@ -1687,10 +1754,10 @@ const Ops = (() => {
       lastAuthor = author;
       await Repo.messages.put({ id:Util.uid(), eventId, channel:"thread",
         author, body, createdAt:new Date().toISOString() });
-      renderThread(pane, eventId);
+      renderThread(pane, eventId, onRead);
     };
     pane.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
-      await Repo.messages.remove(b.dataset.del); renderThread(pane, eventId);
+      await Repo.messages.remove(b.dataset.del); renderThread(pane, eventId, onRead);
     });
   }
   const bubble = (m) => `<div class="bubble">
@@ -1806,7 +1873,8 @@ const Ops = (() => {
   const noticesOf = (msgs) => msgs.filter(m => m.channel === "notice")
     .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  return { renderThread, renderQA, renderNotice, noticesOf };
+  return { renderThread, renderQA, renderNotice, noticesOf,
+           unreadOf, markRead, readMap, readKey };
 })();
 
 
@@ -2319,7 +2387,7 @@ const Participant = (() => {
         return `<div class="card pad clickable" data-ev="${e.id}" style="cursor:pointer;margin-bottom:12px">
           <div style="font-weight:700;font-size:16px">${Util.esc(e.title)}</div>
           <div style="color:var(--muted);margin-top:4px">
-            ${e.startAt?Util.fmtDateTime(e.startAt):"日程未定"}${e.venueName?" ／ "+Util.esc(e.venueName):""}</div>
+            ${Util.fmtRange(e.startAt, e.endAt)}${e.venueName?" ／ "+Util.esc(e.venueName):""}</div>
           <div style="margin-top:6px">残席 ${rem>0?rem:"満席"}</div>
         </div>`;
       }).join("")
@@ -2353,7 +2421,7 @@ const Participant = (() => {
         <h1>${Util.esc(ev.title)}</h1>
         ${ev.status==="cancelled" ? `<div class="banner" style="position:static;border-radius:8px">このイベントは中止されました</div>`:""}
         <div class="kv">
-          <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}〜${ev.endAt?Util.fmtDateTime(ev.endAt):""}</span></div>
+          <div class="row"><span class="k">開催日時</span><span>${Util.fmtRange(ev.startAt, ev.endAt)}</span></div>
           <div class="row"><span class="k">開催形式</span><span>${Domain.FORMAT[ev.eventFormat||"onsite"]}${
             (ev.eventFormat && ev.eventFormat !== "onsite")
               ? '<span class="hint" style="display:inline;margin-left:8px">視聴URLは申込後にマイ申込で確認できます</span>' : ""}</span></div>
@@ -2645,7 +2713,7 @@ const Participant = (() => {
       ${items.map(it => `
         <div class="card pad ticket-item" data-token="${it.token}" style="margin-bottom:12px">
           <div style="font-weight:700;font-size:15px">${Util.esc(it.ev.title)}</div>
-          <div style="color:var(--muted);margin-top:4px">${it.ev.startAt?Util.fmtDateTime(it.ev.startAt):"日程未定"}</div>
+          <div style="color:var(--muted);margin-top:4px">${Util.fmtRange(it.ev.startAt, it.ev.endAt)}</div>
           <div style="margin-top:6px"><span class="badge ${cls[it.app.status]}">${label[it.app.status]}</span></div>
         </div>`).join("")}`;
     el.querySelectorAll(".ticket-item").forEach(c =>
@@ -2672,7 +2740,7 @@ const Participant = (() => {
         ${noticeBlock(notices)}
         ${onlineBlock(ev, cancelled)}
         <div class="summary" style="margin:14px 0">
-          <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}</span></div>
+          <div class="row"><span class="k">開催日時</span><span>${Util.fmtRange(ev.startAt, ev.endAt)}</span></div>
           <div class="row"><span class="k">開催形式</span><span>${Domain.FORMAT[ev.eventFormat||"onsite"]}</span></div>
           <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"} ${mapLink}</span></div>
           <div class="row"><span class="k">問い合わせ</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
