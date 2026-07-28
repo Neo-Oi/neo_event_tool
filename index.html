@@ -4668,7 +4668,7 @@ const EventDetail = (() => {
   const shareUrl = (ev) => `${location.origin}${location.pathname}?event=${ev.id}`;
   const postText = (ev, url) =>
 `【${ev.title}】を開催します！
-🗓 ${ev.startAt ? Util.fmtDateTime(ev.startAt) : "日程調整中"}
+🗓 ${ev.startAt ? Util.fmtRange(ev.startAt, ev.endAt) : "日程調整中"}
 📍 ${ev.venueName || "会場調整中"}
 参加申込はこちら👇
 ${url}`;
