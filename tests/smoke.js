@@ -9,6 +9,9 @@ FDBKeyRange = FDBKeyRange.default || FDBKeyRange;
 
 const html = fs.readFileSync(require("path").join(__dirname, "..", "index.html"), "utf8");
 const scriptText = html.match(/<script>\s*"use strict";([\s\S]*)<\/script>/)[1];
+/* 冒頭にインライン化した外部ライブラリ（QR生成）。CDN から読まなくなったので、
+   テストでも本物を評価して生成経路を検証できる。 */
+const vendorText = html.match(/<script>\s*(\/\/-+[\s\S]*?)<\/script>/)[1];
 
 const errors = [];
 const vc = new VirtualConsole();
@@ -32,8 +35,9 @@ window.onerror = (msg) => { errors.push("window.onerror: " + msg); };
 const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
 (async () => {
+  window.eval(vendorText);                    // 先にライブラリを読み込む
   window.eval(scriptText +
-    "\n;window.__M={QR_LIB,QR_READ_LIB,App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,FB};");
+    "\n;window.__M={QR_READ_LIB,App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,FB};");
   await wait(300);
 
   const M = window.__M;
@@ -460,20 +464,16 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.EventDetail.render(content, "ev_public"); await wait(30);
   });
 
-  // 受付用QR（F-95）。CDN は取りに行けないので、ライブラリを差し込んで結線だけ検証する
-  await step("QR 受付用QRがSVGとして描画される", async () => {
-    /* Util.loadScript は window[globalName] が既にあれば取得をスキップする。
-       その性質を使って、本物と同じ形の最小スタブを置いてから描画経路を通す。
-       404 のURLを書いていた不具合を、ここで検出できるようにするための試験。 */
-    window.qrcode = (typeNumber, ecl) => {
-      if (typeNumber !== 0 || ecl !== "M") throw new Error("引数が想定と違う: " + typeNumber + "," + ecl);
-      let data = null;
-      return {
-        addData: (s) => { data = s; },
-        make: () => { if (!data) throw new Error("addData が呼ばれていない"); },
-        createSvgTag: (cell, margin) => `<svg data-cell="${cell}" data-margin="${margin}" data-token="${data}"></svg>`,
-      };
-    };
+  // 受付用QR（F-95）。ライブラリをインライン化したので、本物で生成を検証する
+  await step("QR ライブラリがインライン化され、CDNに依存しない", async () => {
+    if (typeof window.qrcode !== "function") throw new Error("qrcode がグローバルに無い");
+    if (/qrcode-generator/.test(M.QR_READ_LIB || "")) throw new Error("生成側がCDN定数に残っている");
+    // 実行されるスクリプト内の参照だけを見る（HTMLコメントの再取得先メモは対象外）
+    const cdn = [...scriptText.matchAll(/https:\/\/cdn\.jsdelivr\.net\/npm\/[^"]+/g)].map(x => x[0]);
+    if (cdn.some(u => /qrcode-generator/.test(u))) throw new Error("生成側のCDN参照が残っている: " + cdn);
+    if (cdn.length !== 1) throw new Error("実行時のCDN参照は読取側の1件だけのはず: " + cdn.join(", "));
+  });
+  await step("QR 本物のライブラリでSVGが生成される", async () => {
     const { token, app } = await savedTokenFor("ev_public");
     M.Participant.selectTicket(token);
     await M.Participant.renderMyTicket(content); await wait(40);
@@ -481,31 +481,25 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!btn) throw new Error("QR表示ボタンがない");
     btn.click(); await wait(80);
     const svg = content.querySelector("#qrHost svg");
-    if (!svg) throw new Error("SVGが描画されない: " + content.querySelector("#qrHost").innerHTML.slice(0, 120));
-    if (svg.dataset.token !== app.token) throw new Error("トークンが渡っていない");
-    delete window.qrcode;
+    if (!svg) throw new Error("SVGが描画されない: " + content.querySelector("#qrHost").innerHTML.slice(0, 140));
+    // 32文字のトークンなら 29x29 モジュール。セル5pxなので 145px 前後になる
+    const w = +(svg.getAttribute("width") || "").replace(/[^0-9]/g, "");
+    if (!(w >= 100 && w <= 220)) throw new Error("QRの寸法が想定外: " + svg.getAttribute("width"));
+    if (svg.querySelectorAll("path, rect").length === 0) throw new Error("QRの中身が空");
     M.Participant.resetMyTicket();
   });
   await step("QR 生成に失敗したら氏名検索を案内する", async () => {
-    /* jsdom は外部スクリプトを取得しないため、CDN 不達そのものは再現できない
-       （onload も onerror も発火せず Promise が解決しない）。
-       try/catch は読み込み失敗と生成失敗の両方を受けるので、
-       生成時に例外を投げるスタブでフォールバック経路を検証する。 */
+    // 例外を投げるスタブに差し替えて、フォールバック経路を通す
+    const real = window.qrcode;
     window.qrcode = () => { throw new Error("生成失敗のシミュレーション"); };
     const { token } = await savedTokenFor("ev_public");
     M.Participant.selectTicket(token);
     await M.Participant.renderMyTicket(content); await wait(40);
-    content.querySelector("#qrShow").click(); await wait(120);
-    const html = content.querySelector("#qrHost").innerHTML;
-    if (!html.includes("氏名で検索")) throw new Error("フォールバックの案内が出ない: " + html.slice(0, 120));
-    delete window.qrcode;
+    content.querySelector("#qrShow").click(); await wait(80);
+    const html2 = content.querySelector("#qrHost").innerHTML;
+    if (!html2.includes("氏名で検索")) throw new Error("フォールバックの案内が出ない: " + html2.slice(0, 140));
+    window.qrcode = real;
     M.Participant.resetMyTicket();
-  });
-  await step("QR CDNのURLが定数に集約されている", async () => {
-    for (const [name, url] of [["QR_LIB", M.QR_LIB], ["QR_READ_LIB", M.QR_READ_LIB]]) {
-      if (!/^https:\/\/cdn\.jsdelivr\.net\/npm\/[^@]+@\d+\.\d+\.\d+\//.test(url || ""))
-        throw new Error(name + " がバージョン固定のCDN URLでない: " + url);
-    }
   });
 
   // ファイル共有（E-3 / F-102）
