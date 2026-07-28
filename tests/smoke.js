@@ -117,6 +117,29 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!csv.includes("'=cmd")) throw new Error("buildCsv に反映されない: " + csv);
   });
 
+  await step("配色とフォントが会社サイト由来になっている", async () => {
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    // サイトで実際に使われている色
+    for (const c of ["#20272e", "#194bf4", "#dee5ed", "#eff2ff"])
+      if (!css.includes(c)) throw new Error("サイトの色が使われていない: " + c);
+    // 旧配色が残っていないこと
+    for (const c of ["#12294d", "#2563eb", "#e8f0fe", "#1f2733"])
+      if (css.includes(c)) throw new Error("旧配色が残っている: " + c);
+    // 状態を表す色は意味があるので変えない
+    for (const c of ["#137a4b", "#b26a00", "#c02828"])
+      if (!css.includes(c)) throw new Error("状態色が失われている: " + c);
+    // 書体
+    if (!/font-family:"Zen Kaku Gothic New"/.test(css)) throw new Error("本文書体が Zen Kaku Gothic New でない");
+    if (!css.includes('"Jost"')) throw new Error("Jost が使われていない");
+    // フォントは CDN から読む（ローカルファイルを作らない）
+    const link = html.match(/<link[^>]+href="https:\/\/fonts\.googleapis\.com\/css2[^"]*"[^>]*>/);
+    if (!link) throw new Error("Google Fonts の読み込みが無い");
+    if (!/family=Jost/.test(link[0]) || !/family=Zen\+Kaku\+Gothic\+New/.test(link[0]))
+      throw new Error("読み込む書体が足りない: " + link[0]);
+    // 読み込めなくても壊れないよう、フォールバックが指定されていること
+    if (!/Zen Kaku Gothic New",system-ui/.test(css)) throw new Error("フォールバックの指定が無い");
+  });
+
   await step("ヘッダーのロゴが会社サイトへのリンクになっている", async () => {
     const a = window.document.querySelector("header.appbar a.logo");
     if (!a) throw new Error("ロゴのリンクが無い");
@@ -131,6 +154,11 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     // ヘッダーの左端にあること（ロゴ → アプリ名の順）
     const kids = [...window.document.querySelector("header.appbar").children];
     if (kids.indexOf(a) !== 0) throw new Error("ロゴがヘッダー左端にない");
+    // 社名部分が白いロゴなので、白い地に載せると文字が消える（引き継ぎ書 7-13）
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const rule = css.match(/header\.appbar \.logo\{[^}]*\}/);
+    if (rule && /background:\s*#fff/.test(rule[0]))
+      throw new Error("ロゴを白地に載せている（社名が消える）: " + rule[0]);
     if (!kids[1] || !kids[1].classList.contains("brand")) throw new Error("ロゴの次がアプリ名でない");
   });
 

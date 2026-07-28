@@ -4,20 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1024">
 <title>イベント管理システム</title>
+<!-- 書体はサイトと同じものを Google Fonts から読む（CDN 参照は技術方針で許可されている）。
+     読み込めなかった場合は body の font-family がシステムフォントに落ちるので表示は壊れない。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
 <style>
 /* ===== [0] スタイル（インライン。青基調・濃紺ヘッダー） ===== */
+/* 配色は日本コムシンク株式会社サイト（https://comthink.co.jp/）から採った。
+   実際に使われている色: 本文 #20272e / アクセント #194bf4 / 罫線 #dee5ed /
+   淡い青 #eff2ff / グレー #949494・#727272。
+   状態を表す色（--ok / --warn / --danger）は意味を持つので変えていない。
+   ヒートマップの5段階は #dee5ed → #194bf4 の補間で算出した。 */
 :root{
-  --navy:#12294d; --navy-2:#1b3a6b; --blue:#2563eb; --blue-weak:#e8f0fe;
-  --ink:#1f2733; --muted:#6b7686; --line:#e2e6ee; --bg:#f4f6fb; --card:#fff;
-  --ok:#137a4b; --warn:#b26a00; --danger:#c02828; --draft:#6b7280;
-  --radius:10px; --shadow:0 1px 3px rgba(20,40,80,.08),0 4px 16px rgba(20,40,80,.06);
-  /* 申込ヒートマップの5段階（F-103）。最濃を --blue に合わせた系列。既存の色は変更しない */
-  --hm-0:#eef1f7; --hm-1:#cfe0fb; --hm-2:#93bbf7; --hm-3:#5590ef; --hm-4:#2563eb;
+  --navy:#20272e; --navy-2:#3b4147; --blue:#194bf4; --blue-weak:#eff2ff;
+  --ink:#20272e; --muted:#727272; --line:#dee5ed; --bg:#f4f6fa; --card:#fff;
+  --ok:#137a4b; --warn:#b26a00; --danger:#c02828; --draft:#949494;
+  --radius:10px; --shadow:0 1px 3px rgba(32,39,46,.08),0 4px 16px rgba(32,39,46,.06);
+  /* 申込ヒートマップの5段階（F-103）。--blue に向けた補間 */
+  --hm-0:#dee5ed; --hm-1:#b3c3ef; --hm-2:#7f9bf0; --hm-3:#4c73f2; --hm-4:#194bf4;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{font-family:system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
-  color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6;min-width:1024px}
+/* サイトと同じ書体。本文は Zen Kaku Gothic New、英数字の見出しは Jost。
+   読み込めなかった場合は従来のシステムフォントに落ちる */
+body{font-family:"Zen Kaku Gothic New",system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
+  color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6;min-width:1024px;
+  -webkit-font-smoothing:antialiased}
 button{font:inherit;cursor:pointer}
 a{color:var(--blue)}
 h1,h2,h3{margin:0}
@@ -25,11 +38,13 @@ h1,h2,h3{margin:0}
 /* ヘッダー */
 header.appbar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:16px;
   padding:0 20px;height:56px;position:sticky;top:0;z-index:20}
-/* 会社ロゴ（データURIで埋め込み）。ロゴ自体の配色が不明でも読めるよう白地に載せる */
-header.appbar .logo{display:flex;align-items:center;background:#fff;border-radius:6px;
-  padding:5px 9px;flex:none;line-height:0;transition:box-shadow .12s}
-header.appbar .logo:hover{box-shadow:0 0 0 2px rgba(255,255,255,.5)}
-header.appbar .logo img{height:20px;width:auto;display:block}
+/* 会社ロゴ（データURIで埋め込み）。
+   **このロゴは社名部分が白なので、濃色の地に直接置く。**
+   白地チップに載せると社名が消えて「NCT」だけになる（実際に一度そうなった / 引き継ぎ書 7-13）。 */
+header.appbar .logo{display:flex;align-items:center;flex:none;line-height:0;
+  padding:4px 6px;border-radius:6px;transition:background-color .12s}
+header.appbar .logo:hover{background:rgba(255,255,255,.12)}
+header.appbar .logo img{height:22px;width:auto;display:block}
 header.appbar .brand{font-weight:700;font-size:16px;letter-spacing:.02em}
 header.appbar .spacer{flex:1}
 header.appbar .role{display:flex;background:rgba(255,255,255,.12);border-radius:999px;padding:3px}
@@ -64,7 +79,8 @@ body[data-view="participant"] main{max-width:640px}
 /* 指標カード */
 .metric{padding:16px 18px}
 .metric .label{color:var(--muted);font-size:12px;font-weight:600}
-.metric .value{font-size:30px;font-weight:800;line-height:1.2;margin-top:4px}
+.metric .value{font-size:30px;font-weight:700;line-height:1.2;margin-top:4px;
+  font-family:"Jost","Zen Kaku Gothic New",system-ui,sans-serif;letter-spacing:.01em}
 .metric .value small{font-size:14px;font-weight:600;color:var(--muted)}
 .metric.attn .value{color:var(--warn)}
 
@@ -501,7 +517,8 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
   <!-- 会社ロゴ。**外部ファイルを参照しない**制約があるため、WebP をデータURIで埋め込んでいる
        （2.6KB / 483x37）。差し替えるときは
        https://comthink.co.jp/wp-content/themes/comthink_260319/img/logo.webp を取得し直して
-       base64 に変換する。濃紺ヘッダー上でロゴの色に依存せず読めるよう、白地に載せている。 -->
+       base64 に変換する。**社名部分が白いロゴなので、白い地の上には置かないこと。**
+       サイトには濃淡別のバリエーション（logo2.webp / ftr-logo.webp）もある。 -->
   <a class="logo" href="https://comthink.co.jp/" target="_blank" rel="noopener"
      title="日本コムシンク株式会社のサイトを開く">
     <img src="data:image/webp;base64,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" alt="日本コムシンク株式会社"></a>

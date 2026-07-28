@@ -66,10 +66,17 @@ if (/\b(localStorage|sessionStorage)\b/.test(code))
 
 // --- 単一HTMLの自己完結（外部ファイルを作らない） ---
 const body = html.replace(/<script>[\s\S]*<\/script>/, "");
-if (/<script[^>]+\bsrc\s*=/.test(body))
-  fail("<script src> が含まれています。JS はインラインにしてください（CDN は Util.loadScript で遅延読み込み）");
-if (/<link[^>]+\bhref\s*=/.test(body))
-  fail("<link href> が含まれています。CSS はインラインにしてください");
+/* 禁じたいのは「同梱すべきファイルを外に切り出すこと」。CDN 参照は技術方針で許可されている
+   ので、絶対URL（https://）は通し、相対パス＝ローカルファイルだけを弾く。
+   以前は <link href> を一律で落としていたため、Google Fonts の読み込みが通らなかった。 */
+const localRef = (tag, attr) => {
+  const re = new RegExp(`<${tag}[^>]+\\b${attr}\\s*=\\s*["']([^"']+)["']`, "gi");
+  return [...body.matchAll(re)].map(m => m[1]).filter(v => !/^https:\/\//.test(v));
+};
+for (const v of localRef("script", "src"))
+  fail(`<script src="${v}"> がローカルを参照しています。JS はインラインにしてください`);
+for (const v of localRef("link", "href"))
+  fail(`<link href="${v}"> がローカルを参照しています。CSS はインラインにしてください`);
 if (/<img[^>]+src\s*=\s*["'](?!data:)[^"']*\.(png|jpe?g|gif|svg|webp)/i.test(body))
   fail("画像ファイルを参照しています。インラインSVGかデータURIにしてください");
 
