@@ -66,7 +66,41 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
 
   await step("Dashboard.render", async () => { await M.Dashboard.render(content); nonEmpty("dashboard"); });
-  await step("EventsList.render", async () => { await M.EventsList.render(content); nonEmpty("events"); if (content.innerHTML.includes("申込枠")) throw new Error("申込枠の語が残存"); });
+  await step("EventsList.render（カード表示）", async () => {
+    await M.EventsList.render(content); nonEmpty("events");
+    if (content.innerHTML.includes("申込枠")) throw new Error("申込枠の語が残存");
+    if (!content.querySelectorAll(".evcard").length) throw new Error("カードが描画されない");
+    if (content.querySelector("table.list")) throw new Error("旧テーブル表示が残っている");
+  });
+  await step("EventsList カードに申込・準備の2本のバーが出る", async () => {
+    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_public");
+    if (!card) throw new Error("ev_public のカードがない");
+    if (card.querySelectorAll(".track .fill").length !== 2) throw new Error("バーが2本ない");
+    if (!card.querySelector(".fill.seats") || !card.querySelector(".fill.prep")) throw new Error("申込／準備のバーがない");
+    if (!card.textContent.includes("3")) throw new Error("申込数が出ない");
+  });
+  await step("EventsList カードに未対応タスク・未解決Q&A・期限超過が出る", async () => {
+    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_public");
+    const txt = card.textContent;
+    // シード: 未対応/処理中=4件、未解決Q&A=1件、期限超過=1件、完了2/8
+    if (!txt.includes("未対応タスク")) throw new Error("未対応タスクが出ない: " + txt);
+    if (!txt.includes("未解決Q&A")) throw new Error("未解決Q&Aが出ない: " + txt);
+    if (!txt.includes("期限超過")) throw new Error("期限超過が出ない: " + txt);
+    if (!txt.includes("2 / 8")) throw new Error("準備の進捗が出ない: " + txt);
+  });
+  await step("EventsList タスク未登録のイベントはその旨を出す", async () => {
+    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_before");
+    if (!card.textContent.includes("タスク未登録")) throw new Error("タスク未登録の表示がない");
+  });
+  await step("EventsList 終了・中止では要対応を出さない", async () => {
+    M.EventsList.render; // 終了・中止トグルをONにする
+    content.querySelectorAll(".toggles button")[2].click(); await wait(60);
+    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_cancel");
+    if (!card) throw new Error("中止イベントのカードがない");
+    if (card.textContent.includes("未対応タスク")) throw new Error("中止なのに要対応が出ている");
+    if (!card.className.includes("done")) throw new Error("終了扱いのスタイルになっていない");
+    content.querySelectorAll(".toggles button")[2].click(); await wait(60);
+  });
   await step("EventDetail.render(ev_public)", async () => { await M.EventDetail.render(content, "ev_public"); nonEmpty("detail"); });
   await step("申込一覧は4列（申込枠列なし）", async () => {
     const ths = content.querySelectorAll("#subpane thead th");

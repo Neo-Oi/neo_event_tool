@@ -179,6 +179,34 @@ tr.expand-row td{background:#f7f9ff;padding:0}
 details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-top:14px}
 .ticket-item{cursor:pointer}
 
+/* イベント一覧のカード（S-2 / F-79） */
+.grouphead{font-size:12px;font-weight:700;color:var(--muted);margin:18px 0 8px}
+.grouphead:first-of-type{margin-top:0}
+.evgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.evcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:9px}
+.evcard:hover{border-color:#bcd0fb;box-shadow:0 2px 6px rgba(20,40,80,.12)}
+.evcard.done{opacity:.72;background:#fbfcfe}
+.evcard .badges{display:flex;gap:6px;flex-wrap:wrap}
+.evcard .ttl{font-size:15px;font-weight:700;line-height:1.4;word-break:break-word}
+.evcard .meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+.evcard .bars{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.evcard .bl{display:flex;align-items:baseline;gap:7px;font-size:12px;margin-bottom:3px}
+.evcard .bl>span:first-child{color:var(--muted);font-weight:600;width:30px;flex:none}
+.evcard .bl b{font-size:13px}
+.evcard .bl .sub{color:var(--muted);margin-left:auto}
+.evcard .track{height:6px;background:#e9edf5;border-radius:999px;overflow:hidden}
+.evcard .fill{display:block;height:100%;border-radius:999px}
+.evcard .fill.seats{background:var(--blue)}
+.evcard .fill.seats.full{background:var(--danger)}
+.evcard .fill.prep{background:var(--ok)}
+.evcard .flags{display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:9px;margin-top:1px}
+.evcard .fl{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+.evcard .fl.danger{background:#fbe9e9;color:var(--danger)}
+.evcard .fl.warn{background:#fff2df;color:var(--warn)}
+.evcard .fl.ok{background:#e6f5ec;color:var(--ok)}
+.evcard .fl.mute{background:#eef0f3;color:var(--draft)}
+
 /* 参加者名簿（横断 / F-b） */
 .hist{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:13px;flex-wrap:wrap}
 .hist a{cursor:pointer;font-weight:600}
@@ -1050,6 +1078,10 @@ const EventsList = (() => {
     const [events, apps] = await Promise.all([
       Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
+    // 運営状況（未解決Q&A・未対応タスク・準備の進捗）もカードに出すので、まとめて読む
+    const [msgs, tasks] = await Promise.all([DB.getAll("messages"), DB.getAll("tasks")]);
+    const msgsByEv = groupBy(msgs, "eventId");
+    const tasksByEv = groupBy(tasks, "eventId");
 
     // 区分（F-44 表）
     const groups = { undated:[], upcoming:[], past:[] };
@@ -1068,11 +1100,12 @@ const EventsList = (() => {
       ["undated","日程未定"], ["upcoming","これから"], ["past","終了・中止"]
     ].filter(([k]) => state[k]);
 
-    const rowsHtml = order.map(([k,label]) => {
+    const cardsHtml = order.map(([k,label]) => {
       const arr = groups[k];
       if (!arr.length) return "";
-      return `<tr class="grouprow"><td colspan="5">${label}（${arr.length}）</td></tr>` +
-        arr.map(e => rowFor(e, appsByEv[e.id]||[])).join("");
+      return `<div class="grouphead">${label}（${arr.length}）</div>
+        <div class="evgrid">${arr.map(e => cardFor(e,
+          appsByEv[e.id]||[], msgsByEv[e.id]||[], tasksByEv[e.id]||[])).join("")}</div>`;
     }).join("");
 
     const anyOn = order.length > 0;
@@ -1084,36 +1117,73 @@ const EventsList = (() => {
           ${toggleBtn("upcoming","これから")}
           ${toggleBtn("past","終了・中止")}
         </div></div>
-      <div class="card">
-        ${anyOn && rowsHtml ? `<table class="list">
-          <thead><tr><th>イベント名</th><th>状態</th><th>開催日時</th><th>会場</th><th>申込／定員</th></tr></thead>
-          <tbody>${rowsHtml}</tbody></table>`
-          : `<div class="empty"><div class="big">表示するイベントがありません</div>
-             ${!anyOn?"時期トグルをONにしてください。":"設定画面からシードデータを投入できます。"}</div>`}
-      </div>`;
+      ${anyOn && cardsHtml ? cardsHtml
+        : `<div class="card"><div class="empty"><div class="big">表示するイベントがありません</div>
+           ${!anyOn?"時期トグルをONにしてください。":"設定画面からシードデータを投入できます。"}</div></div>`}`;
 
     el.querySelector("#newEvent").onclick = () => App.openCreate();
     el.querySelectorAll(".toggles button").forEach(b =>
       b.onclick = () => { state[b.dataset.k] = !state[b.dataset.k]; render(el); });
-    el.querySelectorAll("tr[data-ev]").forEach(tr =>
-      tr.onclick = () => App.openEvent(tr.dataset.ev));
+    el.querySelectorAll("[data-ev]").forEach(c =>
+      c.onclick = () => App.openEvent(c.dataset.ev));
   }
 
   const toggleBtn = (k,label) =>
     `<button class="${state[k]?'on':''}" data-k="${k}">${label}</button>`;
 
-  function rowFor(e, apps) {
+  /* イベントカード（S-2 / F-79）。1行のテーブルでは運営の状況が見えないため、
+     カードにして「申込・残席」と「準備の進み具合」を並べて出す。
+     準備の進捗は運営タスク（E-2）の完了率をそのまま使う。 */
+  function cardFor(e, apps, msgs, tasks) {
     const cap = Domain.capacity(e), used = Domain.usedSeats(apps);
-    const badges = [`<span class="badge ${e.status}">${Domain.STATUS[e.status]}</span>`];
+    const rem = Domain.remaining(e, apps);
+    const t = Domain.timing(e);
+    const done = e.status === "cancelled" || t.phase === "held";
+
+    const badges = [`<span class="badge ${e.status}">${Domain.STATUS[e.status]}</span>`,
+      `<span class="badge phase ${t.phase==="held"?"ended":t.phase==="before"?"before":""}">${t.label}</span>`];
     if (e.visibility === "limited" && e.status !== "cancelled")
       badges.push(`<span class="badge limited">限定公開</span>`);
-    return `<tr class="clickable" data-ev="${e.id}">
-      <td>${Util.esc(e.title)}</td>
-      <td>${badges.join(" ")}</td>
-      <td>${e.startAt ? Util.fmtDateTime(e.startAt) : '<span style="color:var(--muted)">日程未定</span>'}</td>
-      <td>${Util.esc(e.venueName) || '<span style="color:var(--muted)">—</span>'}</td>
-      <td>${used}／${cap||"—"}</td>
-    </tr>`;
+    if (!done && cap && rem <= 0) badges.push(`<span class="badge phase full">満席</span>`);
+    else if (!done && Domain.nearlyFull(e, apps)) badges.push(`<span class="badge limited">定員間近</span>`);
+
+    // 準備の進捗＝運営タスクの完了率（E-2）
+    const ts = Domain.taskSummary(tasks);
+    const openQa = msgs.filter(m => m.channel === "qa" && !m.resolved).length;
+    const todo = ts.by.todo + ts.by.doing;
+
+    // 要対応の見出し。終了・中止したイベントでは出さない
+    const flags = [];
+    if (!done) {
+      if (ts.overdue) flags.push(`<span class="fl danger">⚠ 期限超過 ${ts.overdue}</span>`);
+      if (todo)       flags.push(`<span class="fl warn">未対応タスク ${todo}</span>`);
+      if (openQa)     flags.push(`<span class="fl warn">未解決Q&amp;A ${openQa}</span>`);
+      if (!flags.length && ts.total) flags.push(`<span class="fl ok">準備は順調</span>`);
+      if (!ts.total)  flags.push(`<span class="fl mute">タスク未登録</span>`);
+    }
+
+    const seatPct = cap ? Math.min(100, Math.round(used / cap * 100)) : 0;
+    return `<div class="evcard ${done?"done":""}" data-ev="${e.id}">
+      <div class="badges">${badges.join(" ")}</div>
+      <div class="ttl">${Util.esc(e.title)}</div>
+      <div class="meta">
+        <span>🗓 ${e.startAt ? Util.fmtDateTime(e.startAt) : "日程未定"}</span>
+        <span>📍 ${Util.esc(e.venueName) || "—"}</span>
+      </div>
+      <div class="bars">
+        <div class="bar">
+          <div class="bl"><span>申込</span><b>${used}${cap?` / ${cap}`:""}</b>${
+            cap ? `<span class="sub">残${rem > 0 ? rem : 0}</span>` : `<span class="sub">定員未設定</span>`}</div>
+          <div class="track"><span class="fill seats ${cap&&rem<=0?"full":""}" style="width:${seatPct}%"></span></div>
+        </div>
+        <div class="bar">
+          <div class="bl"><span>準備</span><b>${ts.total ? `${ts.done} / ${ts.total}` : "—"}</b>${
+            ts.total ? `<span class="sub">${ts.rate}%</span>` : `<span class="sub">タスクなし</span>`}</div>
+          <div class="track"><span class="fill prep" style="width:${ts.rate}%"></span></div>
+        </div>
+      </div>
+      ${flags.length ? `<div class="flags">${flags.join("")}</div>` : ""}
+    </div>`;
   }
   return { render };
 })();
