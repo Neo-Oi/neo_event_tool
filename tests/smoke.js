@@ -53,11 +53,34 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
       M.Repo.events.all(), M.Repo.persons.all(), M.Repo.applications.all(),
       M.Repo.savedTokens.all(), M.DB.getAll("messages"), M.DB.getAll("tasks")]);
     const c = `ev=${ev.length} ps=${ps.length} ap=${ap.length} sv=${sv.length} msg=${msg.length} task=${tk.length}`;
-    if (ev.length !== 10 || sv.length !== 3 || msg.length !== 12 || tk.length !== 17) throw new Error("件数不正: " + c);
+    if (ev.length !== 40 || ps.length !== 24 || sv.length !== 3 || msg.length !== 12 || tk.length !== 17) throw new Error("件数不正: " + c);
+    if (ap.length < 200) throw new Error("過去アーカイブの申込が少ない: " + ap.length);
     if (ap.some(a => "ticketTypeId" in a)) throw new Error("申込にticketTypeIdが残存");
     if (!ev.every(e => "capacity" in e)) throw new Error("イベントにcapacityがない");
     results.push(["   ", c]);
   });
+  await step("過去アーカイブが蓄積されている（F-33b）", async () => {
+    const now = Date.now();
+    const evs = await M.Repo.events.all();
+    const past = evs.filter(e => e.endAt && new Date(e.endAt).getTime() < now);
+    if (past.length < 25) throw new Error("過去イベントが少ない: " + past.length);
+    // 2年ぶん程度にまたがっていること
+    const oldest = Math.min(...past.map(e => new Date(e.startAt).getTime()));
+    const months = (now - oldest) / (86400000 * 30);
+    if (months < 18) throw new Error("期間が短い: 約" + Math.round(months) + "ヶ月");
+    if (!past.some(e => e.status === "cancelled")) throw new Error("中止の回が無い");
+  });
+  await step("名簿にリピーターが溜まっている（F-92 の裏付け）", async () => {
+    const apps = await M.Repo.applications.all();
+    const byPerson = {};
+    apps.forEach(a => { byPerson[a.personId] = (byPerson[a.personId] || 0) + 1; });
+    const counts = Object.values(byPerson);
+    if (counts.length < 20) throw new Error("参加者が少ない: " + counts.length);
+    if (Math.max(...counts) < 5) throw new Error("複数回参加している人がいない");
+    const checked = apps.filter(a => a.status === "checkedin").length;
+    if (checked < 100) throw new Error("来場実績が少ない: " + checked);
+  });
+
   await step("定員はイベント基準（残席計算）", async () => {
     const ev = await M.Repo.events.get("ev_public");
     const ap = await M.Repo.applications.byEvent("ev_public");
@@ -761,7 +784,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.Repo.reset();
     if ((await M.Repo.events.all()).length !== 0) throw new Error("初期化されない");
     await M.Seed.load();
-    if ((await M.Repo.events.all()).length !== 10) throw new Error("再投入されない");
+    if ((await M.Repo.events.all()).length !== 40) throw new Error("再投入されない");
   });
 
   await step("DB reset → 空", async () => { await M.Repo.reset(); if ((await M.Repo.events.all()).length !== 0) throw new Error("リセット後も残存"); });

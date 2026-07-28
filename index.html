@@ -1174,6 +1174,23 @@ const Seed = (() => {
       ["山田 涼子","ヤマダ リョウコ","yamada@beta.example.com"],
       ["中村 大輔","ナカムラ ダイスケ","nakamura@gamma.example.com"],
       ["小林 彩","コバヤシ アヤ","kobayashi@alpha.example.com"],
+      // 過去アーカイブぶん。名寄せの蓄積（参加者名簿 S-10）が意味を持つ量を用意する
+      ["渡辺 修","ワタナベ オサム","watanabe@alpha.example.com"],
+      ["松本 由紀","マツモト ユキ","matsumoto@beta.example.com"],
+      ["井上 拓也","イノウエ タクヤ","inoue@gamma.example.com"],
+      ["木村 沙織","キムラ サオリ","kimura@delta.example.com"],
+      ["林 洋一","ハヤシ ヨウイチ","hayashi@epsilon.example.com"],
+      ["清水 麻衣","シミズ マイ","shimizu@alpha.example.com"],
+      ["山口 亮","ヤマグチ リョウ","yamaguchi@beta.example.com"],
+      ["森 詩織","モリ シオリ","mori@zeta.example.com"],
+      ["池田 和也","イケダ カズヤ","ikeda@gamma.example.com"],
+      ["橋本 千夏","ハシモト チナツ","hashimoto@delta.example.com"],
+      ["石川 直樹","イシカワ ナオキ","ishikawa@epsilon.example.com"],
+      ["前田 春香","マエダ ハルカ","maeda@zeta.example.com"],
+      ["藤田 隆","フジタ タカシ","fujita@alpha.example.com"],
+      ["岡田 恵","オカダ メグミ","okada@beta.example.com"],
+      ["長谷川 淳","ハセガワ ジュン","hasegawa@gamma.example.com"],
+      ["村上 里奈","ムラカミ リナ","murakami@delta.example.com"],
     ];
     const persons = people.map((p, i) => {
       const emailKey = p[2].trim().toLowerCase();
@@ -1220,6 +1237,77 @@ const Seed = (() => {
     mkApp("ev_meetup",1,"applied",-1);
     mkApp("ev_meetup",5,"applied",-1);
     mkApp("ev_meetup",6,"applied",0);
+
+    /* ---- 過去アーカイブ（F-33b）----
+       Peatix はフォーム取得データをイベント終了30日後に削除するが、本システムは保持する。
+       その差が意味を持つのは「何年ぶんも溜まっている」状態なので、過去2年ぶんを用意する。
+       乱数は使わない（Math.random は禁止 / 再現性も落ちる）。添字から決定的に組み立てる。 */
+    const ARCHIVE = [
+      ["製品活用セミナー 第1回","本社 セミナールーム",60,"onsite"],
+      ["導入事例カンファレンス 春","品川カンファレンスセンター",120,"hybrid"],
+      ["はじめての運用改善ウェビナー","オンライン",200,"online"],
+      ["ユーザー会 2025 春","本社 大会議室",80,"onsite"],
+      ["API連携ハンズオン","本社 トレーニングルーム",24,"onsite"],
+      ["新拠点 内覧会","大阪支社",40,"onsite"],
+      ["製品活用セミナー 第2回","本社 セミナールーム",60,"onsite"],
+      ["セキュリティ対策セミナー","品川カンファレンスセンター",100,"hybrid"],
+      ["夏の技術勉強会","本社 大会議室",50,"onsite"],
+      ["導入検討者向け相談会","本社 応接室",12,"onsite"],
+      ["運用自動化ウェビナー","オンライン",150,"online"],
+      ["ユーザー会 2025 秋","名古屋支社",70,"onsite"],
+      ["製品活用セミナー 第3回","本社 セミナールーム",60,"onsite"],
+      ["データ分析ハンズオン","本社 トレーニングルーム",24,"onsite"],
+      ["パートナー向け新機能説明会","本社 大会議室",45,"hybrid"],
+      ["秋の技術カンファレンス","品川カンファレンスセンター",180,"hybrid"],
+      ["導入事例カンファレンス 秋","本社 大会議室",90,"onsite"],
+      ["年末ユーザー交流会","近隣ホール",60,"onsite"],
+      ["製品ロードマップ説明会","オンライン",250,"online"],
+      ["新春セミナー 2026","品川カンファレンスセンター",120,"hybrid"],
+      ["運用担当者向け勉強会","本社 大会議室",40,"onsite"],
+      ["製品活用セミナー 第4回","本社 セミナールーム",60,"onsite"],
+      ["移行支援ワークショップ","本社 トレーニングルーム",20,"onsite"],
+      ["ユーザー会 2026 冬","福岡支社",50,"onsite"],
+      ["業務効率化ウェビナー 前編","オンライン",200,"online"],
+      ["業務効率化ウェビナー 後編","オンライン",200,"online"],
+      ["導入検討者向け相談会 第2回","本社 応接室",12,"onsite"],
+      ["春の技術勉強会","本社 大会議室",50,"onsite"],
+      ["パートナー向け年次総会","品川カンファレンスセンター",140,"hybrid"],
+      ["製品活用セミナー 第5回","本社 セミナールーム",60,"onsite"],
+    ];
+    ARCHIVE.forEach(([title, venue, cap, fmt], i) => {
+      const id = "ev_a" + String(i).padStart(2, "0");
+      // 直近 −25日 から 約2年前まで、23日おきにさかのぼる
+      const off = -(25 + i * 23);
+      const cancelled = i % 11 === 7;          // 何件かは中止として残す
+      events.push({ id, title, description:`${title}を開催しました。`,
+        startAt:day(off, 14, 0), endAt:day(off, 16, 30), venueName:venue, capacity:cap,
+        applyDeadline:dateStr(off - 3), status: cancelled ? "cancelled" : "published",
+        visibility:"public", createdAt:day(off - 40), updatedAt:day(off + 1), ...base,
+        targetAudience:"ご興味のある企業のご担当者",
+        contactInfo:"イベント事務局 event@example.com",
+        eventFormat:fmt, questions:[qComp, qTitle],
+        onlineUrl: fmt === "onsite" ? null : `https://zoom.us/j/archive-${i}`,
+      });
+      if (cancelled) return;                   // 中止回は申込を作らない
+      // 参加者は人数プールを回して選ぶ。同じ人が何度も来る＝名簿に履歴が溜まる
+      const n = 6 + (i * 5) % 11;              // 6〜16人
+      for (let k = 0; k < n; k++) {
+        const pi = (i * 7 + k * 3) % persons.length;
+        // 大半は来場、1割前後がキャンセル、残りは申込のまま（当日欠席）
+        const st = (i + k) % 10 === 3 ? "cancelled" : (i + k) % 7 === 5 ? "applied" : "checkedin";
+        const p = persons[pi];
+        if (apps.some(a => a.eventId === id && a.personId === p.id)) continue;  // 1人1件（F-17）
+        apps.push({
+          id:Util.uid(), eventId:id, personId:p.id, token:Util.newToken(),
+          status:st,
+          checkinAt: st === "checkedin" ? day(off, 13, 40) : null,
+          cancelledAt: st === "cancelled" ? day(off - 5, 11, 0) : null,
+          appliedAt: day(off - 10 + (k % 8), 9 + (k % 8), 0),
+          answers: { q_comp: COMP[pi % COMP.length], q_title: TITLE[pi % TITLE.length] },
+          searchText: Util.normalize(p.name + p.nameKana + p.email),
+        });
+      }
+    });
 
     // 運営（社内）向けメッセージ: スレッド（チャット）＋Q&A。同一ブラウザ内で永続
     const msgs = [
