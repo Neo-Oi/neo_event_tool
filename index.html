@@ -513,8 +513,9 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 
 <!-- ===== 外部ライブラリ（インライン化） =====
      QR生成に qrcode-generator v1.4.4 を使う。**CDN から読まずに埋め込んでいる。**
-     受付は当日の生命線であり、会場でインターネットに出られない前提を置けないため
-     （引き継ぎ書 7-12）。埋め込みにより改ざん検知の必要も無くなる。
+     理由は、この機能が参加者の個人情報がある画面で動くため、第三者スクリプトの
+     改ざんリスクを負いたくないこと。埋め込めば改ざん検知（SRI）も不要になる。
+     あわせて、テストで本物のライブラリを検証できる（引き継ぎ書 7-12）。
 
      ライセンス表記は下の原文ヘッダをそのまま残している（MIT）。
      このブロックは自前のコードではないので、技術方針の検査対象から外している
@@ -3010,7 +3011,8 @@ const Util = (() => {
   }
 
   /* CDN スクリプトの遅延読み込み（QRの生成・読取でのみ使う）。起動時には読まないので、
-     オフラインでも他の機能は動く。globalName が既にあれば何もしない。 */
+     起動時には読まないので、使わない機能のために待たされない。
+     globalName が既にあれば何もしない。 */
   const _loading = {};
   const loadScript = (src, globalName) => {
     if (window[globalName]) return Promise.resolve(window[globalName]);
@@ -5815,11 +5817,13 @@ const Participant = (() => {
   };
 
   /* 受付用QR（F-e）。トークンを符号化する。主催者はこれをカメラで読んでチェックインする。
-     生成ライブラリは CDN から必要になった時だけ読み込む（オフラインでも他機能は動く）。 */
+     生成ライブラリは冒頭にインライン化してある。CDN から読まない理由は、
+     この画面に参加者の個人情報があり、第三者スクリプトの改ざんリスクを負いたくないため
+     （引き継ぎ書 7-12）。 */
   const qrBlock = (app) => `<div class="qr-box">
     <div class="qh">受付用QRコード</div>
     <div id="qrHost" data-token="${app.token}"><button class="btn sm" id="qrShow">QRを表示</button></div>
-    <div class="hint">当日、受付でこの画面を見せてください。オフラインでも表示できます。</div></div>`;
+    <div class="hint">当日、受付でこの画面を見せてください。</div></div>`;
 
   async function wireQr(el) {
     const host = el.querySelector("#qrHost");
