@@ -149,38 +149,27 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!card.className.includes("done")) throw new Error("終了扱いのスタイルになっていない");
     content.querySelectorAll(".toggles button")[2].click(); await wait(60);
   });
-  // 対象範囲（社外向けが既定 / F-98）
-  await step("F-98 既定は社外向け", async () => {
-    if (M.Domain.DEFAULT_AUDIENCE !== "external") throw new Error("既定が社外向けでない");
-    if (M.Domain.audienceOf({}) !== "external") throw new Error("未設定データが社外向けにならない");
-    if (!M.Domain.hasExternal({ audience:"both" })) throw new Error("社内外が社外扱いにならない");
-    if (M.Domain.hasExternal({ audience:"internal" })) throw new Error("社内向けが社外扱いになっている");
-  });
-  await step("F-98 シードに社外向け・社内外・社内向けが揃う", async () => {
+  // 社外向けイベント専用（F-98）
+  await step("F-98 対象範囲の概念を持たない", async () => {
+    if (M.Domain.AUDIENCE || M.Domain.audienceOf) throw new Error("対象範囲の実装が残っている");
     const evs = await M.Repo.events.all();
-    const n = (a) => evs.filter(e => M.Domain.audienceOf(e) === a).length;
-    if (!n("external") || !n("both") || !n("internal"))
-      throw new Error(`区分が揃わない ext=${n("external")} both=${n("both")} int=${n("internal")}`);
-    if (n("external") + n("both") <= n("internal")) throw new Error("社外向けが主体になっていない");
-  });
-  await step("F-98 カードと公開ページに対象範囲バッジが出る", async () => {
+    if (evs.some(e => "audience" in e)) throw new Error("シードに audience が残っている");
     await M.EventsList.render(content); await wait(40);
-    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_seminar");
-    if (!card.querySelector(".badge.aud.external")) throw new Error("カードに社外向けバッジがない");
-    await M.Participant.renderPublic(content, "ev_seminar"); await wait(30);
-    if (!content.querySelector(".badge.aud.external")) throw new Error("公開ページにバッジがない");
+    if (content.querySelector(".badge.aud")) throw new Error("対象範囲バッジが残っている");
+    if (/社内向け|社内外/.test(content.textContent)) throw new Error("社内向けの表記が残っている");
   });
-  await step("F-98 社外向けは問い合わせ先が必須（公開前チェック）", async () => {
-    await M.Wizard.render(content, "ev_partner"); await wait(40);   // 社外向けの下書き（問い合わせ先が空）
+  await step("F-98 問い合わせ先は公開時の必須項目", async () => {
+    await M.Wizard.render(content, "ev_partner"); await wait(40);   // 問い合わせ先が空の下書き
     for (let i = 0; i < 4; i++) { content.querySelector("#next").click(); await wait(80); }
     content.querySelector("#publish").click(); await wait(40);
     if (window.document.querySelector("#modalHost .modal")) throw new Error("不備があるのに公開できる");
     if ((await M.Repo.events.get("ev_partner")).status !== "draft") throw new Error("公開されてしまった");
+    if (!content.querySelector('[data-f="audience"]') === false) throw new Error("対象範囲の入力欄が残っている");
   });
-  await step("F-98 社外向けの申込では会社名を聞く", async () => {
+  await step("F-98 申込では所属会社を聞く", async () => {
     await M.Participant.renderApply(content, "ev_seminar"); await wait(40);
     if (!content.querySelector('[data-q="q_comp"]')) throw new Error("会社名の質問がない");
-    if (content.querySelector('[data-q="q_dept"]')) throw new Error("社外向けなのに所属部署を聞いている");
+    if (content.querySelector('[data-q="q_dept"]')) throw new Error("所属部署を聞いている（社内向けの名残）");
   });
 
   await step("EventDetail.render(ev_public)", async () => { await M.EventDetail.render(content, "ev_public"); nonEmpty("detail"); });
@@ -535,7 +524,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   await step("C-3 別人のメールアドレスへは変更できない（4-5）", async () => {
     const target = (await M.Repo.applications.byEvent("ev_soon"))[0];
     let threw = false;
-    try { await M.AppSvc.editApplicant(target.id, { name:"a", kana:"ア", email:"tanaka@example.com" }); }
+    try { await M.AppSvc.editApplicant(target.id, { name:"a", kana:"ア", email:"tanaka@alpha.example.com" }); }
     catch { threw = true; }
     if (!threw) throw new Error("誤統合が許されている");
   });
@@ -545,7 +534,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     const evId = "ev_limited";
     const beforeP = (await M.Repo.persons.all()).length;
     const { app, person } = await M.AppSvc.apply(evId, {
-      name:"田中 太郎", kana:"たなか たろう", email:" TANAKA@example.com ", consent:true, answers:{} });
+      name:"田中 太郎", kana:"たなか たろう", email:" TANAKA@ALPHA.example.com ", consent:true, answers:{} });
     if ((await M.Repo.persons.all()).length !== beforeP) throw new Error("既存の人が名寄せされず増えた");
     if (person.id !== "p0") throw new Error("emailKey での名寄せが効いていない: " + person.id);
     if (person.nameKana !== "タナカ タロウ") throw new Error("カナがカタカナ化されていない");
@@ -554,14 +543,14 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
   await step("C-2 同一イベントへの二重申込を拒否（F-17）", async () => {
     let threw = false;
-    try { await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"tanaka@example.com", consent:false, answers:{} }); }
+    try { await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"tanaka@alpha.example.com", consent:false, answers:{} }); }
     catch { threw = true; }
     if (!threw) throw new Error("二重申込ができてしまう");
   });
   await step("C-2 キャンセル後の再申込は許す（F-42）", async () => {
     const mine = (await M.Repo.applications.byEvent("ev_limited")).filter(a => a.personId === "p0");
     await M.AppSvc.cancel(mine[0].id);
-    const { app } = await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"tanaka@example.com", consent:false, answers:{} });
+    const { app } = await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"tanaka@alpha.example.com", consent:false, answers:{} });
     if (!app) throw new Error("再申込できない");
     const all = (await M.Repo.applications.byEvent("ev_limited")).filter(a => a.personId === "p0");
     if (all.length !== 2) throw new Error("再申込が別レコードになっていない: " + all.length);
@@ -583,7 +572,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
   await step("C-2 カスタム質問の必須が未回答だと進めない（F-a）", async () => {
     await M.Participant.renderApply(content, "ev_soon"); await wait(30);
-    if (!content.querySelector('[data-q="q_dept"]')) throw new Error("カスタム質問が描画されない");
+    if (!content.querySelector('[data-q="q_comp"]')) throw new Error("カスタム質問が描画されない");
     content.querySelector("#fName").value = "テスト 太郎";
     content.querySelector("#fKana").value = "テスト タロウ";
     content.querySelector("#fEmail").value = "test@example.com";
@@ -594,12 +583,12 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     content.querySelector("#fName").value = "テスト 太郎";
     content.querySelector("#fKana").value = "テスト タロウ";
     content.querySelector("#fEmail").value = "test@example.com";
-    content.querySelector('[data-q="q_dept"]').value = "情報システム部";
+    content.querySelector('[data-q="q_comp"]').value = "株式会社テスト";
     content.querySelector("#toConfirm").click(); await wait(40);
     if (!content.querySelector("#submit")) throw new Error("確認画面に進めない");
-    if (!content.innerHTML.includes("情報システム部")) throw new Error("確認画面に回答が出ない");
+    if (!content.innerHTML.includes("株式会社テスト")) throw new Error("確認画面に回答が出ない");
     content.querySelector("#submit").click(); await wait(120);
-    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_dept === "情報システム部");
+    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_comp === "株式会社テスト");
     if (!a) throw new Error("申込が保存されない");
     if (!content.innerHTML.includes("申込が完了しました")) throw new Error("完了画面に進まない");
   });
@@ -608,7 +597,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!content.innerHTML.includes("テスト 太郎")) throw new Error("申込一覧に出ない");
   });
   await step("C-2 参加者からのキャンセルも共通処理（F-25）", async () => {
-    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_dept === "情報システム部");
+    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_comp === "株式会社テスト");
     await M.AppSvc.cancel(a.id);
     if ((await M.Repo.applications.get(a.id)).status !== "cancelled") throw new Error("共通キャンセルが効かない");
   });
@@ -635,6 +624,38 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
 
   // ---- F-b / F-c / F-d / F-f ----
+  // 参加者名簿のロック（F-101）
+  await step("F-101 名簿はパスワードで保護される", async () => {
+    await M.Roster.render(content); await wait(30);
+    if (!content.querySelector("#lkPw")) throw new Error("ロック画面が出ない");
+    if (content.innerHTML.includes("田中 太郎")) throw new Error("ロック中なのに個人情報が見えている");
+    if (!content.innerHTML.includes("肩越しの覗き見")) throw new Error("保護の限界が説明されていない");
+  });
+  await step("F-101 誤ったパスワードでは解除されない", async () => {
+    content.querySelector("#lkPw").value = "password";
+    content.querySelector("#lkGo").click(); await wait(30);
+    if (!content.querySelector("#lkPw")) throw new Error("誤りでも解除された");
+    if (!content.innerHTML.includes("パスワードが違います")) throw new Error("エラーが出ない");
+  });
+  await step("F-101 admin で解除でき、再ロックできる", async () => {
+    content.querySelector("#lkPw").value = "admin";
+    content.querySelector("#lkGo").click(); await wait(60);
+    if (content.querySelector("#lkPw")) throw new Error("解除されない");
+    if (!content.innerHTML.includes("田中 太郎")) throw new Error("解除後に名簿が出ない");
+    content.querySelector("#rLock").click(); await wait(40);
+    if (!content.querySelector("#lkPw")) throw new Error("再ロックできない");
+  });
+  await step("F-101 参加者ビューへ切り替えると再ロックされる", async () => {
+    content.querySelector("#lkPw").value = "admin";
+    content.querySelector("#lkGo").click(); await wait(60);
+    if (content.querySelector("#lkPw")) throw new Error("解除されない");
+    M.Roster.lock();                                  // setView が呼ぶのと同じ処理
+    await M.Roster.render(content); await wait(30);
+    if (!content.querySelector("#lkPw")) throw new Error("ビュー切替で再ロックされない");
+    content.querySelector("#lkPw").value = "admin";   // 後続のテストのため解除しておく
+    content.querySelector("#lkGo").click(); await wait(60);
+  });
+
   await step("F-b 参加者名簿に参加履歴が出る", async () => {
     await M.Roster.render(content); await wait(30);
     if (!content.innerHTML.includes("田中 太郎")) throw new Error("名簿に出ない");
@@ -693,7 +714,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
       targetAudience:"", startAt:iso(10), endAt:iso(10), venueName:"会議室A", venueAddress:"",
       contactInfo:"", coverImage:null, capacity:2, applyStartAt:null, applyDeadline:ymd(5),
       eventFormat:"onsite", onlineUrl:null, onlineNote:null,
-      questions:[{ id:"q1", label:"所属", type:"text", required:true, options:[] }],
+      questions:[{ id:"q1", label:"会社名", type:"text", required:true, options:[] }],
       status:"draft", visibility:"public", groupId:null, copiedFromId:null,
       createdAt:iso(0), updatedAt:iso(0) });
     // 4. 公開 → 参加者ビューの一覧に出る（下書きは出ない）

@@ -78,10 +78,6 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .badge.phase.ended{background:#eef0f3;color:var(--draft)}
 .badge.phase.full{background:#fbe9e9;color:var(--danger)}
 .badge.phase.before{background:#fff2df;color:var(--warn)}
-/* 対象範囲（F-98）。社外が絡むものは目立たせる */
-.badge.aud.internal{background:#eef0f3;color:var(--draft)}
-.badge.aud.external{background:#efe6fb;color:#6b3fa0}
-.badge.aud.both{background:#e6f2fb;color:#1c5f8a}
 
 /* ボタン */
 .btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);color:var(--ink);
@@ -188,6 +184,32 @@ tr.expand-row td{background:#f7f9ff;padding:0}
 details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-top:14px}
 .ticket-item{cursor:pointer}
 
+/* 要対応リスト（S-1 / F-31b）。条件だけでなく「何をするか」を出すので高さを取る */
+.attn-list{display:flex;flex-direction:column;gap:10px}
+.attn-item{display:flex;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);cursor:pointer;overflow:hidden}
+.attn-item:hover{border-color:#c7cfdd;box-shadow:0 2px 6px rgba(20,40,80,.12)}
+.attn-item .ai-bar{width:4px;flex:none}
+.attn-item.danger .ai-bar{background:var(--danger)}
+.attn-item.warn .ai-bar{background:var(--warn)}
+.attn-item.mute .ai-bar{background:var(--draft)}
+.attn-item .ai-main{flex:1;padding:13px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.attn-item .ai-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.attn-item .ai-title{font-size:15px;font-weight:700}
+.attn-item .ai-act{font-size:13.5px;line-height:1.6}
+.attn-item.danger .ai-act{color:var(--danger);font-weight:600}
+.attn-item.warn .ai-act{color:#8a5200;font-weight:600}
+.attn-item.mute .ai-act{color:var(--muted)}
+.attn-item .ai-facts{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+.attn-item .ai-rest{display:flex;gap:6px;flex-wrap:wrap}
+.attn-item .ai-rest .r{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+.attn-item .ai-rest .r.danger{background:#fbe9e9;color:var(--danger)}
+.attn-item .ai-rest .r.warn{background:#fff2df;color:var(--warn)}
+.attn-item .ai-rest .r.ok{background:#e6f5ec;color:var(--ok)}
+.attn-item .ai-rest .r.mute{background:#eef0f3;color:var(--draft)}
+.attn-item .ai-go{display:flex;align-items:center;padding:0 16px;color:var(--blue);
+  font-size:12px;font-weight:700;white-space:nowrap;border-left:1px solid var(--line);background:#fafbfe}
+
 /* 開催カレンダー（S-1 / F-100） */
 .cal{padding:14px 16px 16px}
 .cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
@@ -282,6 +304,15 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .md th{background:#fafbfe;font-weight:700;color:var(--muted)}
 .md hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 .md a{text-decoration:underline}
+
+/* 参加者名簿のロック（F-101） */
+.lock{text-align:center;max-width:560px;margin:40px auto}
+.lock .lk-icon{font-size:36px}
+.lock h3{font-size:16px;margin:10px 0 6px}
+.lock p{color:var(--muted);margin:0 0 16px;font-size:13px}
+.lock .lk-form{display:flex;gap:8px;justify-content:center}
+.lock .lk-form input{width:220px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font:inherit}
+.lock .lk-err{color:var(--danger);font-size:13px;font-weight:700;margin-top:10px}
 
 /* 参加者名簿（横断 / F-b） */
 .hist{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:13px;flex-wrap:wrap}
@@ -812,14 +843,9 @@ const Domain = (() => {
   const STATUS = { draft:"下書き", published:"公開中", cancelled:"中止" };
   // 開催形式（F-c）。オンライン／ハイブリッドの視聴URLは申込者にだけ見せる
   const FORMAT = { onsite:"現地開催", online:"オンライン", hybrid:"ハイブリッド" };
-  /* 対象範囲（F-98）。**社外向けを既定とする。** 社外の方が申込むイベントを主とし、
-     社内向けはその一形態として扱う。未設定のデータも社外向けとみなす。
-     公開範囲（visibility）とは別軸で、「誰に向けているか」と「URLを知る人だけか」は
-     独立して決まる。 */
-  const AUDIENCE = { external:"社外向け", both:"社内外", internal:"社内向け" };
-  const DEFAULT_AUDIENCE = "external";
-  const audienceOf = (ev) => ev.audience || DEFAULT_AUDIENCE;
-  const hasExternal = (ev) => audienceOf(ev) !== "internal";   // 社外の人が申込む可能性がある
+  /* 本システムが扱うのは**社外向けイベントのみ**（F-98）。取引先・同業他社・一般の方が
+     申込む。対象範囲を選ばせる項目は持たない——選択肢が1つしかないものを聞かない。
+     この前提から、問い合わせ先は常に必須になる（社外の方は社内の連絡経路を使えないため）。 */
 
   // 時期（保存しない。受付開始・締切日時と現在時刻から都度算出 / F-05）
   // 戻り値: {phase, label} phase ∈ before|open|closed|held|cancelled
@@ -886,8 +912,7 @@ const Domain = (() => {
       overdue: tasks.filter(t => taskOverdue(t, now)).length };
   }
 
-  return { STATUS, FORMAT, AUDIENCE, DEFAULT_AUDIENCE, audienceOf, hasExternal,
-           timing, capacity, isValidApp, usedSeats, remaining,
+  return { STATUS, FORMAT, timing, capacity, isValidApp, usedSeats, remaining,
            applyButtonLabel, nearlyFull, staleDraft,
            TASK_STATUS, TASK_FLOW, PRIORITY, taskOverdue, taskSummary };
 })();
@@ -1059,17 +1084,14 @@ const Seed = (() => {
       const d = new Date(now); d.setDate(d.getDate()+offset);
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     };
-    const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"社員全般",
+    const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"どなたでもご参加いただけます",
       venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください",
-      applyStartAt:null, eventFormat:"onsite", onlineUrl:null, onlineNote:null, questions:[],
-      audience:"external" };
-    // 申込フォームの追加質問（F-a）。社内イベントで実際に要る項目を例示する
-    const qDept  = { id:"q_dept",  label:"所属部署",       type:"text",     required:true,  options:[] };
-    const qFood  = { id:"q_food",  label:"食事の制限",     type:"textarea", required:false, options:[] };
-    const qParty = { id:"q_party", label:"懇親会に参加する", type:"checkbox", required:false, options:[] };
+      applyStartAt:null, eventFormat:"onsite", onlineUrl:null, onlineNote:null, questions:[] };
+    // 申込フォームの追加質問（F-a）。社外向けなので所属会社を聞くのが基本になる
+    const qFood  = { id:"q_food",  label:"食事・アレルギーのご要望", type:"textarea", required:false, options:[] };
+    const qParty = { id:"q_party", label:"交流会に参加する", type:"checkbox", required:false, options:[] };
     const qJoin  = { id:"q_join",  label:"参加方法",       type:"select",   required:true,
                      options:["現地で参加","オンラインで参加"] };
-    // 社外向けでは所属会社を聞く（F-98）。社外の方に「所属部署」を聞いても意味がない
     const qComp  = { id:"q_comp",  label:"会社名",         type:"text",     required:true,  options:[] };
     const qTitle = { id:"q_title", label:"役職",           type:"text",     required:false, options:[] };
     const qKnow  = { id:"q_know",  label:"本イベントを知ったきっかけ", type:"select", required:false,
@@ -1083,27 +1105,28 @@ const Seed = (() => {
         createdAt:day(-20), updatedAt:day(-5), ...base,
         eventFormat:"hybrid", onlineUrl:"https://teams.microsoft.com/l/meetup-join/demo-lt-2026",
         onlineNote:"開始10分前から入室できます。マイクはミュートでお願いします。",
-        audience:"external", targetAudience:"エンジニア・技術に関心のある方",
+        targetAudience:"エンジニア・技術に関心のある方",
         contactInfo:"カンファレンス事務局 conf@example.com（平日9:00〜17:00）",
         questions:[qComp, qJoin, qParty] },
-      { id:"ev_soon", title:"新人歓迎ランチ会", description:"今年度の新入社員を交えたカジュアルなランチ会。",
-        startAt:day(1,12,0), endAt:day(1,13,0), venueName:"7Fカフェテリア", capacity:20,
+      { id:"ev_soon", title:"製品ハンズオン体験会", description:"実機に触れながら製品の基本操作を体験いただけます。少人数制です。",
+        startAt:day(1,13,0), endAt:day(1,15,0), venueName:"本社 トレーニングルーム", capacity:20,
         applyDeadline:dateStr(0), status:"published", visibility:"public",
         createdAt:day(-15), updatedAt:day(-3), ...base,
-        audience:"internal", targetAudience:"今年度の新入社員と受入部署の社員",
-        questions:[qDept, qFood] },
+        targetAudience:"製品の導入をご検討中の方",
+        contactInfo:"カスタマーサクセス cs@example.com",
+        questions:[qComp, qFood] },
       { id:"ev_limited", title:"（限定）主要取引先向け 事業説明会", description:"ご招待した取引先の方のみを対象とした限定公開イベントです。",
         startAt:day(20,15,0), endAt:day(20,17,0), venueName:"役員会議室", capacity:15,
         applyDeadline:dateStr(18), status:"published", visibility:"limited",
         createdAt:day(-8), updatedAt:day(-2), ...base,
-        audience:"external", targetAudience:"ご招待した取引先のご担当者",
+        targetAudience:"ご招待した取引先のご担当者",
         contactInfo:"営業企画部 sales@example.com", questions:[qComp, qTitle] },
       // 受付開始日が未来 → 時期は「受付前」になる（F-05, F-08 / phase:before の実例）
       { id:"ev_before", title:"秋の製品活用ウェビナー", description:"製品の活用事例をご紹介します。受付は来週から開始します。",
         startAt:day(45,13,0), endAt:day(45,17,0), venueName:"本社 ホール", capacity:120,
         applyDeadline:dateStr(40), status:"published", visibility:"public",
         createdAt:day(-3), updatedAt:day(-3), ...base, applyStartAt:dateStr(7),
-        audience:"external", targetAudience:"製品をご利用中・ご検討中の方",
+        targetAudience:"製品をご利用中・ご検討中の方",
         contactInfo:"カスタマーサクセス cs@example.com", questions:[qComp] },
       { id:"ev_draft", title:"（下書き）秋の合同展示会", description:"",
         startAt:null, endAt:null, venueName:"", applyDeadline:null, capacity:null,
@@ -1118,56 +1141,57 @@ const Seed = (() => {
         startAt:day(28,14,0), endAt:day(28,16,30), venueName:"本社 セミナールーム", capacity:80,
         applyDeadline:dateStr(25), status:"published", visibility:"public",
         createdAt:day(-11), updatedAt:day(-4), ...base,
-        audience:"external", targetAudience:"業務改善に関心のある企業のご担当者",
+        targetAudience:"業務改善に関心のある企業のご担当者",
         contactInfo:"セミナー事務局 seminar@example.com（平日9:00〜17:00）",
         eventFormat:"hybrid", onlineUrl:"https://zoom.us/j/demo-seminar-2026",
         onlineNote:"接続URLは当日の朝にも本ページでご確認いただけます。",
         questions:[qComp, qTitle, qJoin, qKnow] },
-      { id:"ev_meetup", title:"合同勉強会（社内外オープン）",
-        description:"社員と社外エンジニアが一緒に発表する勉強会です。登壇枠・聴講枠ともに募集しています。",
+      { id:"ev_meetup", title:"オープン勉強会",
+        description:"社外のエンジニアの方が発表し合う勉強会です。登壇枠・聴講枠ともに募集しています。",
         startAt:day(35,19,0), endAt:day(35,21,0), venueName:"本社 大会議室", capacity:50,
         applyDeadline:dateStr(32), status:"published", visibility:"public",
         createdAt:day(-6), updatedAt:day(-1), ...base,
-        audience:"both", targetAudience:"社員および社外のエンジニア",
+        targetAudience:"エンジニアの方",
         contactInfo:"勉強会運営 meetup@example.com",
         applyStartAt:dateStr(3), questions:[qComp, qParty] },
       { id:"ev_partner", title:"（下書き）パートナー向け新製品説明会",
         description:"", startAt:null, endAt:null, venueName:"", applyDeadline:null, capacity:null,
         status:"draft", visibility:"limited", createdAt:day(-2), updatedAt:day(-2), ...base,
-        audience:"external", targetAudience:"", contactInfo:"", questions:[qComp] },
-      { id:"ev_cancel", title:"中止になった懇親会", description:"諸事情により中止。",
-        startAt:day(7,19,0), endAt:day(7,21,0), venueName:"近隣レストラン", capacity:40,
+        targetAudience:"", contactInfo:"", questions:[qComp] },
+      { id:"ev_cancel", title:"（中止）新拠点 内覧会", description:"諸事情により中止となりました。",
+        startAt:day(7,15,0), endAt:day(7,17,0), venueName:"新拠点オフィス", capacity:40,
         applyDeadline:dateStr(5), status:"cancelled", visibility:"public",
-        createdAt:day(-10), updatedAt:day(-1), ...base, audience:"internal" },
+        createdAt:day(-10), updatedAt:day(-1), ...base,
+        targetAudience:"ご招待したお客様", contactInfo:"営業企画部 sales@example.com" },
     ];
-    // p0〜p4 は社員、p5〜p7 は社外の方（F-98）。名寄せはメールアドレスで行うため区別は持たない
+    // すべて社外の方（F-98）。所属会社はカスタム質問で聞き、persons には持たせない
     const people = [
-      ["田中 太郎","タナカ タロウ","tanaka@example.com"],
-      ["鈴木 花子","スズキ ハナコ","suzuki@example.com"],
-      ["佐藤 次郎","サトウ ジロウ","sato@example.com"],
-      ["高橋 美咲","タカハシ ミサキ","takahashi@example.com"],
-      ["伊藤 健","イトウ ケン","ito@example.com"],
-      ["山田 涼子","ヤマダ リョウコ","yamada@kabushiki-a.example.com"],
-      ["中村 大輔","ナカムラ ダイスケ","nakamura@kabushiki-b.example.com"],
-      ["小林 彩","コバヤシ アヤ","kobayashi@kabushiki-a.example.com"],
+      ["田中 太郎","タナカ タロウ","tanaka@alpha.example.com"],
+      ["鈴木 花子","スズキ ハナコ","suzuki@beta.example.com"],
+      ["佐藤 次郎","サトウ ジロウ","sato@gamma.example.com"],
+      ["高橋 美咲","タカハシ ミサキ","takahashi@alpha.example.com"],
+      ["伊藤 健","イトウ ケン","ito@delta.example.com"],
+      ["山田 涼子","ヤマダ リョウコ","yamada@beta.example.com"],
+      ["中村 大輔","ナカムラ ダイスケ","nakamura@gamma.example.com"],
+      ["小林 彩","コバヤシ アヤ","kobayashi@alpha.example.com"],
     ];
     const persons = people.map((p, i) => {
       const emailKey = p[2].trim().toLowerCase();
       return { id:"p"+i, emailKey, email:p[2], name:p[0], nameKana:p[1],
         contactConsent:true, consentAt:day(-6), createdAt:day(-6) };
     });
-    // イベントごとのカスタム質問への回答（F-a）。社内は所属部署、社外は会社名を聞く
-    const DEPT = ["開発部","営業部","総務部","人事部","広報部"];
-    const COMP = ["株式会社A","株式会社B","株式会社A"];      // p5〜p7 の所属
+    // イベントごとのカスタム質問への回答（F-a）。参加者はすべて社外の方
+    const COMP = ["株式会社アルファ","株式会社ベータ","株式会社ガンマ","株式会社アルファ",
+                  "株式会社デルタ","株式会社ベータ","株式会社ガンマ","株式会社アルファ"];
+    const TITLE = ["情報システム部 部長","営業部","開発部 マネージャー","経営企画室",
+                   "総務部","カスタマーサポート","技術部","広報部"];
+    const KNOW = ["弊社担当者からの案内","自社サイト","SNS","知人の紹介","その他"];
     const ANSWERS = {
-      ev_public:  (i) => ({ q_comp:i<=4?"（社内）":COMP[i-5]||"株式会社C",
-                            q_join:i%2?"オンラインで参加":"現地で参加", q_party:i%2===0 }),
-      ev_soon:    (i) => ({ q_dept:DEPT[i], q_food:i===3?"乳製品アレルギー":"" }),
-      ev_seminar: (i) => ({ q_comp:COMP[i-5]||"株式会社C", q_title:i===5?"情報システム部 部長":"",
-                            q_join:i===6?"オンラインで参加":"現地で参加",
-                            q_know:["弊社担当者からの案内","自社サイト","知人の紹介"][i-5] || "その他" }),
-      ev_meetup:  (i) => (i <= 4 ? { q_comp:"（社内）", q_party:true }
-                                 : { q_comp:COMP[i-5]||"株式会社C", q_party:i!==6 }),
+      ev_public:  (i) => ({ q_comp:COMP[i], q_join:i%2?"オンラインで参加":"現地で参加", q_party:i%2===0 }),
+      ev_soon:    (i) => ({ q_comp:COMP[i], q_food:i===3?"乳製品アレルギー":"" }),
+      ev_seminar: (i) => ({ q_comp:COMP[i], q_title:TITLE[i],
+                            q_join:i===6?"オンラインで参加":"現地で参加", q_know:KNOW[i % KNOW.length] }),
+      ev_meetup:  (i) => ({ q_comp:COMP[i], q_party:i!==6 }),
     };
 
     // ev_public / ev_soon / ev_past に有効な申込を作る（チケット廃止＝ticketTypeIdなし）
@@ -1189,7 +1213,7 @@ const Seed = (() => {
     mkApp("ev_soon",3,"applied",-1);
     mkApp("ev_soon",4,"applied",-1);
     mkApp("ev_past",0,"checkedin",-31);
-    // 社外向けセミナー（社外の方のみ）と合同勉強会（社内外が混在）
+    // セミナーとオープン勉強会
     mkApp("ev_seminar",5,"applied",-3);
     mkApp("ev_seminar",6,"applied",-2);
     mkApp("ev_seminar",7,"cancelled",-2);
@@ -1220,9 +1244,9 @@ const Seed = (() => {
         title:"登壇者を追加募集しています（残り2枠）",
         body:"", createdAt:day(-6,10,0) },
       { id:Util.uid(), eventId:"ev_soon", channel:"notice", author:"運営事務局",
-        title:"当日は社員証をお持ちください", body:"受付でご提示いただきます。",
+        title:"当日は1階受付にお立ち寄りください", body:"入館証をお渡しします。お名刺を1枚ご用意ください。",
         createdAt:day(-1,10,0) },
-      // 社外向け（F-98）。社内前提の案内が混ざらないよう文面を分ける
+      // セミナーのお知らせ
       { id:Util.uid(), eventId:"ev_seminar", channel:"notice", author:"セミナー事務局",
         title:"当日の受付方法について",
         body:"1階受付で「業務効率化セミナー参加」とお伝えください。入館証をお渡しします。\nオンライン参加の方は、マイ申込に表示される視聴URLからご入室ください。",
@@ -1358,6 +1382,10 @@ const Dashboard = (() => {
     const [events, apps] = await Promise.all([
       Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
+    // 要対応リストに「あと何が残っているか」まで出すので、運営データも読む
+    const [msgs, tasks] = await Promise.all([DB.getAll("messages"), DB.getAll("tasks")]);
+    const msgsByEv = groupBy(msgs, "eventId");
+    const tasksByEv = groupBy(tasks, "eventId");
 
     // 指標
     const ongoing = events.filter(e => e.status==="published" &&
@@ -1369,20 +1397,35 @@ const Dashboard = (() => {
     const weekApps = apps.filter(a => Domain.isValidApp(a) && !cancelledIds.has(a.eventId) &&
       new Date(a.appliedAt).getTime() >= wk).length;
 
-    // 要対応リスト（F-31）
+    /* 要対応リスト（F-31 / F-31b）。**条件だけでなく「次に何をするか」まで書く。**
+       「満席」とだけ出ても、増席するのか案内を出すのかが分からず手が止まるため。
+       level は緊急度で、danger（今日中）→ warn（近い）→ mute（放置）の順に並べる。 */
     const attn = [];
     for (const e of events) {
       const ap = appsByEv[e.id]||[];
+      const cap = Domain.capacity(e), used = Domain.usedSeats(ap), rem = Domain.remaining(e, ap);
       if (e.status==="published" && e.startAt) {
         const d = Util.daysBetween(now, new Date(e.startAt).getTime());
-        if (d===0 || d===1) attn.push({ ev:e, reason:d===0?"本日開催":"明日開催", kind:"date" });
+        if (d===0) attn.push({ ev:e, kind:"date", level:"danger", reason:"本日開催",
+          action:"当日の運営を最終確認してください。受付の準備とマニュアルの確認を。" });
+        else if (d===1) attn.push({ ev:e, kind:"date", level:"warn", reason:"明日開催",
+          action:"前日確認のタイミングです。持ち物と担当の割り当てを済ませてください。" });
       }
       if (e.status==="published") {
-        if (Domain.remaining(e,ap) <= 0) attn.push({ ev:e, reason:"満席", kind:"full" });
-        else if (Domain.nearlyFull(e,ap)) attn.push({ ev:e, reason:"定員間近", kind:"full" });
+        if (cap && rem <= 0) attn.push({ ev:e, kind:"full", level:"danger", reason:"満席",
+          action:`定員${cap}人に達しました。増席するか、以降はお断りする案内を出してください。` });
+        else if (Domain.nearlyFull(e, ap)) attn.push({ ev:e, kind:"full", level:"warn", reason:"定員間近",
+          action:`残り${rem}席です。増席の要否を判断してください。` });
       }
-      if (Domain.staleDraft(e, now)) attn.push({ ev:e, reason:"下書きのまま放置", kind:"draft" });
+      if (Domain.staleDraft(e, now)) {
+        const days = Util.daysBetween(new Date(e.updatedAt).getTime(), now);
+        attn.push({ ev:e, kind:"draft", level:"mute", reason:"下書きのまま放置",
+          action:`${days}日間更新されていません。公開するか、不要なら削除してください。` });
+      }
     }
+    const rank = { danger:0, warn:1, mute:2 };
+    attn.sort((a,b) => rank[a.level] - rank[b.level] ||
+      new Date(a.ev.startAt||0) - new Date(b.ev.startAt||0));
 
     el.innerHTML = `
       <div class="page-head"><h2>ダッシュボード</h2>
@@ -1394,19 +1437,13 @@ const Dashboard = (() => {
         ${metric("下書き", drafts)}
       </div>
       <h3 style="margin:26px 0 10px;font-size:15px">要対応リスト</h3>
-      <div class="card">
-        ${attn.length ? `<table class="list"><tbody>${attn.map(a=>`
-          <tr class="clickable" data-ev="${a.ev.id}">
-            <td style="width:70%">${Util.esc(a.ev.title)}</td>
-            <td><span class="badge ${a.kind==='draft'?'draft':a.kind==='full'?'cancelled':'phase'}">${a.reason}</span></td>
-            <td style="text-align:right;color:var(--muted)">${a.ev.startAt?Util.fmtDateTime(a.ev.startAt):"日程未定"}</td>
-          </tr>`).join("")}</tbody></table>`
-          : `<div class="empty"><div class="big">対応が必要な項目はありません</div>
-             すべて順調です。</div>`}
-      </div>
+      ${attn.length ? `<div class="attn-list">${attn.map(a =>
+          attnItem(a, appsByEv[a.ev.id]||[], msgsByEv[a.ev.id]||[], tasksByEv[a.ev.id]||[])).join("")}</div>`
+        : `<div class="card"><div class="empty"><div class="big">対応が必要な項目はありません</div>
+           すべて順調です。</div></div>`}
       ${calendarHtml(events, now)}`;
 
-    el.querySelectorAll("tr[data-ev]").forEach(tr =>
+    el.querySelectorAll("[data-ev]").forEach(tr =>
       tr.onclick = () => App.openEvent(tr.dataset.ev));
     el.querySelectorAll("[data-cal-ev]").forEach(c =>
       c.onclick = (e) => { e.stopPropagation(); App.openEvent(c.dataset.calEv); });
@@ -1420,6 +1457,43 @@ const Dashboard = (() => {
       };
     };
     nav("#calPrev", -1); nav("#calNext", 1); nav("#calToday", 0);
+  }
+
+  /* 要対応の1件。**やるべきことを本文として出し、状況を下に添える。**
+     クリックでそのイベントの詳細へ飛ぶ。 */
+  function attnItem(a, apps, msgs, tasks) {
+    const e = a.ev;
+    const cap = Domain.capacity(e), used = Domain.usedSeats(apps), rem = Domain.remaining(e, apps);
+    const ts = Domain.taskSummary(tasks);
+    const openQa = msgs.filter(m => m.channel === "qa" && !m.resolved).length;
+    const todo = ts.by.todo + ts.by.doing;
+
+    const facts = [];
+    facts.push(`🗓 ${Util.fmtRange(e.startAt, e.endAt)}`);
+    if (cap) facts.push(`👥 申込 ${used}／${cap}（残${rem > 0 ? rem : 0}）`);
+    if (e.venueName) facts.push(`📍 ${Util.esc(e.venueName)}`);
+
+    // 「あと何が残っているか」。ここが無いと、開いてみるまで作業量が読めない
+    const rest = [];
+    if (ts.overdue) rest.push(`<span class="r danger">期限超過 ${ts.overdue}</span>`);
+    if (todo)       rest.push(`<span class="r warn">未対応タスク ${todo}</span>`);
+    if (openQa)     rest.push(`<span class="r warn">未解決Q&amp;A ${openQa}</span>`);
+    if (ts.total && !todo && !ts.overdue) rest.push(`<span class="r ok">タスクは完了</span>`);
+    if (!ts.total) rest.push(`<span class="r mute">タスク未登録</span>`);
+
+    return `<div class="attn-item ${a.level}" data-ev="${e.id}">
+      <div class="ai-bar"></div>
+      <div class="ai-main">
+        <div class="ai-top">
+          <span class="badge ${a.level === "danger" ? "cancelled" : a.level === "warn" ? "limited" : "draft"}">${a.reason}</span>
+          <span class="ai-title">${Util.esc(e.title)}</span>
+        </div>
+        <div class="ai-act">${Util.esc(a.action)}</div>
+        <div class="ai-facts">${facts.map(f => `<span>${f}</span>`).join("")}</div>
+        <div class="ai-rest">${rest.join("")}</div>
+      </div>
+      <div class="ai-go">開く →</div>
+    </div>`;
   }
 
   /* 月カレンダー（F-100）。要対応リストの下に置き、イベントがいつあるかを俯瞰する。
@@ -1495,7 +1569,7 @@ const Dashboard = (() => {
       : e.status === "draft" ? "draft"
       : t.phase === "held" ? "held" : "open";
     return `<div class="cal-chip ${cls}" data-cal-ev="${e.id}"
-      title="${Util.esc(e.title)} / ${Domain.STATUS[e.status]} / ${Domain.AUDIENCE[Domain.audienceOf(e)]}">
+      title="${Util.esc(e.title)} / ${Domain.STATUS[e.status]} / ${Domain.FORMAT[e.eventFormat||"onsite"]}">
       ${e.startAt ? `<b>${pad2(new Date(e.startAt).getHours())}:${pad2(new Date(e.startAt).getMinutes())}</b> ` : ""}${Util.esc(e.title)}</div>`;
   }
 
@@ -1581,8 +1655,7 @@ const EventsList = (() => {
     const done = e.status === "cancelled" || t.phase === "held";
 
     const badges = [`<span class="badge ${e.status}">${Domain.STATUS[e.status]}</span>`,
-      `<span class="badge phase ${t.phase==="held"?"ended":t.phase==="before"?"before":""}">${t.label}</span>`,
-      audienceBadge(e)];
+      `<span class="badge phase ${t.phase==="held"?"ended":t.phase==="before"?"before":""}">${t.label}</span>`];
     if (e.visibility === "limited" && e.status !== "cancelled")
       badges.push(`<span class="badge limited">限定公開</span>`);
     if (!done && cap && rem <= 0) badges.push(`<span class="badge phase full">満席</span>`);
@@ -1652,7 +1725,6 @@ const EventDetail = (() => {
           <h2>${Util.esc(ev.title)}</h2>
           <span class="badge ${ev.status}">${Domain.STATUS[ev.status]}</span>
           <span class="badge phase ${t.phase==='held'?'ended':t.phase==='before'?'before':''}">${t.label}</span>
-          ${audienceBadge(ev)}
           ${ev.visibility==="limited"&&ev.status!=="cancelled"?'<span class="badge limited">限定公開</span>':""}
         </div>
         <div class="meta">
@@ -1998,8 +2070,7 @@ const EventDetail = (() => {
     const setLinks = () => {
       const body = pane.querySelector("#postBox").value;
       pane.querySelector("#xShare").href =
-        `https://twitter.com/intent/tweet?text=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}&hashtags=${
-          encodeURIComponent(Domain.hasExternal(ev) ? "イベント" : "社内イベント")}`;
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}&hashtags=${encodeURIComponent("イベント")}`;
       pane.querySelector("#lineShare").href =
         `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`; // URLのみ（F-15）
     };
@@ -2033,8 +2104,6 @@ ${url}`;
           <div class="row"><span class="k">受付期間</span><span>${
             ev.applyStartAt ? Util.fmtDate(ev.applyStartAt) : "公開と同時"} 〜 ${
             ev.applyDeadline ? Util.fmtDate(ev.applyDeadline) : "—"}</span></div>
-          <div class="row"><span class="k">対象範囲</span><span>${audienceBadge(ev)}${
-            Domain.hasExternal(ev) ? '<span class="hint" style="display:inline;margin-left:8px">社外の方の個人情報を預かります</span>' : ""}</span></div>
           <div class="row"><span class="k">公開範囲</span><span>${ev.visibility==="limited"?"限定公開":"一般公開"}</span></div>
           <div class="row"><span class="k">問い合わせ先</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
         </div>
@@ -2761,7 +2830,53 @@ const Roster = (() => {
   let query = "";
   let openId = null;
 
+  /* 参加者名簿はイベントを横断した個人情報の集積なので、開く前にパスワードを求める。
+     **これは秘匿ではなく操作の抑止である。** 単一HTML・サーバなしという構成上、
+     パスワードはソースに書かれており、DevTools から IndexedDB を直接見ることもできる。
+     したがって守れるのは「肩越しの覗き見」と「誤って開く」ところまで。
+     実効的な保護にはサーバ側の認証が要る（引き継ぎ書 4-1 / F-101）。
+     解除はセッション内のみ保持する。再読込で再びロックされる。 */
+  const PASSWORD = "admin";
+  let unlocked = false;
+
+  function lockHtml(err) {
+    return `
+      <div class="page-head"><h2>参加者</h2></div>
+      <div class="card pad lock">
+        <div class="lk-icon">🔒</div>
+        <h3>参加者名簿はパスワードで保護されています</h3>
+        <p>イベントを横断した個人情報を表示します。閲覧にはパスワードが必要です。</p>
+        <div class="lk-form">
+          <input type="password" id="lkPw" placeholder="パスワード" autocomplete="off">
+          <button class="btn primary" id="lkGo">解除</button>
+        </div>
+        ${err ? `<div class="lk-err">${Util.esc(err)}</div>` : ""}
+        <div class="note" style="margin-top:18px;text-align:left">
+          <b>この保護の限界。</b>サーバが無いため、パスワードは HTML 内に書かれており、
+          開発者ツールから IndexedDB を直接開くこともできます。防げるのは
+          <b>肩越しの覗き見と誤操作まで</b>で、意図的な閲覧は防げません。
+          実効的な保護にはサーバ側の認証が必要です（引き継ぎ書 4-1）。
+        </div>
+      </div>`;
+  }
+
+  function renderLock(el, err) {
+    el.innerHTML = lockHtml(err);
+    const go = () => {
+      const v = el.querySelector("#lkPw").value;
+      if (v === PASSWORD) { unlocked = true; render(el); }
+      else renderLock(el, "パスワードが違います");
+    };
+    el.querySelector("#lkGo").onclick = go;
+    const pw = el.querySelector("#lkPw");
+    pw.onkeydown = (e) => { if (e.key === "Enter") go(); };
+    pw.focus();
+  }
+
+  const lock = () => { unlocked = false; };   // 明示的に再ロックする
+
   async function render(el) {
+    if (!unlocked) { renderLock(el, null); return; }
     const [persons, apps, events] = await Promise.all([
       Repo.persons.all(), Repo.applications.all(), Repo.events.all()]);
     const evById = {}; events.forEach(e => evById[e.id] = e);
@@ -2784,7 +2899,8 @@ const Roster = (() => {
 
     el.innerHTML = `
       <div class="page-head"><h2>参加者</h2>
-        <span class="sub">${persons.length}人・のべ${apps.length}件の申込</span></div>
+        <span class="sub">${persons.length}人・のべ${apps.length}件の申込</span>
+        <button class="btn sm" id="rLock" style="margin-left:auto">🔒 ロックする</button></div>
       <div class="ops-note">申込のたびにメールアドレスで名寄せして蓄積しています（4-5）。
         イベントをまたいだ参加履歴を、期限なく保持します。</div>
       <div style="display:flex;gap:10px;margin:12px 0">
@@ -2802,6 +2918,7 @@ const Roster = (() => {
     const box = el.querySelector("#rSearch");
     box.oninput = () => { query = box.value; render(el); };
     el.querySelector("#rCsv").onclick = () => exportCsv(shown);
+    el.querySelector("#rLock").onclick = () => { unlocked = false; query = ""; openId = null; render(el); };
     el.querySelectorAll("tr[data-p]").forEach(tr =>
       tr.onclick = () => { openId = openId === tr.dataset.p ? null : tr.dataset.p; render(el); });
     el.querySelectorAll("[data-goev]").forEach(a =>
@@ -2840,7 +2957,7 @@ const Roster = (() => {
     FB.toast("参加者名簿を出力しました");
   }
 
-  return { render };
+  return { render, lock };
 })();
 
 
@@ -2872,7 +2989,7 @@ const Settings = (() => {
             ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","done","実装済（名寄せ・トークン発行・定員判定・キャンセルを永続）")}
             ${implRow("確認URL／イベントURL／プレビュー","F-20","done","実装済（?ticket= / ?event= / ?preview= から復帰）")}
             ${implRow("イベントマニュアル（Markdown）","F-99","done","実装済（編集／分割／プレビューの3ビュー。Markdownは自前描画でCDN非依存）")}
-            ${implRow("対象範囲（社外向け／社内外／社内向け）","F-98","done","実装済（既定は社外向け。社外向けは問い合わせ先が必須）")}
+            ${implRow("社外向けイベント専用","F-98","done","扱うのは社外向けのみ。問い合わせ先を公開時の必須項目にしている")}
             ${implRow("お知らせ（主催者→参加者）","E-4","done","実装済（公開ページとマイ申込に表示。メール送信は不可のため掲示型）")}
             ${implRow("申込フォームのカスタム質問","F-a","done","実装済（定義・回答保存・CSV列・一覧表示）")}
             ${implRow("参加者名簿（横断・参加履歴）","F-b","done","実装済（名寄せ済みの蓄積を一覧・CSV出力）")}
@@ -2961,8 +3078,7 @@ const Participant = (() => {
       ${preview ? `<div class="note" style="margin-bottom:14px">これは<b>下書きのプレビュー</b>です（F-07）。参加者にはまだ見えません。</div>` : ""}
       <div class="pub">
         ${coverHtml(ev)}
-        <div style="margin-top:12px">${audienceBadge(ev)}</div>
-        <h1 style="margin-top:8px">${Util.esc(ev.title)}</h1>
+        <h1>${Util.esc(ev.title)}</h1>
         ${ev.status==="cancelled" ? `<div class="banner" style="position:static;border-radius:8px">このイベントは中止されました</div>`:""}
         <div class="kv">
           <div class="row"><span class="k">開催日時</span><span>${Util.fmtRange(ev.startAt, ev.endAt)}</span></div>
@@ -3326,13 +3442,6 @@ const Participant = (() => {
 
 
 // ===== [12] 汎用ヘルパ =====
-/* 対象範囲のバッジ（F-98）。社外の方が申込むイベントは一目で分かる必要がある。
-   個人情報の取り扱いも案内文も変わるため、主催者側・参加者側の両方に出す。 */
-function audienceBadge(ev) {
-  const a = Domain.audienceOf(ev);
-  return `<span class="badge aud ${a}">${Domain.AUDIENCE[a]}</span>`;
-}
-
 function groupBy(arr, key) {
   const m = {};
   for (const x of arr) (m[x[key]] ||= []).push(x);
@@ -3386,14 +3495,14 @@ const Wizard = (() => {
         venueName:ev.venueName||"", venueAddress:ev.venueAddress||"", description:ev.description||"",
         targetAudience:ev.targetAudience||"",
         capacity:ev.capacity||"", applyStartAt:ev.applyStartAt||"", applyDeadline:ev.applyDeadline||"",
-        visibility:ev.visibility||"public", audience:Domain.audienceOf(ev), contactInfo:ev.contactInfo||"",
+        visibility:ev.visibility||"public", contactInfo:ev.contactInfo||"",
         eventFormat:ev.eventFormat||"onsite", onlineUrl:ev.onlineUrl||"", onlineNote:ev.onlineNote||"",
         status:ev.status };
       questions = (ev.questions || []).map(q => ({ ...q, options:[...(q.options||[])] }));
     } else {
       form = { id:null, title:"", startAt:"", endAt:"", venueName:"", venueAddress:"", description:"",
         targetAudience:"", capacity:"", applyStartAt:"", applyDeadline:"",
-        visibility:"public", audience:Domain.DEFAULT_AUDIENCE, contactInfo:"",
+        visibility:"public", contactInfo:"",
         eventFormat:"onsite", onlineUrl:"", onlineNote:"", status:"draft" };
       questions = [];
     }
@@ -3435,7 +3544,6 @@ const Wizard = (() => {
       questions: questions.filter(q => q.label.trim()),   // ラベル未入力の行は捨てる（F-a）
       status,
       visibility: form.visibility,
-      audience: form.audience || Domain.DEFAULT_AUDIENCE,
       groupId: prev?.groupId ?? null,
       copiedFromId: prev?.copiedFromId ?? null,
       createdAt: prev?.createdAt || now,
@@ -3565,7 +3673,7 @@ const Wizard = (() => {
   }
 
   /* 申込フォームのカスタム質問（F-a）。氏名・カナ・メールは固定で、その先を主催者が定義する。
-     社内イベントでは所属部署・食事アレルギー・懇親会の参加可否などが必要になる。 */
+     社外向けなので、会社名・役職・参加方法・知ったきっかけなどを聞くことになる。 */
   const Q_TYPES = { text:"一行", textarea:"複数行", select:"選択肢", checkbox:"チェック" };
   function questionEditor() {
     return `<div class="qedit">
@@ -3660,9 +3768,9 @@ const Wizard = (() => {
       issues.push("申込締切が開催日より後です");
     if (f.startAt && new Date(f.startAt).getTime() < Date.now())
       issues.push("開催日が過去の日時です");
-    // 社外の方は社内の連絡経路を使えないため、問い合わせ先を必須にする（F-98）
-    if (f.audience && f.audience !== "internal" && !f.contactInfo.trim())
-      issues.push("社外向けのイベントは問い合わせ先が必須です（F-98）");
+    // 社外の方は社内の連絡経路を使えないため、問い合わせ先は常に必須（F-98）
+    if (!f.contactInfo.trim())
+      issues.push("問い合わせ先が未入力です（社外の方の唯一の連絡手段になります / F-98）");
     return issues;
   }
   function runPublishCheck() {
@@ -3717,19 +3825,13 @@ const Wizard = (() => {
         </div>
         ${questionEditor()}`;
       case "setting": return `
-        <div class="field"><label>対象範囲</label>
-          <select data-f="audience">
-            ${Object.entries(Domain.AUDIENCE).map(([k,v]) =>
-              `<option value="${k}" ${f.audience===k?"selected":""}>${v}</option>`).join("")}
-          </select>
-          <div class="hint">社外向け・社内外では<b>問い合わせ先が必須</b>になります（社外の方は社内の連絡経路を使えないため / F-98）</div></div>
         <div class="field"><label>公開範囲</label>
           <select data-f="visibility">
             <option value="public" ${f.visibility==="public"?"selected":""}>一般公開</option>
             <option value="limited" ${f.visibility==="limited"?"selected":""}>限定公開（URLを知る人のみ）</option>
           </select>
           <div class="hint">限定公開→一般公開は可、逆は不可（F-66）</div></div>
-        ${A("contactInfo","問い合わせ先",{ph:"運営事務局まで",hint:"任意・200文字以内（F-64）"})}`;
+        ${A("contactInfo","問い合わせ先",{ph:"◯◯事務局 event@example.com（平日9:00〜17:00）",hint:"<b>必須</b>・200文字以内。社外の方の唯一の連絡手段になります（F-64 / F-98）"})}`;
     }
     return "";
   }
@@ -3809,6 +3911,8 @@ const App = (() => {
   }
   function refresh() { renderContent(); } // データ変更後に現在ページを再描画
   function setView(view) {
+    // 参加者ビューへ切り替えたら名簿は再ロックする（主催者席を離れる想定 / F-101）
+    if (view !== "organizer") Roster.lock();
     route = view === "organizer"
       ? { view, page:"dashboard", param:null }
       : { view, page:"list", param:null };
