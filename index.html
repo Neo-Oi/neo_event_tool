@@ -120,7 +120,6 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .impl .done{color:var(--ok)} .impl .partial{color:var(--warn)} .impl .out{color:var(--muted)}
 
 .note{background:#fffbea;border:1px solid #f0e3a8;border-radius:var(--radius);padding:14px 16px;font-size:13px;color:#6a5a12}
-.mock-flag{background:#eef2ff;border:1px dashed #b9c6f5;color:#3550b0;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin-top:12px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .row-actions{display:flex;gap:8px}
 
@@ -179,6 +178,46 @@ tr.expand-row td{background:#f7f9ff;padding:0}
 .copybox input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit}
 details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-top:14px}
 .ticket-item{cursor:pointer}
+
+/* 参加者名簿（横断 / F-b） */
+.hist{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:13px;flex-wrap:wrap}
+.hist a{cursor:pointer;font-weight:600}
+.hist .d{color:var(--muted);font-size:12px}
+
+/* QR受付（F-e） */
+.scan{border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;background:#fff;text-align:center}
+.scan .sh{font-size:12px;color:var(--muted);margin-bottom:10px}
+.scan video{width:100%;max-width:360px;border-radius:8px;background:#000}
+.scan .row-actions{justify-content:center;margin-top:10px}
+.scan .sr{margin-top:10px;font-size:14px;font-weight:700;min-height:22px}
+.scan .sr .ok{color:var(--ok)} .scan .sr .ng{color:var(--danger)}
+
+/* 申込推移（F-f） */
+.trend{margin-bottom:12px;overflow-x:auto}
+.trend .th{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.trend .th span{font-weight:400;margin-left:8px}
+.trend svg{display:block}
+.trend .tl2{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+
+/* 申込フォームのカスタム質問エディタ（F-a） */
+.qedit{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:#fafbfe;margin-top:6px}
+.qedit .qh{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.qrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.qrow input,.qrow select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+.qrow .ql{flex:2;min-width:0} .qrow .qo{flex:2;min-width:0} .qrow .qt{flex:none;width:96px}
+.qrow .qo:disabled{background:#f1f4f9;color:var(--muted)}
+.qrow .qr{display:flex;gap:4px;align-items:center;font-size:12px;white-space:nowrap}
+.qrow .qr input{width:auto}
+
+/* 視聴情報（オンライン／ハイブリッド。申込者のみ） */
+.online-box{border:1px solid #bcd0fb;background:var(--blue-weak);border-radius:var(--radius);padding:12px 14px;margin:14px 0}
+.online-box .oh{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px}
+.online-box .on{font-size:12px;color:var(--ink);margin-top:6px;white-space:pre-wrap}
+
+/* 受付用QR */
+.qr-box{border:1px solid var(--line);border-radius:var(--radius);padding:14px;text-align:center;margin:14px 0}
+.qr-box .qh{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.qr-box canvas{display:block;margin:0 auto}
 
 /* 主催者からのお知らせ（参加者向け） */
 .notices{border:1px solid #f0e3a8;background:#fffbea;border-radius:var(--radius);padding:12px 14px;margin:14px 0}
@@ -383,9 +422,26 @@ const Util = (() => {
     catch { return false; }
   };
 
+  /* CDN スクリプトの遅延読み込み（QRの生成・読取でのみ使う）。起動時には読まないので、
+     オフラインでも他の機能は動く。globalName が既にあれば何もしない。 */
+  const _loading = {};
+  const loadScript = (src, globalName) => {
+    if (window[globalName]) return Promise.resolve(window[globalName]);
+    if (_loading[src]) return _loading[src];
+    _loading[src] = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src; s.async = true;
+      s.onload = () => window[globalName] ? resolve(window[globalName])
+        : reject(new Error(globalName + " が読み込めませんでした"));
+      s.onerror = () => { delete _loading[src]; reject(new Error("CDNに接続できません")); };
+      document.head.appendChild(s);
+    });
+    return _loading[src];
+  };
+
   return { esc, randHex, uid, newToken, normalize, toKatakana,
            fmtDateTime, fmtDate, deadlineEnd, dayStart, weekStartMonday, daysBetween,
-           csvCell, buildCsv, downloadText, copy };
+           csvCell, buildCsv, downloadText, copy, loadScript };
 })();
 
 
@@ -508,17 +564,21 @@ const Repo = (() => {
     },
     persons: {
       all: () => DB.getAll("persons"),
+      get: (id) => DB.get("persons", id),
       byEmailKey: (k) => DB.getAllByIndex("persons", "emailKey", k).then(a => a[0] || null),
       put: (p) => DB.put("persons", p),
     },
     applications: {
       all: () => DB.getAll("applications"),
+      get: (id) => DB.get("applications", id),
       byEvent: (eventId) => DB.getAllByIndex("applications", "eventId", eventId),
+      byPerson: (personId) => DB.getAllByIndex("applications", "personId", personId),
       byToken: (token) => DB.getAllByIndex("applications", "token", token).then(a => a[0] || null),
       put: (a) => DB.put("applications", a),
     },
     savedTokens: {
       all: () => DB.getAll("savedTokens"),
+      get: (t) => DB.get("savedTokens", t),
       put: (t) => DB.put("savedTokens", t),
     },
     bulkPut: (entries) => DB.bulkPut(entries),
@@ -531,6 +591,8 @@ const Repo = (() => {
 const Domain = (() => {
   // 明示状態（保存する）
   const STATUS = { draft:"下書き", published:"公開中", cancelled:"中止" };
+  // 開催形式（F-c）。オンライン／ハイブリッドの視聴URLは申込者にだけ見せる
+  const FORMAT = { onsite:"現地開催", online:"オンライン", hybrid:"ハイブリッド" };
 
   // 時期（保存しない。受付開始・締切日時と現在時刻から都度算出 / F-05）
   // 戻り値: {phase, label} phase ∈ before|open|closed|held|cancelled
@@ -597,9 +659,125 @@ const Domain = (() => {
       overdue: tasks.filter(t => taskOverdue(t, now)).length };
   }
 
-  return { STATUS, timing, capacity, isValidApp, usedSeats, remaining,
+  return { STATUS, FORMAT, timing, capacity, isValidApp, usedSeats, remaining,
            applyButtonLabel, nearlyFull, staleDraft,
            TASK_STATUS, TASK_FLOW, PRIORITY, taskOverdue, taskSummary };
+})();
+
+
+// ===== [4b] 申込の業務処理（C-2 / C-3。主催者側と参加者側で共通 / F-25） =====
+/* 申込・キャンセル・チェックイン・修正はここに集約する。主催者と参加者の両方から
+   同じ関数を呼ぶため、処理が二重化しない。 */
+const AppSvc = (() => {
+  // 名寄せキーの正規化は trim と小文字化のみ。それ以上は別人の誤統合を招く（4-5）
+  const emailKeyOf = (email) => String(email ?? "").trim().toLowerCase();
+  // 検索用の正規化済み文字列を持たせる（F-47 / 7-5）
+  const searchTextOf = (p) => Util.normalize((p.name||"") + (p.nameKana||"") + (p.email||""));
+
+  // 申込の確定（F-16〜F-19）。名寄せ・トークン発行・端末への保存を1トランザクションで行う。
+  // 定員判定は直前の読み取りに基づく。単一ブラウザ前提のため競合は考慮しない。
+  async function apply(eventId, input) {
+    const [ev, apps, found] = await Promise.all([
+      Repo.events.get(eventId),
+      Repo.applications.byEvent(eventId),
+      Repo.persons.byEmailKey(emailKeyOf(input.email)),
+    ]);
+    if (!ev || ev.status !== "published") throw new Error("このイベントには申込できません");
+    const t = Domain.timing(ev);
+    if (t.phase !== "open") throw new Error(`${t.label}のため申込できません`);
+    if (Domain.remaining(ev, apps) <= 0) throw new Error("定員に達したため申込できません");
+    // 1人1件（F-17）。ただしキャンセル後の再申込は許す（F-42）
+    if (found && apps.some(a => a.personId === found.id && Domain.isValidApp(a)))
+      throw new Error("このイベントには既に申込済みです");
+
+    const now = new Date().toISOString();
+    const kana = Util.toKatakana(input.kana);           // 保存時にカタカナへ（F-52）
+    const person = found
+      ? { ...found, name:input.name, nameKana:kana, email:input.email,
+          contactConsent: input.consent || found.contactConsent,
+          consentAt: input.consent && !found.contactConsent ? now : (found.consentAt ?? null) }
+      : { id:Util.uid(), emailKey:emailKeyOf(input.email), email:input.email,
+          name:input.name, nameKana:kana, contactConsent:!!input.consent,
+          consentAt: input.consent ? now : null, createdAt:now };
+    const app = {
+      id:Util.uid(), eventId, personId:person.id, token:Util.newToken(),
+      status:"applied", checkinAt:null, cancelledAt:null, appliedAt:now,
+      answers: input.answers || {},                      // カスタム質問の回答（F-a）
+      searchText: searchTextOf(person),
+    };
+    // 確認トークンをこの端末に保存する（F-56）
+    const saved = { token:app.token, eventId, savedAt:now };
+    await Repo.bulkPut([
+      { store:"persons",      record:person },
+      { store:"applications", record:app },
+      { store:"savedTokens",  record:saved },
+    ]);
+    return { app, person };
+  }
+
+  // キャンセル（F-25）。主催者側・参加者側の両方からこれを呼ぶ。記録は消さず状態だけ変える
+  async function cancel(appId) {
+    const app = await Repo.applications.get(appId);
+    if (!app) throw new Error("申込が見つかりません");
+    if (app.status === "cancelled") return app;
+    const rec = { ...app, status:"cancelled", cancelledAt:new Date().toISOString() };
+    await Repo.applications.put(rec);
+    return rec;
+  }
+
+  // チェックインと取り消し（F-24）。checkinAt は操作時刻であり来場時刻ではない。
+  // 開催済みイベントでも制限しない
+  async function setCheckin(appId, on) {
+    const app = await Repo.applications.get(appId);
+    if (!app) throw new Error("申込が見つかりません");
+    if (app.status === "cancelled") throw new Error("キャンセル済みの申込はチェックインできません");
+    const rec = { ...app, status: on ? "checkedin" : "applied",
+      checkinAt: on ? new Date().toISOString() : null };
+    await Repo.applications.put(rec);
+    return rec;
+  }
+
+  // 申込者情報の修正（F-26）。person を書き換えるので、同じ人の全申込の searchText も直す。
+  // 既に別人が使っている emailKey へは変更させない（誤統合の分離は困難なため / 4-5）
+  async function editApplicant(appId, { name, kana, email }) {
+    const app = await Repo.applications.get(appId);
+    if (!app) throw new Error("申込が見つかりません");
+    const person = await Repo.persons.get(app.personId);
+    if (!person) throw new Error("参加者が見つかりません");
+    const key = emailKeyOf(email);
+    if (key !== person.emailKey) {
+      const other = await Repo.persons.byEmailKey(key);
+      if (other && other.id !== person.id)
+        throw new Error("このメールアドレスは別の参加者に登録されています。名寄せの誤統合を避けるため変更できません");
+    }
+    const p = { ...person, name, nameKana:Util.toKatakana(kana), email, emailKey:key };
+    const mine = await Repo.applications.byPerson(p.id);
+    await Repo.bulkPut([
+      { store:"persons", record:p },
+      ...mine.map(a => ({ store:"applications", record:{ ...a, searchText: searchTextOf(p) } })),
+    ]);
+    return p;
+  }
+
+  // 入力検証（F-16, F-52, F-53, F-54）。申込フォームと主催者の修正欄で共用する
+  function validate(d) {
+    const e = {};
+    if (!String(d.name||"").trim()) e.name = "氏名を入力してください";
+    else if (d.name.length > 50) e.name = "50文字以内で入力してください";
+    if (!String(d.kana||"").trim()) e.kana = "カナを入力してください";
+    else if (!/^[ぁ-んァ-ヶー\s]+$/.test(d.kana)) e.kana = "ひらがな・カタカナで入力してください";
+    else if (d.kana.length > 50) e.kana = "50文字以内で入力してください";
+    if (!String(d.email||"").trim()) e.email = "メールアドレスを入力してください";
+    else {
+      const parts = d.email.split("@");
+      if (parts.length !== 2 || !parts[0] || !parts[1] || !parts[1].includes("."))
+        e.email = "メールアドレスの形式が正しくありません";
+      else if (d.email.length > 254) e.email = "254文字以内で入力してください";
+    }
+    return e;
+  }
+
+  return { apply, cancel, setCheckin, editApplicant, validate, emailKeyOf, searchTextOf };
 })();
 
 
@@ -655,18 +833,27 @@ const Seed = (() => {
     };
     const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"社員全般",
       venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください",
-      applyStartAt:null };
+      applyStartAt:null, eventFormat:"onsite", onlineUrl:null, onlineNote:null, questions:[] };
+    // 申込フォームの追加質問（F-a）。社内イベントで実際に要る項目を例示する
+    const qDept  = { id:"q_dept",  label:"所属部署",       type:"text",     required:true,  options:[] };
+    const qFood  = { id:"q_food",  label:"食事の制限",     type:"textarea", required:false, options:[] };
+    const qParty = { id:"q_party", label:"懇親会に参加する", type:"checkbox", required:false, options:[] };
+    const qJoin  = { id:"q_join",  label:"参加方法",       type:"select",   required:true,
+                     options:["現地で参加","オンラインで参加"] };
 
     // 定員はイベントが持つ（チケット廃止）
     const events = [
       { id:"ev_public", title:"社内技術LT大会 2026夏", description:"部門横断のライトニングトーク大会です。登壇・聴講どちらも歓迎。",
         startAt:day(14,18,30), endAt:day(14,20,30), venueName:"本社 大会議室", capacity:60,
         applyDeadline:dateStr(10), status:"published", visibility:"public",
-        createdAt:day(-20), updatedAt:day(-5), ...base },
+        createdAt:day(-20), updatedAt:day(-5), ...base,
+        eventFormat:"hybrid", onlineUrl:"https://teams.microsoft.com/l/meetup-join/demo-lt-2026",
+        onlineNote:"開始10分前から入室できます。マイクはミュートでお願いします。",
+        questions:[qDept, qJoin, qParty] },
       { id:"ev_soon", title:"新人歓迎ランチ会", description:"今年度の新入社員を交えたカジュアルなランチ会。",
         startAt:day(1,12,0), endAt:day(1,13,0), venueName:"7Fカフェテリア", capacity:20,
         applyDeadline:dateStr(0), status:"published", visibility:"public",
-        createdAt:day(-15), updatedAt:day(-3), ...base },
+        createdAt:day(-15), updatedAt:day(-3), ...base, questions:[qDept, qFood] },
       { id:"ev_limited", title:"（限定）経営戦略説明会", description:"招待者向けの限定公開イベントです。",
         startAt:day(20,15,0), endAt:day(20,17,0), venueName:"役員会議室", capacity:15,
         applyDeadline:dateStr(18), status:"published", visibility:"limited",
@@ -707,7 +894,12 @@ const Seed = (() => {
       apps.push({
         id:Util.uid(), eventId:ev, personId:p.id, token:Util.newToken(),
         status, checkinAt: status==="checkedin" ? day(offset,9,30) : null,
+        cancelledAt: status==="cancelled" ? day(offset,12,0) : null,
         appliedAt: day(offset,9,0),
+        answers: ev==="ev_public"
+          ? { q_dept:["開発部","営業部","総務部","人事部","広報部"][pi], q_join:pi%2?"オンラインで参加":"現地で参加", q_party:pi%2===0 }
+          : ev==="ev_soon" ? { q_dept:["開発部","営業部","総務部","人事部","広報部"][pi], q_food:pi===3?"乳製品アレルギー":"" }
+          : {},
         searchText: Util.normalize(p.name + p.nameKana + p.email),
       });
     };
@@ -934,6 +1126,7 @@ const EventDetail = (() => {
   let ctx = null;      // { ev, apps, _persons, tasks, el }
   let tab = "apply";   // 初期タブは申込（F-75）
   let expandedId = null;
+  let query = "";      // 申込一覧の絞り込み語（操作後の再描画でも保持する）
 
   function paint() {
     const { ev, apps, el } = ctx;
@@ -999,23 +1192,131 @@ const EventDetail = (() => {
   function renderApply(pane) {
     pane.innerHTML = `
       <div style="display:flex;gap:10px;margin-bottom:12px">
-        <input id="searchBox" placeholder="氏名・カナ・メールで絞り込み" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit">
+        <input id="searchBox" value="${Util.esc(query)}" placeholder="氏名・カナ・メールで絞り込み" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit">
+        <button class="btn" id="qrBtn">QRで受付</button>
         <button class="btn" id="csvBtn">CSV出力</button>
       </div>
+      <div id="scanHost"></div>
+      ${trendHtml(ctx.apps)}
       <div class="card"><table class="list">
         <thead><tr><th>氏名</th><th>カナ</th><th>状態</th><th style="width:120px">操作</th></tr></thead>
         <tbody id="appRows"></tbody>
       </table></div>
-      <div class="mock-flag">チェックイン／取消・内容修正・キャンセルは表示のみのモック（保存は C-3 で実装）。検索・CSV出力は実データで動作します。</div>`;
+      <div class="ops-note" style="margin-top:12px">チェックインの時刻は操作時刻を記録します（来場時刻ではありません / F-24）。開催済みでも受付できます。</div>`;
 
     const box = pane.querySelector("#searchBox");
-    box.oninput = () => paintRows(pane, box.value);
-    paintRows(pane, "");
+    box.oninput = () => { query = box.value; paintRows(pane); };
+    paintRows(pane);
 
     pane.querySelector("#csvBtn").onclick = () => exportCsv();
+    pane.querySelector("#qrBtn").onclick = () => startScan(pane);
   }
 
-  function paintRows(pane, query) {
+  /* QRでの受付（F-e）。カメラで参加者のトークンを読み、そのままチェックインする。
+     読み取りライブラリは CDN から必要時のみ取得する。1台での運用のみ——複数端末での
+     同時受付は端末間でチェックイン状態を共有できないため不可能（4-1）。 */
+  let scanStop = null;
+  async function startScan(pane) {
+    const host = pane.querySelector("#scanHost");
+    if (scanStop) { scanStop(); return; }
+    host.innerHTML = `<div class="scan"><div class="sh">カメラを起動しています…</div></div>`;
+    let stream, raf;
+    const stop = () => {
+      scanStop = null;
+      if (raf) cancelAnimationFrame(raf);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      host.innerHTML = "";
+    };
+    scanStop = stop;
+    try {
+      const jsQR = await Util.loadScript("https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js", "jsQR");
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      host.innerHTML = `<div class="scan">
+        <div class="sh">QRをかざしてください（1台での受付のみ。複数端末の同時受付はサーバが必要 / 4-1）</div>
+        <video id="scanVideo" playsinline muted></video>
+        <div class="row-actions"><button class="btn sm" id="scanStop">停止</button></div>
+        <div class="sr" id="scanResult"></div></div>`;
+      host.querySelector("#scanStop").onclick = stop;
+      const video = host.querySelector("#scanVideo");
+      video.srcObject = stream;
+      await video.play();
+      const canvas = document.createElement("canvas");
+      const cx = canvas.getContext("2d", { willReadFrequently: true });
+      const seen = new Set();
+      const tick = () => {
+        if (!scanStop) return;
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+          cx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const img = cx.getImageData(0, 0, canvas.width, canvas.height);
+          const hit = jsQR(img.data, img.width, img.height);
+          if (hit && hit.data && !seen.has(hit.data)) {
+            seen.add(hit.data);
+            handleScan(hit.data, host.querySelector("#scanResult"), pane);
+          }
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    } catch (e) {
+      stop();
+      FB.error("カメラを起動できません: " + e.message + "（氏名検索での受付をご利用ください）");
+    }
+  }
+
+  async function handleScan(token, out, pane) {
+    const app = ctx.apps.find(a => a.token === token);
+    if (!app) { out.innerHTML = `<span class="ng">このイベントの申込ではありません</span>`; return; }
+    const p = ctx._persons[app.personId] || {};
+    if (app.status === "cancelled") {
+      out.innerHTML = `<span class="ng">${Util.esc(p.name)} さんはキャンセル済みです</span>`; return;
+    }
+    if (app.status === "checkedin") {
+      out.innerHTML = `<span class="ng">${Util.esc(p.name)} さんは受付済みです（${Util.fmtDateTime(app.checkinAt)}）</span>`; return;
+    }
+    try {
+      await AppSvc.setCheckin(app.id, true);
+      ctx.apps = await Repo.applications.byEvent(ctx.ev.id);
+      out.innerHTML = `<span class="ok">✅ ${Util.esc(p.name)} さんを受付しました</span>`;
+      paintRows(pane);
+    } catch (e) { out.innerHTML = `<span class="ng">${Util.esc(e.message)}</span>`; }
+  }
+
+  /* 申込推移（F-f）。appliedAt を日別に積み上げる。サーバ無しでも描けるので、
+     「閲覧数の計測（サーバが必要）」とは区別される。 */
+  function trendHtml(apps) {
+    const valid = apps.filter(a => a.appliedAt);
+    if (valid.length < 2) return "";
+    const key = (iso) => { const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+    const counts = {};
+    valid.forEach(a => { counts[key(a.appliedAt)] = (counts[key(a.appliedAt)] || 0) + 1; });
+    const days = Object.keys(counts).sort();
+    const first = new Date(days[0] + "T00:00:00"), last = new Date(days[days.length-1] + "T00:00:00");
+    const series = [];
+    let cum = 0;
+    for (const d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const n = counts[k] || 0; cum += n;
+      series.push({ k, n, cum });
+    }
+    const max = Math.max(...series.map(s => s.n), 1);
+    const W = 4, GAP = 2, H = 46;
+    const width = series.length * (W + GAP);
+    return `<div class="card pad trend">
+      <div class="th">申込の推移 <span>${series.length}日間・累計 ${cum}件</span></div>
+      <svg width="${width}" height="${H}" viewBox="0 0 ${width} ${H}" role="img" aria-label="申込推移">
+        ${series.map((s, i) => {
+          const h = s.n ? Math.max(2, Math.round(s.n / max * (H - 12))) : 1;
+          return `<rect x="${i*(W+GAP)}" y="${H-h}" width="${W}" height="${h}"
+            fill="${s.n ? "var(--blue)" : "#dde3ee"}"><title>${s.k}: ${s.n}件（累計${s.cum}）</title></rect>`;
+        }).join("")}
+      </svg>
+      <div class="tl2"><span>${Util.fmtDate(series[0].k)}</span><span>${Util.fmtDate(series[series.length-1].k)}</span></div>
+    </div>`;
+  }
+
+  function paintRows(pane) {
     const { apps } = ctx;
     const q = Util.normalize(query);
     const rows = apps.filter(a => !q || a.searchText.includes(q));
@@ -1040,33 +1341,106 @@ const EventDetail = (() => {
           <div><div class="k">メールアドレス</div>${Util.esc(p.email||"—")}</div>
           <div><div class="k">申込日時</div>${Util.fmtDateTime(a.appliedAt)}</div>
           <div><div class="k">チェックイン時刻</div>${a.checkinAt?Util.fmtDateTime(a.checkinAt):"—"}</div>
+          ${a.cancelledAt?`<div><div class="k">キャンセル日時</div>${Util.fmtDateTime(a.cancelledAt)}</div>`:""}
         </div>
+        ${answersHtml(a)}
         <div class="row-actions">
           <button class="btn sm" data-edit="${a.id}">内容を修正</button>
-          <button class="btn sm" data-cancel="${a.id}" style="color:var(--danger)">申込をキャンセル</button>
+          ${a.status==="cancelled" ? ""
+            : `<button class="btn sm" data-cancel="${a.id}" style="color:var(--danger)">申込をキャンセル</button>`}
         </div></div></td></tr>` : "";
       return main + exp;
     }).join("");
 
     // 行クリックで展開（操作ボタンのクリックは伝播させない）
     tbody.querySelectorAll("tr[data-row]").forEach(tr =>
-      tr.onclick = () => { expandedId = expandedId === tr.dataset.row ? null : tr.dataset.row; paintRows(pane, query); });
+      tr.onclick = () => { expandedId = expandedId === tr.dataset.row ? null : tr.dataset.row; paintRows(pane); });
+
+    const after = async (fn, msg) => {
+      try { await fn(); ctx.apps = await Repo.applications.byEvent(ctx.ev.id); FB.toast(msg); paint(); }
+      catch (e) { FB.error(e.message); }
+    };
     tbody.querySelectorAll("[data-checkin]").forEach(b =>
-      b.onclick = (e) => { e.stopPropagation(); FB.toast("チェックインはモックです（保存は C-3 で実装）"); });
-    tbody.querySelectorAll("[data-edit]").forEach(b =>
-      b.onclick = (e) => { e.stopPropagation(); FB.toast("内容修正はモックです（保存は C-3 で実装）"); });
+      b.onclick = (e) => {
+        e.stopPropagation();
+        const a = ctx.apps.find(x => x.id === b.dataset.checkin);
+        const on = a.status !== "checkedin";
+        after(() => AppSvc.setCheckin(a.id, on), on ? "チェックインしました" : "受付を取り消しました");
+      });
     tbody.querySelectorAll("[data-cancel]").forEach(b =>
-      b.onclick = (e) => { e.stopPropagation(); FB.toast("キャンセルはモックです（保存は C-3 で実装）"); });
+      b.onclick = (e) => {
+        e.stopPropagation();
+        FB.confirmModal({ title:"この申込をキャンセルしますか？", okLabel:"キャンセルする", danger:true,
+          body:"記録は残りますが、状態がキャンセルになり定員から外れます。",
+          onOk:() => after(() => AppSvc.cancel(b.dataset.cancel), "申込をキャンセルしました") });
+      });
+    tbody.querySelectorAll("[data-edit]").forEach(b =>
+      b.onclick = (e) => { e.stopPropagation(); openApplicantEditor(b.dataset.edit); });
+  }
+
+  // カスタム質問の回答（F-a）。イベントに質問が定義されているときだけ出す
+  function answersHtml(a) {
+    const qs = ctx.ev.questions || [];
+    if (!qs.length) return "";
+    return `<div class="kv2" style="margin-bottom:12px">${qs.map(q => {
+      const v = (a.answers || {})[q.id];
+      const shown = q.type === "checkbox" ? (v ? "はい" : "いいえ") : (v || "—");
+      return `<div><div class="k">${Util.esc(q.label)}</div>${Util.esc(shown)}</div>`;
+    }).join("")}</div>`;
+  }
+
+  // 申込内容の修正（F-26）。person を書き換えるため、同じ人の他の申込にも反映される
+  async function openApplicantEditor(appId) {
+    const a = ctx.apps.find(x => x.id === appId);
+    const p = ctx._persons[a.personId] || {};
+    const host = document.getElementById("modalHost");
+    host.innerHTML = `<div class="modal wide">
+      <h3>申込内容を修正</h3>
+      <div class="field" style="margin-top:14px"><label>氏名</label>
+        <input id="edName" value="${Util.esc(p.name||"")}"></div>
+      <div class="field"><label>氏名（カナ）</label>
+        <input id="edKana" value="${Util.esc(p.nameKana||"")}"></div>
+      <div class="field"><label>メールアドレス</label>
+        <input id="edEmail" value="${Util.esc(p.email||"")}"></div>
+      <div class="hint">参加者の情報を修正します。同じ方の他のイベントの申込にも反映されます。</div>
+      <div class="err" id="edErr" style="color:var(--danger);font-size:12px;min-height:18px;margin-top:8px"></div>
+      <div class="modal-actions">
+        <button class="btn" id="edCancel">キャンセル</button>
+        <button class="btn primary" id="edSave">保存</button>
+      </div></div>`;
+    host.classList.add("on");
+    const q = (s) => host.querySelector(s);
+    const close = () => { host.classList.remove("on"); host.innerHTML = ""; };
+    q("#edCancel").onclick = close;
+    q("#edSave").onclick = async () => {
+      const d = { name:q("#edName").value.trim(), kana:q("#edKana").value.trim(),
+        email:q("#edEmail").value.trim() };
+      const errs = AppSvc.validate(d);
+      const first = Object.values(errs)[0];
+      if (first) { q("#edErr").textContent = first; return; }
+      try {
+        await AppSvc.editApplicant(appId, d);
+        close();
+        FB.toast("申込内容を修正しました");
+        await render(ctx.el, ctx.ev.id);
+      } catch (e) { q("#edErr").textContent = e.message; }
+    };
   }
 
   function exportCsv() {
     const { ev, apps } = ctx;
     const persons = ctx._persons || {};
-    const header = ["申込番号","氏名","氏名（カナ）","メールアドレス","状態","申込日時","チェックイン時刻"];
+    const qs = ev.questions || [];
+    const header = ["申込番号","氏名","氏名（カナ）","メールアドレス","状態","申込日時","チェックイン時刻",
+      ...qs.map(q => q.label)];   // カスタム質問を列として出す（F-a / Peatix のフォーム取得相当）
     const body = apps.map(a => {
       const p = persons[a.personId] || {};
       return [a.id, p.name||"", p.nameKana||"", p.email||"",
-        STATUS_LABEL[a.status], Util.fmtDateTime(a.appliedAt), a.checkinAt?Util.fmtDateTime(a.checkinAt):""];
+        STATUS_LABEL[a.status], Util.fmtDateTime(a.appliedAt), a.checkinAt?Util.fmtDateTime(a.checkinAt):"",
+        ...qs.map(q => {
+          const v = (a.answers || {})[q.id];
+          return q.type === "checkbox" ? (v ? "はい" : "いいえ") : (v ?? "");
+        })];
     });
     Util.downloadText(`applications_${ev.id}.csv`, Util.buildCsv([header, ...body]));
     FB.toast("CSVを出力しました");
@@ -1132,8 +1506,10 @@ ${url}`;
           <div class="row"><span class="k">公開範囲</span><span>${ev.visibility==="limited"?"限定公開":"一般公開"}</span></div>
           <div class="row"><span class="k">問い合わせ先</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
         </div>
-        <div class="row-actions" style="margin-top:16px">
+        <div class="row-actions" style="margin-top:16px;flex-wrap:wrap">
           <button class="btn" id="editBtn">✎ 編集する</button>
+          <button class="btn" id="previewBtn">👁 参加者ビューで確認</button>
+          <button class="btn" id="dupBtn">⧉ 複製</button>
           ${canPublish?'<button class="btn primary" id="publishBtn">公開する</button>':""}
           ${canCancel?'<button class="btn" id="cancelBtn" style="color:var(--danger)">中止する</button>':""}
           ${canDelete?'<button class="btn" id="deleteBtn" style="color:var(--danger)">削除</button>':""}
@@ -1141,6 +1517,23 @@ ${url}`;
       </div>
       <div class="ops-note" style="margin-top:12px">状態遷移は一方向です（下書き→公開→中止）。公開後は下書きに戻せず、削除もできません。</div>`;
     pane.querySelector("#editBtn").onclick = () => App.openCreate(ev.id);
+    // 下書きのままでも参加者ビューでの見え方を確認できる（F-07）
+    pane.querySelector("#previewBtn").onclick = () => App.openPreview(ev.id);
+    // 複製（F-d）。申込は複製せず、下書きとして作る。copiedFromId で元を辿れる
+    pane.querySelector("#dupBtn").onclick = () => FB.confirmModal({
+      title:"このイベントを複製しますか？", okLabel:"複製する",
+      body:"内容をコピーした<b>下書き</b>を作ります。申込・お知らせ・運営タスクは複製されません。",
+      onOk: async () => {
+        try {
+          const now = new Date().toISOString();
+          const copy = { ...ev, id:Util.uid(), title:`${ev.title}（コピー）`,
+            status:"draft", copiedFromId:ev.id, groupId:ev.groupId || ev.id,
+            createdAt:now, updatedAt:now };
+          await Repo.events.put(copy);
+          FB.toast("複製しました。下書きとして作成されています");
+          App.openEvent(copy.id);
+        } catch (e) { FB.error("複製に失敗: " + e.message); }
+      } });
 
     // 状態を1つ書き換えて詳細を再読込する。遷移は一方向（F-37）で、ここでしか変えない
     const transition = async (status, msg) => {
@@ -1184,7 +1577,8 @@ ${url}`;
     if (!ev) { el.innerHTML = `<div class="empty"><div class="big">イベントが見つかりません</div></div>`; return; }
     const _persons = {}; personsArr.forEach(p => _persons[p.id] = p);
     ctx = { ev, apps, _persons, tasks, el };
-    expandedId = null; tab = "apply";
+    // 別のイベントを開いたら絞り込みは解除する（操作後の再描画では保持する）
+    expandedId = null; tab = "apply"; query = "";
     paint();
   }
 
@@ -1680,6 +2074,97 @@ const Tasks = (() => {
 })();
 
 
+// ===== [9d] 主催者：参加者名簿 S-10（横断 / F-b） =====
+/* 「データ蓄積が価値」の証明にあたる画面。persons を横断で一覧し、同一人物の参加履歴を
+   まとめて見る。Peatix はイベント終了30日後にフォームデータを削除するため、ここが差になる。
+   persons を後から足すと全 applications の付け替えが要る（4-5）ので当初から持っていた。 */
+const Roster = (() => {
+  let query = "";
+  let openId = null;
+
+  async function render(el) {
+    const [persons, apps, events] = await Promise.all([
+      Repo.persons.all(), Repo.applications.all(), Repo.events.all()]);
+    const evById = {}; events.forEach(e => evById[e.id] = e);
+    const byPerson = groupBy(apps, "personId");
+
+    const rows = persons.map(p => {
+      const mine = (byPerson[p.id] || [])
+        .sort((a,b) => new Date(b.appliedAt) - new Date(a.appliedAt));
+      const valid = mine.filter(Domain.isValidApp);
+      return { p, mine,
+        total: valid.length,
+        attended: mine.filter(a => a.status === "checkedin").length,
+        cancelled: mine.filter(a => a.status === "cancelled").length,
+        last: mine[0] ? mine[0].appliedAt : null,
+        text: Util.normalize(p.name + p.nameKana + p.email) };
+    }).sort((a,b) => b.total - a.total || new Date(b.last||0) - new Date(a.last||0));
+
+    const q = Util.normalize(query);
+    const shown = rows.filter(r => !q || r.text.includes(q));
+
+    el.innerHTML = `
+      <div class="page-head"><h2>参加者</h2>
+        <span class="sub">${persons.length}人・のべ${apps.length}件の申込</span></div>
+      <div class="ops-note">申込のたびにメールアドレスで名寄せして蓄積しています（4-5）。
+        イベントをまたいだ参加履歴を、期限なく保持します。</div>
+      <div style="display:flex;gap:10px;margin:12px 0">
+        <input id="rSearch" value="${Util.esc(query)}" placeholder="氏名・カナ・メールで絞り込み"
+          style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit">
+        <button class="btn" id="rCsv">CSV出力</button>
+      </div>
+      <div class="card">${shown.length ? `<table class="list">
+        <thead><tr><th>氏名</th><th>カナ</th><th>メールアドレス</th>
+          <th style="width:80px">参加</th><th style="width:90px">来場</th><th style="width:140px">最終申込</th></tr></thead>
+        <tbody>${shown.map(r => rowHtml(r, evById)).join("")}</tbody></table>`
+        : `<div class="empty"><div class="big">${persons.length ? "一致する参加者がいません" : "参加者がいません"}</div>
+           ${persons.length ? "" : "申込が入ると、ここに蓄積されます。"}</div>`}</div>`;
+
+    const box = el.querySelector("#rSearch");
+    box.oninput = () => { query = box.value; render(el); };
+    el.querySelector("#rCsv").onclick = () => exportCsv(shown);
+    el.querySelectorAll("tr[data-p]").forEach(tr =>
+      tr.onclick = () => { openId = openId === tr.dataset.p ? null : tr.dataset.p; render(el); });
+    el.querySelectorAll("[data-goev]").forEach(a =>
+      a.onclick = (e) => { e.stopPropagation(); App.openEvent(a.dataset.goev); });
+  }
+
+  function rowHtml(r, evById) {
+    const { p } = r;
+    const main = `<tr class="clickable" data-p="${p.id}">
+      <td>${Util.esc(p.name)}</td><td>${Util.esc(p.nameKana)}</td><td>${Util.esc(p.email)}</td>
+      <td><b>${r.total}</b></td><td>${r.attended}</td>
+      <td>${r.last ? Util.fmtDate(r.last) : "—"}</td></tr>`;
+    if (openId !== p.id) return main;
+    const label = { applied:"申込済", checkedin:"来場", cancelled:"キャンセル" };
+    return main + `<tr class="expand-row"><td colspan="6"><div class="expand-inner">
+      <div class="k" style="color:var(--muted);font-size:12px;margin-bottom:8px">参加履歴（${r.mine.length}件）</div>
+      ${r.mine.map(a => {
+        const ev = evById[a.eventId];
+        return `<div class="hist">
+          <span class="badge ${a.status==='cancelled'?'draft':a.status==='checkedin'?'published':'phase'}">${label[a.status]}</span>
+          <a data-goev="${a.eventId}">${Util.esc(ev ? ev.title : "（削除されたイベント）")}</a>
+          <span class="d">${ev && ev.startAt ? Util.fmtDate(ev.startAt) : "日程未定"}</span>
+          <span class="d">申込 ${Util.fmtDate(a.appliedAt)}</span></div>`;
+      }).join("")}
+      ${p.contactConsent ? `<div class="hint" style="margin-top:8px">案内の受け取りに同意済み（${
+        p.consentAt ? Util.fmtDate(p.consentAt) : "日時不明"}）。※メール送信機能は持ちません（4-7）</div>` : ""}
+    </div></td></tr>`;
+  }
+
+  function exportCsv(rows) {
+    const header = ["氏名","氏名（カナ）","メールアドレス","有効な申込数","来場回数","キャンセル数","最終申込日","案内の受取同意"];
+    const body = rows.map(r => [r.p.name, r.p.nameKana, r.p.email,
+      r.total, r.attended, r.cancelled, r.last ? Util.fmtDate(r.last) : "",
+      r.p.contactConsent ? "同意" : "未同意"]);
+    Util.downloadText("participants.csv", Util.buildCsv([header, ...body]));
+    FB.toast("参加者名簿を出力しました");
+  }
+
+  return { render };
+})();
+
+
 // ===== [10] 主催者：設定（S-5 / F-32, F-33, F-36） =====
 const Settings = (() => {
   async function render(el) {
@@ -1700,20 +2185,28 @@ const Settings = (() => {
           <thead><tr><th>領域</th><th>区分</th><th>状態</th></tr></thead>
           <tbody>
             ${implRow("DB基盤・Repository・シード/初期化","B-1","done","実装済")}
-            ${implRow("アプリシェル・役割切替・タブ","B-2","partial","一部（画面遷移とフィードバックは配線済）")}
+            ${implRow("アプリシェル・役割切替・タブ","B-2","done","実装済（タブ4つ・役割切替・URL復帰・フィードバック4分類）")}
             ${implRow("ダッシュボード（指標・要対応）","D-2","done","実装済")}
             ${implRow("イベント一覧（時期トグル）","C-1","done","実装済")}
             ${implRow("イベント作成・編集（5ステップ）","C-1","done","実装済（下書き作成・都度保存・公開／中止／削除・カバー画像を永続）")}
-            ${implRow("イベント詳細・申込管理・CSV","C-3","partial","モック（検索・CSV出力は動作／チェックイン等の保存は未）")}
-            ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","partial","モック（入力→確認→完了・マイ申込表示は動作／確定保存は未）")}
+            ${implRow("イベント詳細・申込管理・CSV","C-3","done","実装済（チェックイン／取消・キャンセル・内容修正を永続）")}
+            ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","done","実装済（名寄せ・トークン発行・定員判定・キャンセルを永続）")}
+            ${implRow("確認URL／イベントURL／プレビュー","F-20","done","実装済（?ticket= / ?event= / ?preview= から復帰）")}
             ${implRow("お知らせ（主催者→参加者）","E-4","done","実装済（公開ページとマイ申込に表示。メール送信は不可のため掲示型）")}
+            ${implRow("申込フォームのカスタム質問","F-a","done","実装済（定義・回答保存・CSV列・一覧表示）")}
+            ${implRow("参加者名簿（横断・参加履歴）","F-b","done","実装済（名寄せ済みの蓄積を一覧・CSV出力）")}
+            ${implRow("開催形式と視聴URL","F-c","done","実装済（視聴URLは申込者のマイ申込にのみ表示）")}
+            ${implRow("イベントの複製","F-d","done","実装済（下書きとして複製・copiedFromIdを記録）")}
+            ${implRow("QRコードでの受付","F-e","done","実装済（1台のみ。複数端末の同時受付はサーバが必要）")}
+            ${implRow("申込推移の可視化","F-f","done","実装済（appliedAt から日次推移）")}
             ${implRow("告知（URL・投稿文・SNS共有）","D-1","done","実装済（読み取りのみ）")}
             ${implRow("運営スレッド（社内チャット）","E-1","done","実装済（単一ブラウザ内で永続。別端末同期は不可）")}
             ${implRow("運営Q&A（疑問の登録・解消）","E-1","done","実装済（同上）")}
             ${implRow("運営タスク（ボード／タイムライン）","E-2","done","実装済（ドラッグでの状態変更・並べ替えを永続）")}
             ${implRow("ファイル共有","E-3","partial","後回し（ご指示により保留）")}
             ${implRow("メール送信・SNS自動投稿・SEO/OGP","—","out","対象外（サーバが必要）")}
-            ${implRow("決済・キャンセル待ち・QR・レスポンシブ","—","out","対象外（意図的に除外）")}
+            ${implRow("複数端末での同時受付・別端末からの申込確認","—","out","対象外（端末間でデータを共有できないため）")}
+            ${implRow("決済・キャンセル待ち・抽選・レスポンシブ","—","out","対象外（意図的に除外）")}
             ${implRow("チケット制","—","out","廃止（申込に一本化・定員はイベントが保持）")}
           </tbody>
         </table>
@@ -1771,7 +2264,8 @@ const Participant = (() => {
     const [ev, apps] = await Promise.all([
       Repo.events.get(eventId),
       Repo.applications.byEvent(eventId)]);
-    if (!ev || ev.status === "draft") {
+    const preview = App.isPreview(eventId);   // 下書きの見え方確認（F-07）
+    if (!ev || (ev.status === "draft" && !preview)) {
       el.innerHTML = `<div class="empty"><div class="big">このイベントは表示できません</div></div>`; return;
     }
     const notices = Ops.noticesOf(await Repo.messages.byEvent(eventId));
@@ -1783,12 +2277,16 @@ const Participant = (() => {
 
     el.innerHTML = `
       <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button></div>
+      ${preview ? `<div class="note" style="margin-bottom:14px">これは<b>下書きのプレビュー</b>です（F-07）。参加者にはまだ見えません。</div>` : ""}
       <div class="pub">
         ${coverHtml(ev)}
         <h1>${Util.esc(ev.title)}</h1>
         ${ev.status==="cancelled" ? `<div class="banner" style="position:static;border-radius:8px">このイベントは中止されました</div>`:""}
         <div class="kv">
           <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}〜${ev.endAt?Util.fmtDateTime(ev.endAt):""}</span></div>
+          <div class="row"><span class="k">開催形式</span><span>${Domain.FORMAT[ev.eventFormat||"onsite"]}${
+            (ev.eventFormat && ev.eventFormat !== "onsite")
+              ? '<span class="hint" style="display:inline;margin-left:8px">視聴URLは申込後にマイ申込で確認できます</span>' : ""}</span></div>
           <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"} ${mapLink}</span></div>
           <div class="row"><span class="k">対象者</span><span>${Util.esc(ev.targetAudience)||"—"}</span></div>
           <div class="row"><span class="k">受付</span><span>${
@@ -1801,7 +2299,6 @@ const Participant = (() => {
         <button class="btn primary apply" id="apply" ${btn.disabled?"disabled style='opacity:.55;cursor:not-allowed'":""}>${btn.text}</button>
         <div class="kv" style="margin-top:16px"><div class="row"><span class="k">問い合わせ</span>
           <span>${Util.esc(ev.contactInfo)||"—"}</span></div></div>
-        <div class="mock-flag">申込フロー（入力→確認→完了）とマイ申込は動作します。申込の確定・保存はモック（C-2 で永続化）。</div>
       </div>`;
     el.querySelector("#back").onclick = () => App.go("participant");
     const applyBtn = el.querySelector("#apply");
@@ -1819,6 +2316,46 @@ const Participant = (() => {
       </div>`).join("")}
     </div>`;
 
+  /* 視聴情報（F-c）。オンライン／ハイブリッドのとき、申込者にだけ URL を見せる。
+     公開ページには出さない（4-3 の「自分の申込は確認URL経由でのみ見える」に揃える）。 */
+  const onlineBlock = (ev, cancelled) => {
+    const f = ev.eventFormat || "onsite";
+    if (f === "onsite" || !ev.onlineUrl) return "";
+    if (cancelled) return `<div class="ops-note">キャンセル済みのため視聴URLは表示されません。</div>`;
+    return `<div class="online-box">
+      <div class="oh">${Domain.FORMAT[f]}の視聴情報（申込者のみ）</div>
+      <div class="copybox"><input readonly value="${Util.esc(ev.onlineUrl)}">
+        <a class="btn primary" href="${Util.esc(ev.onlineUrl)}" target="_blank" rel="noopener">開く</a></div>
+      ${ev.onlineNote ? `<div class="on">${Util.esc(ev.onlineNote)}</div>` : ""}
+    </div>`;
+  };
+
+  /* 受付用QR（F-e）。トークンを符号化する。主催者はこれをカメラで読んでチェックインする。
+     生成ライブラリは CDN から必要になった時だけ読み込む（オフラインでも他機能は動く）。 */
+  const qrBlock = (app) => `<div class="qr-box">
+    <div class="qh">受付用QRコード</div>
+    <div id="qrHost" data-token="${app.token}"><button class="btn sm" id="qrShow">QRを表示</button></div>
+    <div class="hint">当日、受付でこの画面を見せてください。</div></div>`;
+
+  async function wireQr(el) {
+    const host = el.querySelector("#qrHost");
+    if (!host) return;
+    const btn = el.querySelector("#qrShow");
+    if (!btn) return;
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = "読み込み中…";
+      try {
+        await Util.loadScript("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js", "QRCode");
+        const canvas = document.createElement("canvas");
+        await window.QRCode.toCanvas(canvas, host.dataset.token, { width: 168, margin: 1 });
+        host.innerHTML = ""; host.appendChild(canvas);
+      } catch {
+        host.innerHTML = `<div class="hint">QRの生成に失敗しました（CDNに接続できない可能性があります）。
+          受付では氏名で検索してもらってください。</div>`;
+      }
+    };
+  }
+
   // ---- 申込フロー S-7（入力→確認 / F-16, F-52, F-53, F-54, F-80, F-84） ----
   let flow = null; // { ev, phase:'input'|'confirm', data, host }
 
@@ -1835,33 +2372,64 @@ const Participant = (() => {
       el.querySelector("#back").onclick = () => App.openPublic(ev.id);
       return;
     }
+    const t = Domain.timing(ev);
+    if (t.phase !== "open") {
+      el.innerHTML = `<div class="empty"><div class="big">${t.label}のため申込できません</div>
+        <button class="btn" id="back" style="margin-top:12px">← 戻る</button></div>`;
+      el.querySelector("#back").onclick = () => App.openPublic(ev.id);
+      return;
+    }
     flow = { ev, phase:"input", host:el,
-      data:{ name:"", kana:"", email:"", consent:false } };
+      data:{ name:"", kana:"", email:"", consent:false, answers:{} } };
     paintFlow();
   }
 
   function collectFlow() {
     const el = flow.host;
     const g = id => el.querySelector(id);
-    if (g("#fName")) {
-      flow.data = { name:g("#fName").value, kana:g("#fKana").value,
-        email:g("#fEmail").value, consent:g("#fConsent").checked };
+    if (!g("#fName")) return;
+    const answers = {};
+    for (const q of (flow.ev.questions || [])) {
+      const inp = el.querySelector(`[data-q="${q.id}"]`);
+      if (!inp) continue;
+      answers[q.id] = q.type === "checkbox" ? inp.checked : inp.value;
     }
+    flow.data = { name:g("#fName").value, kana:g("#fKana").value,
+      email:g("#fEmail").value, consent:g("#fConsent").checked, answers };
   }
 
-  function validateApply(d) {
-    const e = {};
-    if (!d.name.trim()) e.name = "氏名を入力してください";
-    else if (d.name.length > 50) e.name = "50文字以内で入力してください";
-    if (!d.kana.trim()) e.kana = "カナを入力してください";
-    else if (!/^[ぁ-んァ-ヶー\s]+$/.test(d.kana)) e.kana = "ひらがな・カタカナで入力してください";
-    else if (d.kana.length > 50) e.kana = "50文字以内で入力してください";
-    if (!d.email.trim()) e.email = "メールアドレスを入力してください";
-    else {
-      const parts = d.email.split("@");
-      if (parts.length !== 2 || !parts[0] || !parts[1] || !parts[1].includes("."))
-        e.email = "メールアドレスの形式が正しくありません";
-      else if (d.email.length > 254) e.email = "254文字以内で入力してください";
+  // カスタム質問の入力欄（F-a）
+  function questionFields(ev, data, err) {
+    return (ev.questions || []).map(q => {
+      const v = (data.answers || {})[q.id] ?? "";
+      const e = err["q_" + q.id];
+      const cls = e ? "invalid" : "";
+      let input;
+      if (q.type === "textarea")
+        input = `<textarea data-q="${q.id}" class="${cls}">${Util.esc(v)}</textarea>`;
+      else if (q.type === "select")
+        input = `<select data-q="${q.id}" class="${cls}"><option value="">選択してください</option>
+          ${(q.options||[]).map(o => `<option ${v===o?"selected":""}>${Util.esc(o)}</option>`).join("")}</select>`;
+      else if (q.type === "checkbox")
+        input = `<label style="font-weight:400;display:flex;gap:8px;align-items:center">
+          <input type="checkbox" data-q="${q.id}" ${v?"checked":""}>はい</label>`;
+      else
+        input = `<input data-q="${q.id}" value="${Util.esc(v)}" class="${cls}">`;
+      return `<div class="field"><label>${Util.esc(q.label)}${
+        q.required?'<span class="req">必須</span>':""}</label>${input}
+        ${e?`<div class="err">${Util.esc(e)}</div>`:""}</div>`;
+    }).join("");
+  }
+
+  // 検証は AppSvc と共通（主催者の修正欄でも同じ規則を使う / F-16, F-52〜F-54）。
+  // カスタム質問の必須チェックだけここで足す（F-a）
+  function validateApply(d, ev) {
+    const e = AppSvc.validate(d);
+    for (const q of (ev.questions || [])) {
+      if (!q.required) continue;
+      const v = (d.answers || {})[q.id];
+      if (q.type === "checkbox" ? !v : !String(v ?? "").trim())
+        e["q_" + q.id] = "回答してください";
     }
     return e;
   }
@@ -1887,6 +2455,7 @@ const Participant = (() => {
           ${fld("fName","氏名",data.name,{key:"name",ph:"山田 太郎"})}
           ${fld("fKana","氏名（カナ）",data.kana,{key:"kana",ph:"ヤマダ タロウ",hint:"ひらがな・カタカナで入力（保存時にカタカナへ変換）"})}
           ${fld("fEmail","メールアドレス",data.email,{key:"email",type:"email",ph:"taro@example.com"})}
+          ${questionFields(ev, data, err)}
           <div class="consent"><input type="checkbox" id="fConsent" ${data.consent?"checked":""}>
             <label for="fConsent" style="font-weight:400">今後のイベント案内の受け取りに同意する（任意）</label></div>
           <button class="btn primary" id="toConfirm" style="width:100%;justify-content:center;padding:12px">確認へ進む</button>
@@ -1894,7 +2463,7 @@ const Participant = (() => {
       el.querySelector("#back").onclick = () => App.openPublic(ev.id);
       el.querySelector("#toConfirm").onclick = () => {
         collectFlow();
-        const errors = validateApply(flow.data);
+        const errors = validateApply(flow.data, ev);
         if (Object.keys(errors).length) {
           flow.errors = errors; paintFlow();
           const first = el.querySelector(".invalid"); if (first) first.focus(); // F-84
@@ -1916,19 +2485,32 @@ const Participant = (() => {
             <div class="row"><span class="k">氏名</span><span>${Util.esc(d.name)}</span></div>
             <div class="row"><span class="k">カナ</span><span>${Util.esc(d.kana)}</span></div>
             <div class="row"><span class="k">メール</span><span>${Util.esc(d.email)}</span></div>
+            ${(ev.questions||[]).map(q => {
+              const v = (d.answers||{})[q.id];
+              const shown = q.type === "checkbox" ? (v ? "はい" : "いいえ") : (v || "—");
+              return `<div class="row"><span class="k">${Util.esc(q.label)}</span><span>${Util.esc(shown)}</span></div>`;
+            }).join("")}
             <div class="row"><span class="k">案内の受取</span><span>${d.consent?"同意する":"同意しない"}</span></div>
           </div>
           <div class="row-actions" style="margin-top:16px">
             <button class="btn" id="back2">修正する</button>
             <button class="btn primary" id="submit" style="flex:1;justify-content:center">申込む</button>
           </div>
-        </div>
-        <div class="mock-flag">「申込む」は申込レコードを保存せずに完了画面へ進むモックです（定員判定・トークン発行・保存は C-2 で実装）。</div>`;
+        </div>`;
       const back = () => { flow.phase = "input"; paintFlow(); };
       el.querySelector("#back").onclick = back;
       el.querySelector("#back2").onclick = back;
-      el.querySelector("#submit").onclick = () =>
-        App.openComplete(ev.id, { ...d, token: Util.newToken() });
+      const submit = el.querySelector("#submit");
+      submit.onclick = async () => {
+        submit.disabled = true;                       // 二重送信を防ぐ
+        try {
+          const { app } = await AppSvc.apply(ev.id, d);
+          App.openComplete(ev.id, { ...d, token: app.token });
+        } catch (e) {
+          submit.disabled = false;
+          FB.error(e.message);
+        }
+      };
     }
   }
 
@@ -1951,9 +2533,9 @@ const Participant = (() => {
         <details class="reveal"><summary>別の端末で確認する</summary>
           <div class="copybox"><input readonly value="${Util.esc(url)}">
             <button class="btn" id="copyUrl">コピー</button></div>
-          <div class="hint" style="margin-top:6px">この確認URLからいつでも申込内容を確認できます。</div>
+          <div class="hint" style="margin-top:6px">この確認URLからいつでも申込内容を確認できます。
+            トークンはこの端末に保存済みです。<b>別の端末から復帰する手段はありません</b>（サーバが無いため / 3-3）。</div>
         </details>
-        <div class="mock-flag" style="text-align:left">この完了画面はモックです。実際にはトークンをブラウザに保存し、マイ申込に反映されます（C-2）。</div>
       </div>`;
     el.querySelector("#toTicket").onclick = () => App.go("myticket");
     el.querySelector("#copyUrl").onclick = async () =>
@@ -2013,31 +2595,51 @@ const Participant = (() => {
       <div class="page-head"><button class="btn ghost" id="back">← マイ申込</button></div>
       <div class="card pad">
         <h2 style="font-size:18px">${Util.esc(ev.title)}</h2>
+        ${cancelled ? `<div class="banner" style="position:static;border-radius:8px;margin:12px 0">
+          この申込はキャンセルされました（F-43）</div>` : ""}
+        ${ev.status === "cancelled" ? `<div class="banner" style="position:static;border-radius:8px;margin:12px 0">
+          このイベントは中止されました</div>` : ""}
         ${noticeBlock(notices)}
+        ${onlineBlock(ev, cancelled)}
         <div class="summary" style="margin:14px 0">
           <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}</span></div>
+          <div class="row"><span class="k">開催形式</span><span>${Domain.FORMAT[ev.eventFormat||"onsite"]}</span></div>
           <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"} ${mapLink}</span></div>
           <div class="row"><span class="k">問い合わせ</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
           <div class="row"><span class="k">申込状態</span><span><span class="badge ${cancelled?'draft':'phase'}">${label[app.status]}</span></span></div>
           <div class="row"><span class="k">申込日時</span><span>${Util.fmtDateTime(app.appliedAt)}</span></div>
+          ${(ev.questions||[]).map(q => {
+            const v = (app.answers||{})[q.id];
+            const shown = q.type === "checkbox" ? (v ? "はい" : "いいえ") : (v || "—");
+            return `<div class="row"><span class="k">${Util.esc(q.label)}</span><span>${Util.esc(shown)}</span></div>`;
+          }).join("")}
         </div>
+        ${cancelled ? "" : qrBlock(app)}
         <div class="row-actions">
           <a class="btn" id="toPublic">公開ページを開く</a>
           ${cancelled ? "" : '<button class="btn" id="cancelBtn" style="color:var(--danger)">申込をキャンセル</button>'}
         </div>
       </div>
-      <div class="mock-flag">キャンセルはモックです（保存は C-2 で実装）。表示は savedTokens ストアの実データです。</div>`;
+      `;
     el.querySelector("#back").onclick = () => { selectedToken = null; renderMyTicket(el); };
     el.querySelector("#toPublic").onclick = () => App.openPublic(ev.id);
+    wireQr(el);
     const cb = el.querySelector("#cancelBtn");
     if (cb) cb.onclick = () => FB.confirmModal({
       title:"申込をキャンセルしますか？", okLabel:"キャンセルする", danger:true,
-      body:"この申込をキャンセルします。",
-      onOk:() => FB.toast("キャンセルはモックです（保存は C-2 で実装）") });
+      body:"キャンセルすると席が空きます。同じイベントへの再申込はできます（F-42）。",
+      onOk: async () => {
+        // 主催者側と同じ処理を呼ぶ（F-25）
+        try { await AppSvc.cancel(app.id); FB.toast("申込をキャンセルしました"); await renderMyTicket(el); }
+        catch (e) { FB.error(e.message); }
+      } });
   }
   function resetMyTicket() { selectedToken = null; }
 
-  return { renderList, renderPublic, renderApply, renderComplete, renderMyTicket, resetMyTicket };
+  const selectTicket = (token) => { selectedToken = token; };   // 確認URLからの復帰用（F-20）
+
+  return { renderList, renderPublic, renderApply, renderComplete, renderMyTicket,
+           resetMyTicket, selectTicket };
 })();
 
 
@@ -2075,6 +2677,7 @@ const Wizard = (() => {
   let coverFile = null;   // 新たに選択されたカバー画像（File は Blob なのでそのまま保存できる）
   let coverKeep = null;   // 編集時に保持する既存の Blob
   let wasPublic = false;  // 編集開始時点で一般公開だったか（F-66 の判定用）
+  let questions = [];     // 申込フォームのカスタム質問（F-a）
 
   const isoToLocalInput = (iso) => {
     if (!iso) return "";
@@ -2095,11 +2698,15 @@ const Wizard = (() => {
         targetAudience:ev.targetAudience||"",
         capacity:ev.capacity||"", applyStartAt:ev.applyStartAt||"", applyDeadline:ev.applyDeadline||"",
         visibility:ev.visibility||"public", contactInfo:ev.contactInfo||"",
+        eventFormat:ev.eventFormat||"onsite", onlineUrl:ev.onlineUrl||"", onlineNote:ev.onlineNote||"",
         status:ev.status };
+      questions = (ev.questions || []).map(q => ({ ...q, options:[...(q.options||[])] }));
     } else {
       form = { id:null, title:"", startAt:"", endAt:"", venueName:"", venueAddress:"", description:"",
         targetAudience:"", capacity:"", applyStartAt:"", applyDeadline:"",
-        visibility:"public", contactInfo:"", status:"draft" };
+        visibility:"public", contactInfo:"",
+        eventFormat:"onsite", onlineUrl:"", onlineNote:"", status:"draft" };
+      questions = [];
     }
     paint();
   }
@@ -2112,6 +2719,7 @@ const Wizard = (() => {
       }
       form[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : inp.value;
     });
+    collectQuestions();
   }
 
   const toIso = (local) => local ? new Date(local).toISOString() : null;
@@ -2132,6 +2740,10 @@ const Wizard = (() => {
       capacity: form.capacity ? +form.capacity : null,
       applyStartAt: form.applyStartAt || null,
       applyDeadline: form.applyDeadline || null,
+      eventFormat: form.eventFormat || "onsite",
+      onlineUrl: (form.onlineUrl || "").trim() || null,
+      onlineNote: (form.onlineNote || "").trim() || null,
+      questions: questions.filter(q => q.label.trim()),   // ラベル未入力の行は捨てる（F-a）
       status,
       visibility: form.visibility,
       groupId: prev?.groupId ?? null,
@@ -2180,6 +2792,10 @@ const Wizard = (() => {
     // ステップ見出しでの直接移動（編集時は任意、新規は完了済みのみ / F-73）
     el.querySelectorAll(".step.clickable").forEach(s =>
       s.onclick = () => { collect(); step = +s.dataset.step; paint(); });
+    // 開催形式を変えると視聴URL欄の出し入れが必要になるので、その場で描き直す（F-c）
+    const fmt = el.querySelector('[data-f="eventFormat"]');
+    if (fmt) fmt.onchange = () => { collect(); paint(); };
+    wireQuestions();
     wireFooter();
   }
 
@@ -2258,6 +2874,63 @@ const Wizard = (() => {
     return true;
   }
 
+  /* 申込フォームのカスタム質問（F-a）。氏名・カナ・メールは固定で、その先を主催者が定義する。
+     社内イベントでは所属部署・食事アレルギー・懇親会の参加可否などが必要になる。 */
+  const Q_TYPES = { text:"一行", textarea:"複数行", select:"選択肢", checkbox:"チェック" };
+  function questionEditor() {
+    return `<div class="qedit">
+      <div class="qh">申込フォームの追加質問（F-a）
+        <span class="hint" style="font-weight:400">氏名・カナ・メールは常に聞きます。その他をここで定義します。</span></div>
+      ${questions.length ? questions.map((q, i) => `
+        <div class="qrow" data-qi="${i}">
+          <input class="ql" data-qf="label" value="${Util.esc(q.label)}" placeholder="質問文（例: 所属部署）">
+          <select class="qt" data-qf="type">${Object.entries(Q_TYPES).map(([k,v]) =>
+            `<option value="${k}" ${q.type===k?"selected":""}>${v}</option>`).join("")}</select>
+          <input class="qo" data-qf="options" value="${Util.esc((q.options||[]).join(","))}"
+            placeholder="選択肢（カンマ区切り）" ${q.type==="select"?"":"disabled"}>
+          <label class="qr"><input type="checkbox" data-qf="required" ${q.required?"checked":""}>必須</label>
+          <button type="button" class="btn sm" data-qdel="${i}" style="color:var(--danger)">削除</button>
+        </div>`).join("")
+        : `<div class="hint">追加の質問はありません。</div>`}
+      <button type="button" class="btn sm" id="qAdd" style="margin-top:10px">＋ 質問を追加</button>
+    </div>`;
+  }
+
+  // 質問エディタの入力を questions に取り込む（collect と同じタイミングで呼ぶ）
+  function collectQuestions() {
+    const rows = el.querySelectorAll(".qrow");
+    if (!rows.length) return;
+    questions = [...rows].map((row, i) => {
+      const g = (f) => row.querySelector(`[data-qf="${f}"]`);
+      const type = g("type").value;
+      return {
+        id: questions[i]?.id || Util.uid(),
+        label: g("label").value,
+        type,
+        required: g("required").checked,
+        options: type === "select"
+          ? g("options").value.split(",").map(s => s.trim()).filter(Boolean) : [],
+      };
+    });
+  }
+
+  function wireQuestions() {
+    const add = el.querySelector("#qAdd");
+    if (!add) return;
+    add.onclick = () => {
+      collect();
+      questions.push({ id:Util.uid(), label:"", type:"text", required:false, options:[] });
+      paint();
+    };
+    el.querySelectorAll("[data-qdel]").forEach(b => b.onclick = () => {
+      collect();
+      questions.splice(+b.dataset.qdel, 1);
+      paint();
+    });
+    // 種別を選択肢に変えたら選択肢欄を使えるようにする
+    el.querySelectorAll('.qrow [data-qf="type"]').forEach(s => s.onchange = () => { collect(); paint(); });
+  }
+
   function showErr(field, msg) {
     const inp = el.querySelector(`[data-f="${field}"]`);
     if (!inp) return;
@@ -2325,8 +2998,17 @@ const Wizard = (() => {
           ${T("endAt","終了日時",{type:"datetime-local"})}
         </div>`;
       case "venue": return `
+        <div class="field"><label>開催形式</label>
+          <select data-f="eventFormat">
+            ${Object.entries(Domain.FORMAT).map(([k,v]) =>
+              `<option value="${k}" ${f.eventFormat===k?"selected":""}>${v}</option>`).join("")}
+          </select>
+          <div class="hint">オンライン・ハイブリッドの視聴URLは<b>申込者のマイ申込にだけ</b>表示されます（F-c）</div></div>
         ${T("venueName","会場名",{ph:"本社 大会議室"})}
-        ${T("venueAddress","住所",{ph:"東京都千代田区1-1-1",hint:"入力すると公開ページに地図リンクを表示します（F-68）"})}`;
+        ${T("venueAddress","住所",{ph:"東京都千代田区1-1-1",hint:"入力すると公開ページに地図リンクを表示します（F-68）"})}
+        ${f.eventFormat && f.eventFormat !== "onsite" ? `
+          ${T("onlineUrl","視聴URL",{ph:"https://teams.microsoft.com/...",hint:"申込者のみに表示されます"})}
+          ${A("onlineNote","参加方法の補足",{ph:"開始10分前から入室できます"})}` : ""}`;
       case "detail": return `
         ${A("description","説明",{ph:"イベントの概要を入力"})}
         ${T("targetAudience","対象者",{ph:"社員全般"})}
@@ -2339,7 +3021,8 @@ const Wizard = (() => {
         <div class="form-2col">
           ${T("applyStartAt","受付開始",{type:"date",hint:"任意。当日00:00から受付（F-45b）。未設定なら公開と同時に受付開始"})}
           ${T("applyDeadline","申込締切",{type:"date",hint:"当日23:59:59まで受付（F-45）"})}
-        </div>`;
+        </div>
+        ${questionEditor()}`;
       case "setting": return `
         <div class="field"><label>公開範囲</label>
           <select data-f="visibility">
@@ -2361,7 +3044,9 @@ const App = (() => {
   let route = { view:"organizer", page:"dashboard", param:null };
   let completeData = null; // S-8 へ渡す申込内容（トランジェント）
 
-  const ORG_TABS  = [["dashboard","ダッシュボード"],["events","イベント"],["settings","設定"]];
+  // タブは4つ。参加者名簿はイベント横断なので、イベントタブ配下には置けない（4-1 を改訂）
+  const ORG_TABS  = [["dashboard","ダッシュボード"],["events","イベント"],
+                     ["roster","参加者"],["settings","設定"]];
   const PART_TABS = [["list","イベントを探す"],["myticket","マイ申込"]];
 
   function renderTabs() {
@@ -2370,7 +3055,11 @@ const App = (() => {
     const active = route.view === "organizer" ? orgActive : partActive;
     host.innerHTML = tabs.map(([k,label]) =>
       `<button data-page="${k}" class="${active(k)?'on':''}">${label}</button>`).join("");
-    host.querySelectorAll("button").forEach(b => b.onclick = () => go(b.dataset.page));
+    // タブから開いたときは一覧へ戻す。確認URLからの復帰（openTicket）では選択を保持する
+    host.querySelectorAll("button").forEach(b => b.onclick = () => {
+      if (b.dataset.page === "myticket") Participant.resetMyTicket();
+      go(b.dataset.page);
+    });
   }
   const orgActive = (k) =>
     route.page === k ||
@@ -2387,13 +3076,14 @@ const App = (() => {
         if (route.page === "dashboard") await Dashboard.render(el);
         else if (route.page === "events") await EventsList.render(el);
         else if (route.page === "eventDetail") await EventDetail.render(el, route.param);
+        else if (route.page === "roster") await Roster.render(el);
         else if (route.page === "settings") await Settings.render(el);
         else if (route.page === "create") await Wizard.render(el, route.param);
       } else {
         if (route.page === "public") await Participant.renderPublic(el, route.param);
         else if (route.page === "apply") await Participant.renderApply(el, route.param);
         else if (route.page === "complete") await Participant.renderComplete(el, route.param, completeData);
-        else if (route.page === "myticket") { Participant.resetMyTicket(); await Participant.renderMyTicket(el); }
+        else if (route.page === "myticket") await Participant.renderMyTicket(el);
         else await Participant.renderList(el);
       }
     } catch (e) {
@@ -2410,6 +3100,14 @@ const App = (() => {
   function openPublic(id) { route = { view:"participant", page:"public", param:id }; render(); }
   function openApply(id) { route = { view:"participant", page:"apply", param:id }; render(); }
   function openComplete(id, data) { completeData = data; route = { view:"participant", page:"complete", param:id }; render(); }
+  function openTicket(token) {
+    Participant.selectTicket(token);
+    route = { view:"participant", page:"myticket", param:null };
+    document.body.dataset.view = "participant";
+    document.querySelectorAll("#roleSwitch button").forEach(b =>
+      b.classList.toggle("on", b.dataset.role === "participant"));
+    render();
+  }
   function refresh() { renderContent(); } // データ変更後に現在ページを再描画
   function setView(view) {
     route = view === "organizer"
@@ -2428,8 +3126,43 @@ const App = (() => {
       b.onclick = () => setView(b.dataset.role));
   }
 
-  return { go, openEvent, openCreate, openPublic, openApply, openComplete,
-           refresh, setView, wire, render };
+  /* URL からの復帰（F-20 / F-65）。
+     ?ticket=<token> → その申込の詳細（別端末では復帰できないが、同じ端末なら開ける）
+     ?event=<id>     → 公開ページ。限定公開はこの経路でのみ閲覧できる
+     ?preview=<id>   → 下書きの参加者ビュー確認（F-07）
+     いずれも参加者ビューに切り替える。処理後は URL を元に戻し、再読込で再発火させない。 */
+  async function routeFromUrl() {
+    const q = new URLSearchParams(location.search);
+    const ticket = q.get("ticket"), eventId = q.get("event"), preview = q.get("preview");
+    if (!ticket && !eventId && !preview) return false;
+    history.replaceState(null, "", location.pathname);
+
+    if (ticket) {
+      const app = await Repo.applications.byToken(ticket);
+      if (!app) { FB.error("この確認URLに対応する申込が見つかりません"); return false; }
+      // 同じ端末で開いた場合に備え、未保存なら控えを保存しておく（F-56）
+      if (!await Repo.savedTokens.get(ticket))
+        await Repo.savedTokens.put({ token:ticket, eventId:app.eventId, savedAt:new Date().toISOString() });
+      openTicket(ticket);
+      return true;
+    }
+    const id = eventId || preview;
+    const ev = await Repo.events.get(id);
+    if (!ev) { FB.error("イベントが見つかりません"); return false; }
+    if (preview) previewId = id;         // 下書きでも参加者ビューで見えるようにする（F-07）
+    route = { view:"participant", page:"public", param:id };
+    document.body.dataset.view = "participant";
+    document.querySelectorAll("#roleSwitch button").forEach(b =>
+      b.classList.toggle("on", b.dataset.role === "participant"));
+    render();
+    return true;
+  }
+  let previewId = null;
+  const isPreview = (id) => previewId === id;   // 下書きプレビュー中か（F-07）
+  function openPreview(id) { previewId = id; openPublic(id); }
+
+  return { go, openEvent, openCreate, openPublic, openApply, openComplete, openTicket,
+           openPreview, isPreview, routeFromUrl, refresh, setView, wire, render };
 })();
 
 
@@ -2440,7 +3173,8 @@ const App = (() => {
     await DB.open();
     // 初回はデータが無いので、空状態の案内が出る（F-35）。設定からシード投入できる。
     const events = await Repo.events.all();
-    App.render();
+    // 確認URL・イベントURL・プレビューURLからの復帰を先に試す（F-20 / F-07）
+    if (!await App.routeFromUrl()) App.render();
     if (!events.length) {
       // 起動直後に自動でシードは投入しない（初期化の確認をしやすくするため）。案内のみ。
       FB.toast("データがありません。設定 → デモデータを投入 で開始できます");
