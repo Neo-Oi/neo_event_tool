@@ -117,6 +117,23 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!csv.includes("'=cmd")) throw new Error("buildCsv に反映されない: " + csv);
   });
 
+  await step("ヘッダーのロゴが会社サイトへのリンクになっている", async () => {
+    const a = window.document.querySelector("header.appbar a.logo");
+    if (!a) throw new Error("ロゴのリンクが無い");
+    if (a.getAttribute("href") !== "https://comthink.co.jp/") throw new Error("リンク先が違う: " + a.getAttribute("href"));
+    if (a.getAttribute("rel") !== "noopener") throw new Error("rel=noopener が無い");
+    const img = a.querySelector("img");
+    if (!img) throw new Error("ロゴ画像が無い");
+    // 外部ファイルを参照しない制約。データURIで埋め込まれていること
+    if (!/^data:image\/webp;base64,/.test(img.getAttribute("src") || ""))
+      throw new Error("データURIで埋め込まれていない: " + (img.getAttribute("src") || "").slice(0, 40));
+    if (!img.getAttribute("alt")) throw new Error("alt が無い");
+    // ヘッダーの左端にあること（ロゴ → アプリ名の順）
+    const kids = [...window.document.querySelector("header.appbar").children];
+    if (kids.indexOf(a) !== 0) throw new Error("ロゴがヘッダー左端にない");
+    if (!kids[1] || !kids[1].classList.contains("brand")) throw new Error("ロゴの次がアプリ名でない");
+  });
+
   await step("Dashboard.render", async () => { await M.Dashboard.render(content); nonEmpty("dashboard"); });
 
   // 申込ヒートマップ（S-1 / F-103）

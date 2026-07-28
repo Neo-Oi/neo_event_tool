@@ -25,6 +25,11 @@ h1,h2,h3{margin:0}
 /* ヘッダー */
 header.appbar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:16px;
   padding:0 20px;height:56px;position:sticky;top:0;z-index:20}
+/* 会社ロゴ（データURIで埋め込み）。ロゴ自体の配色が不明でも読めるよう白地に載せる */
+header.appbar .logo{display:flex;align-items:center;background:#fff;border-radius:6px;
+  padding:5px 9px;flex:none;line-height:0;transition:box-shadow .12s}
+header.appbar .logo:hover{box-shadow:0 0 0 2px rgba(255,255,255,.5)}
+header.appbar .logo img{height:20px;width:auto;display:block}
 header.appbar .brand{font-weight:700;font-size:16px;letter-spacing:.02em}
 header.appbar .spacer{flex:1}
 header.appbar .role{display:flex;background:rgba(255,255,255,.12);border-radius:999px;padding:3px}
@@ -493,6 +498,13 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 <body data-view="organizer">
 
 <header class="appbar">
+  <!-- 会社ロゴ。**外部ファイルを参照しない**制約があるため、WebP をデータURIで埋め込んでいる
+       （2.6KB / 483x37）。差し替えるときは
+       https://comthink.co.jp/wp-content/themes/comthink_260319/img/logo.webp を取得し直して
+       base64 に変換する。濃紺ヘッダー上でロゴの色に依存せず読めるよう、白地に載せている。 -->
+  <a class="logo" href="https://comthink.co.jp/" target="_blank" rel="noopener"
+     title="日本コムシンク株式会社のサイトを開く">
+    <img src="data:image/webp;base64,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" alt="日本コムシンク株式会社"></a>
   <div class="brand">📋 イベント管理システム</div>
   <div class="spacer"></div>
   <div class="role" id="roleSwitch">
