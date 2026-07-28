@@ -5709,8 +5709,21 @@ const Settings = (() => {
         </table>
       </div>`;
     el.querySelector("#seed").onclick = async () => {
-      try { await Seed.load(); FB.toast("デモデータを投入しました"); App.refresh(); }
-      catch (e) { FB.error("シード投入に失敗: " + e.message); }
+      const doSeed = async () => {
+        try { await Seed.load(); FB.toast("デモデータを投入しました"); App.refresh(); }
+        catch (e) { FB.error("シード投入に失敗: " + e.message); }
+      };
+      /* データが残ったまま重ねて投入すると、イベント・参加者は固定IDで上書きされる一方、
+         申込・メッセージ・タスク・ファイルは毎回新しいIDで**重複していく**。
+         残っている場合は初期化してから投入する（受け入れ確認 4-5 の14と同じ手順）。 */
+      const existing = await Repo.events.all();
+      if (!existing.length) { await doSeed(); return; }
+      FB.confirmModal({ title:"既にデータがあります", okLabel:"初期化して投入", danger:true,
+        body:"そのまま追加すると申込・タスクなどが重複します。<b>すべてのデータを初期化してから</b>デモデータを投入します。",
+        onOk: async () => {
+          try { await Repo.reset(); } catch (e) { FB.error("初期化に失敗: " + e.message); return; }
+          await doSeed();
+        } });
     };
     el.querySelector("#reset").onclick = async () => {
       if (!confirm("データベースを初期化します。すべてのデータが削除されます。よろしいですか？")) return;
