@@ -271,6 +271,18 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .evcard .fl.new{background:var(--blue);color:#fff}
 .evcard.unread{border-left:3px solid var(--blue)}
 
+/* ファイル共有（E-3 / F-102） */
+.fl-bar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.fl-bar label.btn{cursor:pointer}
+.fl-sum{font-size:12px;color:var(--muted)}
+.fl-list{display:flex;flex-direction:column;gap:8px}
+.fl-item{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 14px}
+.fl-item .fi{font-size:22px;flex:none}
+.fl-item .fm{flex:1;min-width:0}
+.fl-item .fn{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-item .fd{font-size:11.5px;color:var(--muted);margin-top:2px}
+
 /* イベントマニュアル（Markdown / F-99） */
 .mn-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .mn-state{font-size:12px;color:var(--muted);margin-left:auto}
@@ -553,7 +565,13 @@ const Util = (() => {
 
   // CSV（BOM付きUTF-8・CRLF・値のエスケープ / F-48, F-49）
   const csvCell = (v) => {
-    const s = String(v ?? "");
+    let s = String(v ?? "");
+    /* CSVインジェクション対策（F-49b）。Excel や Google スプレッドシートは
+       = + - @ タブ CR で始まるセルを数式として解釈する。参加者が氏名欄に
+       `=HYPERLINK(...)` のような値を入れると、名簿を開いた運営側で実行されうる。
+       先頭に `'` を足して文字列として扱わせる。
+       副作用として負数（-5 など）にも `'` が付くが、本システムのCSVに負数の列は無い。 */
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
   const buildCsv = (rows) => "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
@@ -677,7 +695,7 @@ const Util = (() => {
 // ===== [2] DB（IndexedDB / Promise ラップ / onupgradeneeded） =====
 const DB = (() => {
   const NAME = "neo_event_tool";
-  const VERSION = 4; // v4: イベントマニュアル manuals を追加（v3: readStates / v2: チケット廃止）
+  const VERSION = 5; // v5: ファイル共有 files を追加（v4: manuals / v3: readStates / v2: チケット廃止）
   let _db = null;
 
   function open() {
@@ -730,6 +748,12 @@ const DB = (() => {
         // （イベント一覧は全件読むため、そこに本文を載せると無駄に重くなる）
         if (!db.objectStoreNames.contains("manuals")) {
           db.createObjectStore("manuals", { keyPath: "eventId" });
+        }
+        // 共有ファイル（v5 / E-3）。実体は Blob をそのまま入れる。File は Blob なので
+        // FileReader を通す必要はない——通すと非同期になり、7-1 の罠に近づく
+        if (!db.objectStoreNames.contains("files")) {
+          const s = db.createObjectStore("files", { keyPath: "id" });
+          s.createIndex("eventId", "eventId");
         }
       };
       req.onsuccess = () => { _db = req.result; resolve(_db); };
@@ -808,6 +832,12 @@ const Repo = (() => {
       all: () => DB.getAll("readStates"),
       get: (key) => DB.get("readStates", key),
       put: (r) => DB.put("readStates", r),
+    },
+    files: {
+      byEvent: (eventId) => DB.getAllByIndex("files", "eventId", eventId),
+      get: (id) => DB.get("files", id),
+      put: (f) => DB.put("files", f),
+      remove: (id) => DB.remove("files", id),
     },
     manuals: {
       get: (eventId) => DB.get("manuals", eventId),
@@ -1459,6 +1489,23 @@ const Seed = (() => {
 ` },
     ];
 
+    /* 共有ファイル（E-3）。デモ用に小さなテキストを Blob として作る。
+       実運用では PDF や画像が入るが、シードに実バイナリを埋め込むと単一HTMLが肥大するため。 */
+    const mkFile = (eventId, name, type, body, offset, by) => ({
+      id:Util.uid(), eventId, name, type,
+      size:new Blob([body]).size, blob:new Blob([body], { type }),
+      uploadedAt:day(offset, 11, 0), uploadedBy:by });
+    const files = [
+      mkFile("ev_seminar", "会場レイアウト.txt", "text/plain",
+        "セミナールーム 座席配置\\n\\n前方: 登壇者席2 / スクリーン\\n中央: 6列×8席=48席\\n後方: 配信機材・スタッフ席\\n通路: 中央に1本（幅1.2m）\\n", -6, "運営A"),
+      mkFile("ev_seminar", "進行台本.txt", "text/plain",
+        "13:30 開場・受付開始\\n14:00 開会挨拶（運営A・3分）\\n14:05 事例紹介1（20分）\\n14:30 休憩（10分）\\n14:40 事例紹介2（20分）\\n15:05 質疑応答（20分）\\n15:30 閉会\\n", -4, "運営B"),
+      mkFile("ev_seminar", "受付名簿_提出用.csv", "text/csv",
+        "会社名,氏名,来場予定\\n株式会社アルファ,山田 涼子,現地\\n株式会社ベータ,中村 大輔,オンライン\\n", -2, "運営A"),
+      mkFile("ev_public", "登壇者一覧.txt", "text/plain",
+        "枠1 自社 開発部\\n枠2 社外ゲスト（要入館手続き）\\n枠3 社外ゲスト（要入館手続き）\\n枠4 自社 情報システム部\\n枠5 LT枠（当日募集）\\n", -5, "運営B"),
+    ];
+
     // この端末が保持する自分の申込トークン（F-56）。マイ申込に表示される
     const saved = [apps[0], apps[3], apps[5]].map(a =>
       ({ token:a.token, eventId:a.eventId, savedAt:a.appliedAt }));
@@ -1472,6 +1519,7 @@ const Seed = (() => {
       ...msgs.map(record => ({ store:"messages", record })),
       ...tasks.map(record => ({ store:"tasks", record })),
       ...manuals.map(record => ({ store:"manuals", record })),
+      ...files.map(record => ({ store:"files", record })),
     ];
     await Repo.bulkPut(entries);
   }
@@ -1846,6 +1894,7 @@ const EventDetail = (() => {
         <button data-tab="qa" class="${tab==='qa'?'on':''}">運営Q&amp;A</button>
         <button data-tab="tasks" class="${tab==='tasks'?'on':''}">運営タスク</button>
         <button data-tab="manual" class="${tab==='manual'?'on':''}">マニュアル</button>
+        <button data-tab="files" class="${tab==='files'?'on':''}">ファイル</button>
         <button data-tab="notice" class="${tab==='notice'?'on':''}">お知らせ</button>
         <button data-tab="promo" class="${tab==='promo'?'on':''}">告知</button>
         <button data-tab="edit" class="${tab==='edit'?'on':''}">概要・編集</button>
@@ -1862,6 +1911,7 @@ const EventDetail = (() => {
     else if (tab === "qa") Ops.renderQA(pane, ev.id);
     else if (tab === "tasks") Tasks.render(pane, ev.id, refreshTaskChip);
     else if (tab === "manual") Manual.render(pane, ev.id);
+    else if (tab === "files") Files.render(pane, ev.id);
     else if (tab === "notice") Ops.renderNotice(pane, ev.id);
     else if (tab === "promo") renderPromo(pane);
     else renderEdit(pane);
@@ -3065,6 +3115,117 @@ const Manual = (() => {
 })();
 
 
+// ===== [9f] 主催者：ファイル共有（E-3 / F-102。files ストア） =====
+/* 会場図・進行台本・配布資料など、運営が持ち回るファイルをイベント単位で置く。
+   **File は Blob なので、そのまま IndexedDB に入れられる。** FileReader で読み直すと
+   非同期処理が挟まり、トランザクションの罠（7-1）に近づくので通さない。
+   運営が使うものなので参加者ビューには出さない（4-3）。 */
+const Files = (() => {
+  let ctx = null;   // { pane, eventId, files }
+
+  const MAX = 20 * 1024 * 1024;   // 1ファイル20MBまで。ブラウザ内に平文で載るため上限を設ける
+  const fmtSize = (n) => n < 1024 ? `${n} B`
+    : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB`
+    : `${(n / 1024 / 1024).toFixed(1)} MB`;
+  const iconOf = (t, name) => {
+    if ((t || "").startsWith("image/")) return "🖼";
+    if ((t || "").startsWith("video/")) return "🎬";
+    if (/\.pdf$/i.test(name)) return "📕";
+    if (/\.(xlsx?|csv)$/i.test(name)) return "📊";
+    if (/\.(docx?|txt|md)$/i.test(name)) return "📄";
+    if (/\.(zip|7z|tar|gz)$/i.test(name)) return "🗜";
+    return "📎";
+  };
+
+  async function render(pane, eventId) {
+    const files = (await Repo.files.byEvent(eventId))
+      .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+    ctx = { pane, eventId, files };
+    paint();
+  }
+  const reload = () => render(ctx.pane, ctx.eventId);
+
+  function paint() {
+    const { pane, files } = ctx;
+    const total = files.reduce((n, f) => n + (f.size || 0), 0);
+    pane.innerHTML = `
+      <div class="ops-note">運営で共有するファイルです。この端末内に保存されます
+        （別端末との同期はサーバ導入まで不可 / 4-1）。参加者には表示されません。</div>
+      <div class="fl-bar">
+        <label class="btn primary" for="flInput">＋ ファイルを追加</label>
+        <input type="file" id="flInput" multiple style="display:none">
+        <span class="fl-sum">${files.length}件${total ? `・合計 ${fmtSize(total)}` : ""}</span>
+      </div>
+      ${files.length ? `<div class="fl-list">${files.map(row).join("")}</div>`
+        : `<div class="card"><div class="empty"><div class="big">共有ファイルはありません</div>
+           会場図・進行台本・配布資料などを置けます。1ファイル20MBまで。</div></div>`}`;
+
+    pane.querySelector("#flInput").onchange = (e) => add(e.target.files);
+    pane.querySelectorAll("[data-dl]").forEach(b =>
+      b.onclick = () => download(b.dataset.dl));
+    pane.querySelectorAll("[data-fdel]").forEach(b =>
+      b.onclick = () => FB.confirmModal({ title:"このファイルを削除しますか？",
+        okLabel:"削除する", danger:true, body:`「${Util.esc(b.dataset.fname)}」を削除します。`,
+        onOk: async () => {
+          try { await Repo.files.remove(b.dataset.fdel); FB.toast("削除しました"); await reload(); }
+          catch (e) { FB.error("削除に失敗: " + e.message); }
+        } }));
+  }
+
+  const row = (f) => `<div class="fl-item">
+    <span class="fi">${iconOf(f.type, f.name)}</span>
+    <div class="fm">
+      <div class="fn">${Util.esc(f.name)}</div>
+      <div class="fd">${fmtSize(f.size)}・${Util.fmtDateTime(f.uploadedAt)}
+        ${f.uploadedBy ? `・${Util.esc(f.uploadedBy)}` : ""}</div>
+    </div>
+    <div class="row-actions">
+      <button class="btn sm" data-dl="${f.id}">ダウンロード</button>
+      <button class="btn sm" data-fdel="${f.id}" data-fname="${Util.esc(f.name)}"
+        style="color:var(--danger)">削除</button>
+    </div></div>`;
+
+  // 選択されたぶんをまとめて1トランザクションで投入する。File は Blob なので読み直さない（7-1）
+  async function add(fileList) {
+    const picked = [...(fileList || [])];
+    if (!picked.length) return;
+    const tooBig = picked.filter(f => f.size > MAX);
+    if (tooBig.length) {
+      FB.error(`20MBを超えるファイルは追加できません: ${tooBig.map(f => f.name).join(", ")}`);
+      return;
+    }
+    const now = new Date().toISOString();
+    const entries = picked.map(f => ({ store:"files", record:{
+      id:Util.uid(), eventId:ctx.eventId, name:f.name, type:f.type || "",
+      size:f.size, blob:f, uploadedAt:now, uploadedBy:"運営" } }));
+    try {
+      await Repo.bulkPut(entries);
+      FB.toast(`${picked.length}件を追加しました`);
+      await reload();
+    } catch (e) { FB.error("ファイルの保存に失敗: " + e.message); }
+  }
+
+  async function download(id) {
+    try {
+      const f = await Repo.files.get(id);
+      if (!f) { FB.error("ファイルが見つかりません"); return; }
+      // Blob として往復していない場合（構造化複製に対応しない環境）を明示的に弾く
+      if (!f.blob || typeof f.blob.size !== "number") {
+        FB.error("ファイルの実体を取り出せませんでした（この環境では Blob の保存に対応していない可能性があります）");
+        return;
+      }
+      const url = URL.createObjectURL(f.blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = f.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (e) { FB.error("ダウンロードに失敗: " + e.message); }
+  }
+
+  return { render };
+})();
+
+
 // ===== [10] 主催者：設定（S-5 / F-32, F-33, F-36） =====
 const Settings = (() => {
   async function render(el) {
@@ -3105,7 +3266,7 @@ const Settings = (() => {
             ${implRow("運営スレッド（社内チャット）","E-1","done","実装済（単一ブラウザ内で永続。別端末同期は不可）")}
             ${implRow("運営Q&A（疑問の登録・解消）","E-1","done","実装済（同上）")}
             ${implRow("運営タスク（ボード／タイムライン）","E-2","done","実装済（ドラッグでの状態変更・並べ替えを永続）")}
-            ${implRow("ファイル共有","E-3","partial","後回し（ご指示により保留）")}
+            ${implRow("ファイル共有（イベント単位）","E-3","done","実装済（Blobをそのまま保存。1ファイル20MBまで）")}
             ${implRow("メール送信・SNS自動投稿・SEO/OGP","—","out","対象外（サーバが必要）")}
             ${implRow("複数端末での同時受付・別端末からの申込確認","—","out","対象外（端末間でデータを共有できないため）")}
             ${implRow("決済・キャンセル待ち・抽選・レスポンシブ","—","out","対象外（意図的に除外）")}

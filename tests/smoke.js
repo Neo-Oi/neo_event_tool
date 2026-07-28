@@ -33,7 +33,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
 (async () => {
   window.eval(scriptText +
-    "\n;window.__M={App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Roster,Settings,Wizard,Participant,FB};");
+    "\n;window.__M={App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,FB};");
   await wait(300);
 
   const M = window.__M;
@@ -46,7 +46,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   const nonEmpty = (l) => { if (!content.innerHTML || content.innerHTML.length < 20) throw new Error(l + " が空"); };
   const clickTab = (i) => { content.querySelectorAll("#subtabs button")[i].click(); };
 
-  await step("DB open (v4)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().version !== 4) throw new Error("バージョンが4でない: " + M.DB.db().version); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); for (const s of ["events","persons","applications","savedTokens","messages","tasks","readStates","manuals"]) if (!M.DB.db().objectStoreNames.contains(s)) throw new Error(s + "ストアなし"); });
+  await step("DB open (v5)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().version !== 5) throw new Error("バージョンが5でない: " + M.DB.db().version); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); for (const s of ["events","persons","applications","savedTokens","messages","tasks","readStates","manuals","files"]) if (!M.DB.db().objectStoreNames.contains(s)) throw new Error(s + "ストアなし"); });
   await step("Seed.load", async () => { await M.Seed.load(); });
   await step("Seed件数（チケット廃止後）", async () => {
     const [ev, ps, ap, sv, msg, tk] = await Promise.all([
@@ -86,6 +86,20 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     const ap = await M.Repo.applications.byEvent("ev_public");
     if (M.Domain.capacity(ev) !== 60) throw new Error("capacityがイベントから取れない");
     if (M.Domain.remaining(ev, ap) !== 57) throw new Error("残席計算が不正: " + M.Domain.remaining(ev, ap)); // 60 - 有効3
+  });
+
+  await step("F-49b CSVインジェクション対策", async () => {
+    const c = M.Util.csvCell;
+    for (const bad of ["=1+1", "+1", "-1", "@SUM(A1)", "\t=x", "\r=x"])
+      if (!/^'|^"'/.test(c(bad))) throw new Error("無害化されない: " + JSON.stringify(bad) + " → " + c(bad));
+    if (c("=HYPERLINK(\"http://evil\",\"x\")") !== '"\'=HYPERLINK(""http://evil"",""x"")"')
+      throw new Error("引用符との組み合わせが不正: " + c('=HYPERLINK("http://evil","x")'));
+    // 通常の値は変えない
+    for (const ok of ["田中 太郎", "tanaka@alpha.example.com", "3", "2026/08/11 18:30", ""])
+      if (c(ok) !== ok) throw new Error("通常の値が変わった: " + ok + " → " + c(ok));
+    // 実際の出力にも効いていること
+    const csv = M.Util.buildCsv([["氏名"], ["=cmd|'/c calc'!A1"]]);
+    if (!csv.includes("'=cmd")) throw new Error("buildCsv に反映されない: " + csv);
   });
 
   await step("Dashboard.render", async () => { await M.Dashboard.render(content); nonEmpty("dashboard"); });
@@ -395,9 +409,49 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.EventDetail.render(content, "ev_public"); await wait(30);
   });
 
+  // ファイル共有（E-3 / F-102）
+  await step("ファイル共有 シードのファイルが一覧に出る", async () => {
+    await M.EventDetail.render(content, "ev_seminar"); await wait(30);
+    clickTab(5); await wait(60);
+    if (!content.querySelector("#flInput")) throw new Error("追加ボタンがない");
+    if (content.querySelectorAll(".fl-item").length !== 3) throw new Error("シード3件が出ない");
+    if (!content.innerHTML.includes("進行台本.txt")) throw new Error("ファイル名が出ない");
+  });
+  await step("ファイル共有 メタデータが保存されている", async () => {
+    /* 注意: fake-indexeddb は Blob を構造化複製できず、取り出すと素の Object になる。
+       実ブラウザでは Blob のまま往復するが、ここでは検証できない（tests/README 参照）。
+       そのため一覧・削除が依存するメタデータ側を検証する。**Blob の往復は実ブラウザで確認すること。** */
+    const fs = await M.Repo.files.byEvent("ev_seminar");
+    const f = fs.find(x => x.name === "進行台本.txt");
+    if (!f) throw new Error("レコードが無い");
+    if (!f.size || typeof f.size !== "number") throw new Error("サイズが保存されていない");
+    if (f.type !== "text/plain") throw new Error("MIMEタイプが保存されていない");
+    if (!f.uploadedAt || !f.eventId) throw new Error("メタデータが欠けている");
+    if (!("blob" in f)) throw new Error("blob フィールドが無い");
+  });
+  await step("ファイル共有 追加すると永続する", async () => {
+    const before = (await M.Repo.files.byEvent("ev_seminar")).length;
+    const blob = new window.Blob(["備品リスト\nマイク2本\n延長コード3本\n"], { type:"text/plain" });
+    const file = new window.File([blob], "備品リスト.txt", { type:"text/plain" });
+    const input = content.querySelector("#flInput");
+    Object.defineProperty(input, "files", { value:[file], configurable:true });
+    input.onchange({ target:input }); await wait(120);
+    const after = await M.Repo.files.byEvent("ev_seminar");
+    if (after.length !== before + 1) throw new Error("保存されない: " + after.length);
+    if (!after.some(f => f.name === "備品リスト.txt")) throw new Error("名前が保存されない");
+  });
+  await step("ファイル共有 削除できる", async () => {
+    const target = (await M.Repo.files.byEvent("ev_seminar")).find(f => f.name === "備品リスト.txt");
+    content.querySelector(`[data-fdel="${target.id}"]`).click(); await wait(30);
+    window.document.querySelector("#mOk").click(); await wait(120);
+    if ((await M.Repo.files.byEvent("ev_seminar")).some(f => f.id === target.id))
+      throw new Error("削除されない");
+    await M.EventDetail.render(content, "ev_public"); await wait(30);
+  });
+
   // お知らせ（主催者→参加者 / messages channel:'notice'）
   await step("お知らせ 表示（シード2件）", async () => {
-    clickTab(5); await wait(40);
+    clickTab(6); await wait(40);
     if (!content.querySelector("#ntAdd")) throw new Error("お知らせ投稿ボタンなし");
     if (content.querySelectorAll("[data-ntdel]").length !== 2) throw new Error("シードのお知らせ2件が出ない");
   });
@@ -419,12 +473,12 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
 
   await step("告知タブ（X/LINEリンク）", async () => {
-    clickTab(6); await wait(20);
+    clickTab(7); await wait(20);
     if (!content.querySelector("#xShare").href.includes("twitter.com")) throw new Error("X共有リンク不正");
     if (!content.querySelector("#lineShare").href.includes("line.me")) throw new Error("LINE共有リンク不正");
   });
   await step("概要・編集タブ + 中止確認モーダル", async () => {
-    clickTab(7); await wait(20);
+    clickTab(8); await wait(20);
     const c = content.querySelector("#cancelBtn");
     if (c) { c.click(); await wait(20); if (!window.document.querySelector("#modalHost .modal")) throw new Error("確認モーダルなし"); window.document.querySelector("#mCancel").click(); }
   });
@@ -451,7 +505,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   // C-1: イベントの書き込みが永続する
   await step("C-1 状態遷移が永続（下書き→公開）", async () => {
     await M.EventDetail.render(content, "ev_draft"); await wait(20);
-    clickTab(7); await wait(20);
+    clickTab(8); await wait(20);
     content.querySelector("#publishBtn").click(); await wait(20);
     window.document.querySelector("#mOk").click(); await wait(80);
     const ev = await M.Repo.events.get("ev_draft");
@@ -459,14 +513,14 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
   await step("C-1 公開後は下書きに戻せない（F-37）", async () => {
     await M.EventDetail.render(content, "ev_draft"); await wait(20);
-    clickTab(7); await wait(20);
+    clickTab(8); await wait(20);
     if (content.querySelector("#publishBtn")) throw new Error("公開済みに公開ボタンが出ている");
     if (content.querySelector("#deleteBtn")) throw new Error("公開済みに削除ボタンが出ている");
   });
   await step("C-1 中止が永続し、申込は変更されない（F-39）", async () => {
     const before = (await M.Repo.applications.byEvent("ev_public")).map(a => a.status).join(",");
     await M.EventDetail.render(content, "ev_public"); await wait(20);
-    clickTab(7); await wait(20);
+    clickTab(8); await wait(20);
     content.querySelector("#cancelBtn").click(); await wait(20);
     window.document.querySelector("#mOk").click(); await wait(80);
     const ev = await M.Repo.events.get("ev_public");
@@ -715,7 +769,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   await step("F-d 複製で下書きが作られ copiedFromId が残る", async () => {
     const before = (await M.Repo.events.all()).length;
     await M.EventDetail.render(content, "ev_limited"); await wait(30);
-    content.querySelectorAll("#subtabs button")[7].click(); await wait(30);
+    content.querySelectorAll("#subtabs button")[8].click(); await wait(30);
     content.querySelector("#dupBtn").click(); await wait(30);
     window.document.querySelector("#mOk").click(); await wait(100);
     const evs = await M.Repo.events.all();

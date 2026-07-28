@@ -1,0 +1,28 @@
+name: test
+
+# 成果物（index.html）は npm を使わないが、スモークテストだけは jsdom と
+# fake-indexeddb を必要とする。テストを流し忘れたコミットを通さないための CI。
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 依存の取得（テスト専用。成果物には含めない）
+        run: npm i jsdom fake-indexeddb
+
+      # 技術方針・禁止事項への適合（禁止API・自己完結・Repository層・区画マーカー）。
+      # grep だと「Math.random() は使用しない」というコメントを誤検出するため、
+      # コメントと文字列を除いてから判定するスクリプトに切り出してある。
+      - name: 技術方針への適合を検査
+        run: node tests/guard.js
+
+      - name: スモークテスト
+        run: node tests/smoke.js
