@@ -33,7 +33,7 @@ header.appbar .user .avatar{width:26px;height:26px;border-radius:50%;background:
 
 /* タブ */
 /* タブは1つずつを大きく取り、ナビバーの余白を詰める */
-nav.tabs{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:0;padding:0 12px;position:sticky;top:56px;z-index:15}
+nav.tabs{background:#fff;border-bottom:1px solid var(--line);display:flex;justify-content:center;gap:0;padding:0 12px;position:sticky;top:56px;z-index:15}
 nav.tabs button{background:transparent;border:0;padding:16px 40px;min-width:170px;font-size:15px;
   color:var(--muted);font-weight:700;border-bottom:3px solid transparent;transition:background .12s}
 nav.tabs button:hover{background:#f7f9ff;color:var(--ink)}
@@ -187,6 +187,37 @@ tr.expand-row td{background:#f7f9ff;padding:0}
 .copybox input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit}
 details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-top:14px}
 .ticket-item{cursor:pointer}
+
+/* 開催カレンダー（S-1 / F-100） */
+.cal{padding:14px 16px 16px}
+.cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.cal-head .cal-title{font-size:15px;font-weight:700;min-width:120px;text-align:center}
+.cal-head #calToday{margin-left:auto}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.cal-wd{background:#fafbfe;text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:6px 0}
+.cal-wd.sun{color:var(--danger)} .cal-wd.sat{color:#1c5f8a}
+.cal-cell{background:#fff;min-height:92px;padding:5px 6px;display:flex;flex-direction:column;gap:3px}
+.cal-cell.out{background:#fafbfd}
+.cal-cell.out .cal-d{color:#c3cbd8}
+.cal-cell.sun{background:#fffafa} .cal-cell.sat{background:#fafcff}
+.cal-cell.out.sun,.cal-cell.out.sat{background:#fafbfd}
+.cal-cell.today{background:#fff6e8;box-shadow:inset 0 0 0 2px var(--warn)}
+.cal-d{font-size:12px;font-weight:700;color:var(--ink);line-height:1.4}
+.cal-cell.today .cal-d{color:var(--warn)}
+.cal-chip{font-size:10.5px;line-height:1.45;border-radius:4px;padding:2px 5px;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-chip b{font-weight:700}
+.cal-chip:hover{filter:brightness(.94)}
+.cal-chip.open{background:var(--blue-weak);color:#1b3a6b}
+.cal-chip.draft{background:#eef0f3;color:var(--draft)}
+.cal-chip.held{background:#eef0f3;color:#8a93a3}
+.cal-chip.cancelled{background:#fbe9e9;color:var(--danger);text-decoration:line-through}
+.cal-more{font-size:10px;color:var(--muted);padding-left:5px}
+.cal-undated{margin-top:10px;font-size:12px;color:var(--muted)}
+.cal-undated .chip{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:999px;
+  padding:3px 11px;margin:4px 6px 0 0;cursor:pointer;color:var(--ink)}
+.cal-undated .chip:hover{border-color:#c7cfdd}
 
 /* イベント一覧のカード（S-2 / F-79） */
 .grouphead{font-size:12px;font-weight:700;color:var(--muted);margin:18px 0 8px}
@@ -1372,11 +1403,102 @@ const Dashboard = (() => {
           </tr>`).join("")}</tbody></table>`
           : `<div class="empty"><div class="big">対応が必要な項目はありません</div>
              すべて順調です。</div>`}
-      </div>`;
+      </div>
+      ${calendarHtml(events, now)}`;
 
     el.querySelectorAll("tr[data-ev]").forEach(tr =>
       tr.onclick = () => App.openEvent(tr.dataset.ev));
+    el.querySelectorAll("[data-cal-ev]").forEach(c =>
+      c.onclick = (e) => { e.stopPropagation(); App.openEvent(c.dataset.calEv); });
+    const nav = (sel, delta) => {
+      const b = el.querySelector(sel);
+      if (b) b.onclick = () => {
+        const d = viewMonth ? new Date(viewMonth.y, viewMonth.m, 1) : monthOf(Date.now());
+        if (delta === 0) viewMonth = null;
+        else { d.setMonth(d.getMonth() + delta); viewMonth = { y:d.getFullYear(), m:d.getMonth() }; }
+        render(el);
+      };
+    };
+    nav("#calPrev", -1); nav("#calNext", 1); nav("#calToday", 0);
   }
+
+  /* 月カレンダー（F-100）。要対応リストの下に置き、イベントがいつあるかを俯瞰する。
+     開催日が未設定のイベントは置く場所が無いので、件数だけ下に添える。 */
+  let viewMonth = null;   // { y, m }。null なら今月（月を送っても再描画で保持する）
+  const monthOf = (ts) => { const d = new Date(ts); return new Date(d.getFullYear(), d.getMonth(), 1); };
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const dayKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const WD = ["日","月","火","水","木","金","土"];
+
+  function calendarHtml(events, now) {
+    const first = viewMonth ? new Date(viewMonth.y, viewMonth.m, 1) : monthOf(now);
+    const y = first.getFullYear(), m = first.getMonth();
+    const todayKey = dayKey(new Date(now));
+
+    // 開催日から終了日までの各日にイベントを置く（複数日にまたがる場合に対応）
+    const byDay = {};
+    const undated = [];
+    for (const e of events) {
+      if (!e.startAt) { undated.push(e); continue; }
+      const s = new Date(e.startAt); s.setHours(0,0,0,0);
+      const eend = e.endAt ? new Date(e.endAt) : new Date(e.startAt); eend.setHours(0,0,0,0);
+      for (const d = new Date(s); d <= eend; d.setDate(d.getDate()+1)) {
+        (byDay[dayKey(d)] ||= []).push(e);
+        if (Object.keys(byDay).length > 2000) break;   // 異常データでの暴走止め
+      }
+    }
+
+    // 月の最初の週の日曜から、最後の週の土曜まで
+    const start = new Date(y, m, 1 - first.getDay());
+    const lastDay = new Date(y, m + 1, 0);
+    const cellCount = Math.ceil((first.getDay() + lastDay.getDate()) / 7) * 7;
+
+    const cells = [];
+    for (let i = 0; i < cellCount; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const k = dayKey(d);
+      const list = (byDay[k] || []).slice(0, 3);
+      const more = (byDay[k] || []).length - list.length;
+      cells.push(`<div class="cal-cell ${d.getMonth() !== m ? "out" : ""} ${
+        d.getDay() === 0 ? "sun" : d.getDay() === 6 ? "sat" : ""} ${k === todayKey ? "today" : ""}">
+        <div class="cal-d">${d.getDate()}</div>
+        ${list.map(e => calChip(e, now)).join("")}
+        ${more > 0 ? `<div class="cal-more">他${more}件</div>` : ""}
+      </div>`);
+    }
+
+    const label = `${y}年${m + 1}月`;
+    const isThisMonth = !viewMonth;
+    return `
+      <h3 style="margin:26px 0 10px;font-size:15px">開催カレンダー</h3>
+      <div class="card cal">
+        <div class="cal-head">
+          <button class="btn sm" id="calPrev">← 前の月</button>
+          <div class="cal-title">${label}</div>
+          <button class="btn sm" id="calNext">次の月 →</button>
+          <button class="btn sm ${isThisMonth ? "" : "primary"}" id="calToday"
+            ${isThisMonth ? "disabled style=opacity:.45" : ""}>今月</button>
+        </div>
+        <div class="cal-grid">
+          ${WD.map((w, i) => `<div class="cal-wd ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}
+          ${cells.join("")}
+        </div>
+      </div>
+      ${undated.length ? `<div class="cal-undated">日程未定 ${undated.length}件:
+        ${undated.map(e => `<span class="chip" data-cal-ev="${e.id}">${Util.esc(e.title)}</span>`).join("")}</div>` : ""}`;
+  }
+
+  // 日セルに置くイベントの帯。状態と時期で色を変える
+  function calChip(e, now) {
+    const t = Domain.timing(e, now);
+    const cls = e.status === "cancelled" ? "cancelled"
+      : e.status === "draft" ? "draft"
+      : t.phase === "held" ? "held" : "open";
+    return `<div class="cal-chip ${cls}" data-cal-ev="${e.id}"
+      title="${Util.esc(e.title)} / ${Domain.STATUS[e.status]} / ${Domain.AUDIENCE[Domain.audienceOf(e)]}">
+      ${e.startAt ? `<b>${pad2(new Date(e.startAt).getHours())}:${pad2(new Date(e.startAt).getMinutes())}</b> ` : ""}${Util.esc(e.title)}</div>`;
+  }
+
   const metric = (label, value, cls="") =>
     `<div class="card metric ${cls}"><div class="label">${label}</div>
       <div class="value">${value}<small> 件</small></div></div>`;

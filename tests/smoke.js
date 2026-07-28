@@ -66,6 +66,54 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
 
   await step("Dashboard.render", async () => { await M.Dashboard.render(content); nonEmpty("dashboard"); });
+
+  // 開催カレンダー（S-1 / F-100）
+  await step("カレンダー 要対応リストの下に月表示が出る", async () => {
+    if (!content.querySelector(".cal-grid")) throw new Error("カレンダーがない");
+    if (content.querySelectorAll(".cal-wd").length !== 7) throw new Error("曜日見出しが7つない");
+    const cells = content.querySelectorAll(".cal-cell").length;
+    if (cells % 7 !== 0 || cells < 28) throw new Error("日セル数が不正: " + cells);
+    if (!content.querySelector(".cal-cell.today")) throw new Error("今日が強調されない");
+    // 要対応リストより後ろにあること
+    if (content.innerHTML.indexOf("要対応リスト") > content.innerHTML.indexOf("開催カレンダー"))
+      throw new Error("カレンダーが要対応リストより上にある");
+  });
+  await step("カレンダー 今月のイベントが日付に載る", async () => {
+    const now = new Date();
+    const evs = (await M.Repo.events.all()).filter(e => e.startAt &&
+      new Date(e.startAt).getFullYear() === now.getFullYear() &&
+      new Date(e.startAt).getMonth() === now.getMonth());
+    if (!evs.length) throw new Error("今月のシードイベントがない（前提が崩れた）");
+    const chips = [...content.querySelectorAll(".cal-chip")];
+    if (!chips.length) throw new Error("イベントの帯が出ない");
+    if (!chips.some(c => c.dataset.calEv === evs[0].id)) throw new Error("今月のイベントが載っていない");
+  });
+  await step("カレンダー 日程未定は件数として下に出る", async () => {
+    const undated = (await M.Repo.events.all()).filter(e => !e.startAt).length;
+    if (undated && !content.querySelector(".cal-undated .chip")) throw new Error("日程未定の一覧がない");
+  });
+  await step("カレンダー 月を送れる／今月に戻れる", async () => {
+    const title = () => content.querySelector(".cal-title").textContent;
+    const cur = title();
+    content.querySelector("#calNext").click(); await wait(60);
+    if (title() === cur) throw new Error("次の月へ進まない");
+    if (!content.querySelector("#calToday") || content.querySelector("#calToday").disabled)
+      throw new Error("今月ボタンが有効にならない");
+    content.querySelector("#calPrev").click(); await wait(60);
+    if (title() !== cur) throw new Error("前の月へ戻らない");
+    content.querySelector("#calNext").click(); await wait(60);
+    content.querySelector("#calToday").click(); await wait(60);
+    if (title() !== cur) throw new Error("今月に戻らない");
+  });
+  await step("カレンダー 中止イベントは打ち消しで出る", async () => {
+    const cancelled = (await M.Repo.events.all()).find(e => e.status === "cancelled" && e.startAt);
+    if (!cancelled) return;
+    const d = new Date(cancelled.startAt);
+    const now = new Date();
+    if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return; // 今月でなければ対象外
+    const chip = [...content.querySelectorAll(".cal-chip")].find(c => c.dataset.calEv === cancelled.id);
+    if (!chip || !chip.className.includes("cancelled")) throw new Error("中止イベントの見た目が区別されない");
+  });
   await step("EventsList.render（カード表示）", async () => {
     await M.EventsList.render(content); nonEmpty("events");
     if (content.innerHTML.includes("申込枠")) throw new Error("申込枠の語が残存");
