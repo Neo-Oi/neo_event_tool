@@ -5832,10 +5832,13 @@ const Participant = (() => {
     const f = ev.eventFormat || "onsite";
     if (f === "onsite" || !ev.onlineUrl) return "";
     if (cancelled) return `<div class="ops-note">キャンセル済みのため視聴URLは表示されません。</div>`;
+    // リンク化は https?: のみ（マニュアルの Markdown リンクと同じ規則）。
+    // esc() は属性値を安全にするだけで javascript: スキームは通してしまう
+    const linkable = /^https?:\/\//i.test(ev.onlineUrl);
     return `<div class="online-box">
       <div class="oh">${Domain.FORMAT[f]}の視聴情報（申込者のみ）</div>
       <div class="copybox"><input readonly value="${Util.esc(ev.onlineUrl)}">
-        <a class="btn primary" href="${Util.esc(ev.onlineUrl)}" target="_blank" rel="noopener">開く</a></div>
+        ${linkable ? `<a class="btn primary" href="${Util.esc(ev.onlineUrl)}" target="_blank" rel="noopener">開く</a>` : ""}</div>
       ${ev.onlineNote ? `<div class="on">${Util.esc(ev.onlineNote)}</div>` : ""}
     </div>`;
   };
@@ -6487,6 +6490,9 @@ const Wizard = (() => {
       issues.push("申込締切が開催日より後です");
     if (f.startAt && new Date(f.startAt).getTime() < Date.now())
       issues.push("開催日が過去の日時です");
+    // 視聴URLは http(s) のみ（F-93）。それ以外はマイ申込でリンク化されない
+    if ((f.onlineUrl || "").trim() && !/^https?:\/\//i.test(f.onlineUrl.trim()))
+      issues.push("視聴URLは http:// または https:// で始まる形式にしてください（F-93）");
     // 社外の方は社内の連絡経路を使えないため、問い合わせ先は常に必須（F-98）
     if (!f.contactInfo.trim())
       issues.push("問い合わせ先が未入力です（社外の方の唯一の連絡手段になります / F-98）");
