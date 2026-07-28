@@ -33,7 +33,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
 (async () => {
   window.eval(scriptText +
-    "\n;window.__M={App,Repo,Seed,DB,Domain,Util,Dashboard,EventsList,EventDetail,Ops,Settings,Wizard,Participant,FB};");
+    "\n;window.__M={App,Repo,Seed,DB,Domain,Util,Dashboard,EventsList,EventDetail,Ops,Tasks,Settings,Wizard,Participant,FB};");
   await wait(300);
 
   const M = window.__M;
@@ -46,14 +46,14 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   const nonEmpty = (l) => { if (!content.innerHTML || content.innerHTML.length < 20) throw new Error(l + " が空"); };
   const clickTab = (i) => { content.querySelectorAll("#subtabs button")[i].click(); };
 
-  await step("DB open (v2)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); if (!M.DB.db().objectStoreNames.contains("messages")) throw new Error("messagesストアなし"); });
+  await step("DB open (v2)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); if (!M.DB.db().objectStoreNames.contains("messages")) throw new Error("messagesストアなし"); if (!M.DB.db().objectStoreNames.contains("tasks")) throw new Error("tasksストアなし"); });
   await step("Seed.load", async () => { await M.Seed.load(); });
   await step("Seed件数（チケット廃止後）", async () => {
-    const [ev, ps, ap, sv, msg] = await Promise.all([
+    const [ev, ps, ap, sv, msg, tk] = await Promise.all([
       M.Repo.events.all(), M.Repo.persons.all(), M.Repo.applications.all(),
-      M.Repo.savedTokens.all(), M.DB.getAll("messages")]);
-    const c = `ev=${ev.length} ps=${ps.length} ap=${ap.length} sv=${sv.length} msg=${msg.length}`;
-    if (ev.length !== 6 || sv.length !== 3 || msg.length !== 5) throw new Error("件数不正: " + c);
+      M.Repo.savedTokens.all(), M.DB.getAll("messages"), M.DB.getAll("tasks")]);
+    const c = `ev=${ev.length} ps=${ps.length} ap=${ap.length} sv=${sv.length} msg=${msg.length} task=${tk.length}`;
+    if (ev.length !== 6 || sv.length !== 3 || msg.length !== 5 || tk.length !== 10) throw new Error("件数不正: " + c);
     if (ap.some(a => "ticketTypeId" in a)) throw new Error("申込にticketTypeIdが残存");
     if (!ev.every(e => "capacity" in e)) throw new Error("イベントにcapacityがない");
     results.push(["   ", c]);
@@ -109,17 +109,84 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!qas.some(q => q.resolved && q.resolvedAt)) throw new Error("解決状態が保存されない");
   });
 
+  // 運営タスク（backlog風 / E-2。実データで永続）
+  await step("運営タスク ボード表示（シード8件）", async () => {
+    clickTab(3); await wait(60);
+    if (!content.querySelector(".board")) throw new Error("ボードが描画されない");
+    if (content.querySelectorAll(".col").length !== 4) throw new Error("列が4つでない");
+    const n = content.querySelectorAll(".tcard").length;
+    if (n !== 8) throw new Error("ev_publicのタスク8件が出ない: " + n);
+  });
+  await step("運営タスク 進捗と期限超過の集計", async () => {
+    const s = M.Domain.taskSummary(await M.Repo.tasks.byEvent("ev_public"));
+    if (s.total !== 8 || s.done !== 2) throw new Error(`集計不正 total=${s.total} done=${s.done}`);
+    if (s.overdue !== 1) throw new Error("期限超過の判定が不正: " + s.overdue);
+    if (!content.querySelector(".tk-bar > span")) throw new Error("進捗バーがない");
+  });
+  await step("運営タスク ドロップで状態と並び順が永続", async () => {
+    const card = content.querySelector('[data-drop="todo"] .tcard');
+    const id = card.dataset.id;
+    const zone = content.querySelector('[data-drop="doing"]');
+    zone.insertBefore(card, zone.firstChild);          // ドロップ先の先頭へ移動
+    zone.ondrop({ preventDefault() {} }); await wait(80);
+    const t = (await M.DB.getAll("tasks")).find(x => x.id === id);
+    if (t.status !== "doing" || t.order !== 0) throw new Error(`保存されない status=${t.status} order=${t.order}`);
+    if (content.querySelectorAll('[data-drop="doing"] .tcard').length !== 2) throw new Error("再描画後の列件数が不正");
+  });
+  await step("運営タスク 追加（タイトル必須→保存で永続）", async () => {
+    content.querySelector("#tkAdd").click(); await wait(20);
+    const host = window.document.getElementById("modalHost");
+    if (!host.querySelector("#tkTitle")) throw new Error("編集モーダルが出ない");
+    host.querySelector("#tkSave").click(); await wait(20);
+    if (!host.querySelector("#tkErr").textContent) throw new Error("タイトル必須のエラーが出ない");
+    host.querySelector("#tkTitle").value = "看板を作成する";
+    host.querySelector("#tkAssignee").value = "運営D";
+    host.querySelector("#tkSave").click(); await wait(80);
+    const mine = (await M.DB.getAll("tasks")).filter(t => t.eventId === "ev_public");
+    if (mine.length !== 9) throw new Error("追加が保存されない: " + mine.length);
+    if (!mine.some(t => t.title === "看板を作成する" && t.assignee === "運営D")) throw new Error("入力値が保存されない");
+  });
+  await step("運営タスク 開始日>期限日はエラー", async () => {
+    content.querySelector(".tcard").click(); await wait(20);
+    const host = window.document.getElementById("modalHost");
+    host.querySelector("#tkStart").value = "2026-08-10";
+    host.querySelector("#tkDue").value = "2026-08-01";
+    host.querySelector("#tkSave").click(); await wait(20);
+    if (!host.querySelector("#tkErr").textContent.includes("開始日")) throw new Error("日付の前後チェックがない");
+    host.querySelector("#tkCancel").click();
+  });
+  await step("運営タスク タイムライン（今日線・週末・日付未設定）", async () => {
+    content.querySelectorAll(".tk-head [data-view]")[1].click(); await wait(60);
+    if (!content.querySelector(".tl-bar")) throw new Error("バーが描画されない");
+    if (!content.querySelector(".tl-today")) throw new Error("今日線がない");
+    if (!content.querySelector(".tl-d.we")) throw new Error("週末シェードがない");
+    if (!content.querySelector(".tl-undated .chip")) throw new Error("日付未設定の一覧がない");
+  });
+  await step("運営タスク 削除で永続", async () => {
+    content.querySelectorAll(".tk-head [data-view]")[0].click(); await wait(60);
+    content.querySelector(".tcard").click(); await wait(20);
+    window.document.querySelector("#tkDel").click(); await wait(20);
+    window.document.querySelector("#mOk").click(); await wait(80);
+    const mine = (await M.DB.getAll("tasks")).filter(t => t.eventId === "ev_public");
+    if (mine.length !== 8) throw new Error("削除が反映されない: " + mine.length);
+  });
+  await step("運営タスク 固定表示に進捗が出る", async () => {
+    await M.EventDetail.render(content, "ev_public"); await wait(20);
+    const chip = content.querySelector("#taskChip");
+    if (!chip || !chip.innerHTML.includes("タスク")) throw new Error("固定表示にタスク進捗がない");
+  });
+
   await step("告知タブ（X/LINEリンク）", async () => {
-    clickTab(3); await wait(20);
+    clickTab(4); await wait(20);
     if (!content.querySelector("#xShare").href.includes("twitter.com")) throw new Error("X共有リンク不正");
     if (!content.querySelector("#lineShare").href.includes("line.me")) throw new Error("LINE共有リンク不正");
   });
   await step("概要・編集タブ + 中止確認モーダル", async () => {
-    clickTab(4); await wait(20);
+    clickTab(5); await wait(20);
     const c = content.querySelector("#cancelBtn");
     if (c) { c.click(); await wait(20); if (!window.document.querySelector("#modalHost .modal")) throw new Error("確認モーダルなし"); window.document.querySelector("#mCancel").click(); }
   });
-  await step("Settings.render（実装区分に運営行）", async () => { await M.Settings.render(content); if (!content.innerHTML.includes("運営スレッド")) throw new Error("実装区分に運営行なし"); if (!content.innerHTML.includes("チケット制")) throw new Error("チケット制廃止行なし"); });
+  await step("Settings.render（実装区分に運営行）", async () => { await M.Settings.render(content); if (!content.innerHTML.includes("運営スレッド")) throw new Error("実装区分に運営行なし"); if (!content.innerHTML.includes("運営タスク")) throw new Error("実装区分に運営タスク行なし"); if (!content.innerHTML.includes("チケット制")) throw new Error("チケット制廃止行なし"); });
 
   // ウィザード（申込枠→定員のみ）
   await step("Wizard.render(新規)", async () => { await M.Wizard.render(content, null); nonEmpty("wizard"); });

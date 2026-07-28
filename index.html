@@ -197,6 +197,78 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .qa-item textarea{width:100%;min-height:56px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical}
 .badge.open{background:#fff2df;color:var(--warn)}
 .badge.resolved{background:#e6f5ec;color:var(--ok)}
+
+/* 運営タスク（backlog風ボード＋タイムライン / E-2） */
+.tk-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.tk-progress{flex:1;min-width:240px}
+.tk-stat{font-size:12px;color:var(--muted);margin-bottom:5px}
+.tk-stat b{color:var(--ink);font-size:13px}
+.tk-stat .over{color:var(--danger);font-weight:700}
+.tk-bar{height:8px;background:#e9edf5;border-radius:999px;overflow:hidden}
+.tk-bar>span{display:block;height:100%;background:var(--ok);border-radius:999px;transition:width .2s}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.todo{background:#9aa4b5} .dot.doing{background:var(--blue)}
+.dot.review{background:#0d9488} .dot.done{background:var(--ok)}
+
+/* ボード（カンバン） */
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:start}
+.col{background:#f4f6fb;border:1px solid var(--line);border-radius:10px;padding:8px}
+.col.over{background:var(--blue-weak);border-color:#bcd0fb}
+.col .ch{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted);padding:4px 6px 9px}
+.col .ch .cnt{margin-left:auto;background:#fff;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:11px}
+.col .drop{display:flex;flex-direction:column;gap:8px;min-height:64px}
+.tcard{background:#fff;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;
+  padding:9px 10px;cursor:grab;box-shadow:0 1px 2px rgba(20,40,80,.05)}
+.tcard:hover{border-color:#c7cfdd}
+.tcard.dragging{opacity:.4}
+.tcard.p-high{border-left-color:var(--danger)}
+.tcard.p-normal{border-left-color:var(--blue)}
+.tcard.p-low{border-left-color:#c3cbd8}
+.tcard .t{font-weight:600;font-size:13px;line-height:1.45;word-break:break-word}
+.tcard .m{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:7px;font-size:11px;color:var(--muted)}
+.tcard .who{background:#eef2ff;color:#3550b0;border-radius:999px;padding:1px 8px;font-weight:700}
+.tcard .due.over{color:var(--danger);font-weight:700}
+.tcard .pri{color:var(--danger);font-weight:700}
+
+/* タイムライン（ガント風。今日線・週末シェード） */
+.tl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+.tl-inner{--dw:28px;--nw:220px;min-width:max-content}
+.tl-row{display:flex;background:#fff;border-bottom:1px solid #eef1f7}
+.tl-row:last-child{border-bottom:0}
+.tl-row.clickable:hover{background:#f7f9ff;cursor:pointer}
+.tl-name{width:var(--nw);flex:none;padding:7px 10px;font-size:12px;display:flex;align-items:center;gap:7px;
+  border-right:1px solid var(--line);position:sticky;left:0;background:inherit;z-index:2;overflow:hidden}
+.tl-name .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-name .who{margin-left:auto;flex:none;background:#eef2ff;color:#3550b0;border-radius:999px;padding:0 7px;font-size:10px;font-weight:700}
+.tl-track{position:relative;display:flex;flex:none}
+.tl-c,.tl-d{width:var(--dw);flex:none;border-right:1px solid #f1f4f9}
+.tl-c{height:34px}
+.tl-c.we,.tl-d.we{background:#f7f9fc}
+.tl-c.now,.tl-d.now{background:#fff6e8}
+.tl-row.head{background:#fafbfe;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:3}
+.tl-row.head .tl-name{font-weight:700;color:var(--muted)}
+.tl-d{font-size:10px;text-align:center;padding:3px 0;color:var(--muted);line-height:1.3}
+.tl-d b{display:block;color:var(--ink);font-size:11px}
+.tl-d.now b{color:var(--warn)}
+.tl-month{display:flex;background:#f4f6fb;border-bottom:1px solid var(--line)}
+.tl-month .mlabel{flex:none;font-size:11px;font-weight:700;color:var(--muted);padding:3px 8px;border-right:1px solid var(--line)}
+.tl-bar{position:absolute;top:6px;height:22px;border-radius:5px;font-size:10px;font-weight:700;
+  display:flex;align-items:center;padding:0 6px;overflow:hidden;white-space:nowrap}
+.tl-bar.s-todo{background:#ccd4e0;color:#41506a}
+.tl-bar.s-doing{background:var(--blue);color:#fff}
+.tl-bar.s-review{background:#0d9488;color:#fff}
+.tl-bar.s-done{background:var(--ok);color:#fff}
+.tl-bar.over{box-shadow:inset 0 0 0 2px var(--danger)}
+.tl-today{position:absolute;top:0;bottom:0;width:2px;background:var(--warn);opacity:.55;z-index:1}
+.tl-undated{margin-top:12px;font-size:12px;color:var(--muted)}
+.tl-undated .chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);
+  border-radius:999px;padding:3px 11px;margin:4px 6px 0 0;cursor:pointer;font-size:12px;color:var(--ink)}
+.tl-undated .chip:hover{border-color:#c7cfdd}
+
+/* タスク編集モーダル */
+.modal.wide{width:560px}
+.modal.wide .field{margin-bottom:12px;text-align:left}
+.modal .modal-actions .spacer{flex:1}
 </style>
 </head>
 <body data-view="organizer">
@@ -410,6 +482,11 @@ const Repo = (() => {
       put: (m) => DB.put("messages", m),
       remove: (id) => DB.remove("messages", id),
     },
+    tasks: {
+      byEvent: (eventId) => DB.getAllByIndex("tasks", "eventId", eventId),
+      put: (t) => DB.put("tasks", t),
+      remove: (id) => DB.remove("tasks", id),
+    },
     persons: {
       all: () => DB.getAll("persons"),
       byEmailKey: (k) => DB.getAllByIndex("persons", "emailKey", k).then(a => a[0] || null),
@@ -475,8 +552,30 @@ const Domain = (() => {
       Util.daysBetween(new Date(ev.updatedAt).getTime(), now) >= 7;
   }
 
+  // ---- 運営タスク（backlog風 / E-2） ----
+  // タスクの状態は「進捗そのもの」なので保存する。イベントの時期（都度算出 / 4-3）とは別軸。
+  const TASK_STATUS = { todo:"未対応", doing:"処理中", review:"処理済", done:"完了" };
+  const TASK_FLOW = ["todo", "doing", "review", "done"];
+  const PRIORITY = { high:"高", normal:"中", low:"低" };
+
+  // 期限超過 = 期限日の 23:59:59 を過ぎ、かつ未着手・対応中（申込締切と同じ扱い / F-45）。
+  // 「処理済」は作業自体は終わって確認待ちの状態なので、超過としては数えない。
+  function taskOverdue(t, now = Date.now()) {
+    if (!t.dueDate || t.status === "done" || t.status === "review") return false;
+    return Util.deadlineEnd(t.dueDate) < now;
+  }
+  function taskSummary(tasks, now = Date.now()) {
+    const by = { todo:0, doing:0, review:0, done:0 };
+    tasks.forEach(t => { if (by[t.status] != null) by[t.status]++; });
+    const total = tasks.length;
+    return { by, total, done: by.done,
+      rate: total ? Math.round(by.done / total * 100) : 0,
+      overdue: tasks.filter(t => taskOverdue(t, now)).length };
+  }
+
   return { STATUS, timing, capacity, isValidApp, usedSeats, remaining,
-           applyButtonLabel, nearlyFull, staleDraft };
+           applyButtonLabel, nearlyFull, staleDraft,
+           TASK_STATUS, TASK_FLOW, PRIORITY, taskOverdue, taskSummary };
 })();
 
 
@@ -605,6 +704,26 @@ const Seed = (() => {
         body:"カフェテリアの予約は取れています。", createdAt:day(-1,9,0) },
     ];
 
+    // 運営タスク（backlog風 / E-2）。状態は4段、並び順は order（10刻み）
+    const tasks = [];
+    const mkTask = (eventId, title, status, assignee, priority, s, e, detail = "") => {
+      const inCol = tasks.filter(t => t.eventId === eventId && t.status === status).length;
+      tasks.push({ id:Util.uid(), eventId, title, detail, assignee, status, priority,
+        startDate: s == null ? null : dateStr(s), dueDate: e == null ? null : dateStr(e),
+        order: inCol * 10, createdAt: day(-9), updatedAt: day(-2),
+        doneAt: status === "done" ? day(-2) : null });
+    };
+    mkTask("ev_public","会場（大会議室）を押さえる","done","運営A","high",-9,-7);
+    mkTask("ev_public","登壇者の募集と枠決め","done","運営B","high",-8,-4,"5枠。1枠5分。");
+    mkTask("ev_public","社内ポータルに告知を掲載","review","運営A","normal",-5,-2);
+    mkTask("ev_public","備品（マイク・延長コード）を手配","doing","運営C","normal",-2,3,"総務に依頼済み。数量は確定待ち。");
+    mkTask("ev_public","プロジェクタの接続確認","todo","運営B","high",5,10);
+    mkTask("ev_public","懇親会の軽食を発注","todo","","normal",-3,-1,"人数確定後。期限超過の例。");
+    mkTask("ev_public","当日の受付シフトを組む","todo","","low",8,13);
+    mkTask("ev_public","アンケートフォームを用意","todo","","low",null,null,"日付未設定の例。");
+    mkTask("ev_soon","カフェテリアの席を確保","done","運営A","normal",-4,-2);
+    mkTask("ev_soon","参加者名簿を印刷","todo","運営C","normal",0,0);
+
     // この端末が保持する自分の申込トークン（F-56）。マイ申込に表示される
     const saved = [apps[0], apps[3], apps[5]].map(a =>
       ({ token:a.token, eventId:a.eventId, savedAt:a.appliedAt }));
@@ -616,6 +735,7 @@ const Seed = (() => {
       ...apps.map(record => ({ store:"applications", record })),
       ...saved.map(record => ({ store:"savedTokens", record })),
       ...msgs.map(record => ({ store:"messages", record })),
+      ...tasks.map(record => ({ store:"tasks", record })),
     ];
     await Repo.bulkPut(entries);
   }
@@ -770,7 +890,7 @@ const EventsList = (() => {
 const EventDetail = (() => {
   const STATUS_LABEL = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル" };
   const STATUS_CLASS = { applied:"phase", checkedin:"published", cancelled:"draft" };
-  let ctx = null;      // { ev, apps, _persons, el }
+  let ctx = null;      // { ev, apps, _persons, tasks, el }
   let tab = "apply";   // 初期タブは申込（F-75）
   let expandedId = null;
 
@@ -792,12 +912,14 @@ const EventDetail = (() => {
           <span>📍 <b>${Util.esc(ev.venueName)||"—"}</b></span>
           <span>👥 申込 <b>${used}</b>／${cap||"—"}</span>
           <span>🪑 残席 <b>${cap?rem:"—"}</b></span>
+          <span id="taskChip">${taskChip()}</span>
         </div>
       </div>
       <div class="subtabs" id="subtabs">
         <button data-tab="apply" class="${tab==='apply'?'on':''}">申込</button>
         <button data-tab="thread" class="${tab==='thread'?'on':''}">運営スレッド</button>
         <button data-tab="qa" class="${tab==='qa'?'on':''}">運営Q&amp;A</button>
+        <button data-tab="tasks" class="${tab==='tasks'?'on':''}">運営タスク</button>
         <button data-tab="promo" class="${tab==='promo'?'on':''}">告知</button>
         <button data-tab="edit" class="${tab==='edit'?'on':''}">概要・編集</button>
       </div>
@@ -811,8 +933,23 @@ const EventDetail = (() => {
     if (tab === "apply") renderApply(pane);
     else if (tab === "thread") Ops.renderThread(pane, ev.id);
     else if (tab === "qa") Ops.renderQA(pane, ev.id);
+    else if (tab === "tasks") Tasks.render(pane, ev.id, refreshTaskChip);
     else if (tab === "promo") renderPromo(pane);
     else renderEdit(pane);
+  }
+
+  // タスク進捗は固定表示にも出す（F-76 の状況表示にタスクを1件加える）
+  function taskChip() {
+    const s = Domain.taskSummary(ctx.tasks || []);
+    if (!s.total) return "";
+    return `✅ タスク <b>${s.done}/${s.total}</b>` +
+      (s.overdue ? ` <span style="color:var(--danger);font-weight:700">超過${s.overdue}</span>` : "");
+  }
+  // Tasks 側の更新後に固定表示だけを差し替える（サブペインは再描画しない）
+  async function refreshTaskChip() {
+    ctx.tasks = await Repo.tasks.byEvent(ctx.ev.id);
+    const chip = ctx.el.querySelector("#taskChip");
+    if (chip) chip.innerHTML = taskChip();
   }
 
   // ---- 申込タブ（一覧・検索・チェックイン・CSV / F-22〜F-28, F-77, F-78） ----
@@ -978,13 +1115,14 @@ ${url}`;
 
   // persons をまとめて読んでおく（申込一覧の氏名・メール表示に必要）
   async function render(el, eventId) {
-    const [ev, apps, personsArr] = await Promise.all([
+    const [ev, apps, personsArr, tasks] = await Promise.all([
       Repo.events.get(eventId),
       Repo.applications.byEvent(eventId),
-      Repo.persons.all()]);
+      Repo.persons.all(),
+      Repo.tasks.byEvent(eventId)]);
     if (!ev) { el.innerHTML = `<div class="empty"><div class="big">イベントが見つかりません</div></div>`; return; }
     const _persons = {}; personsArr.forEach(p => _persons[p.id] = p);
-    ctx = { ev, apps, _persons, el };
+    ctx = { ev, apps, _persons, tasks, el };
     expandedId = null; tab = "apply";
     paint();
   }
@@ -1092,6 +1230,340 @@ const Ops = (() => {
 })();
 
 
+// ===== [9c] 主催者：運営タスク（backlog風ボード＋タイムライン / E-2。tasks ストア） =====
+/* 状態は 未対応／処理中／処理済／完了 の4段（Backlog に倣う）。ドラッグで状態と並び順が
+   変わり、そのまま IndexedDB に保存される。並び順は order（10刻み）で保持。 */
+const Tasks = (() => {
+  let ctx = null;            // { pane, eventId, tasks, onChange }
+  let view = "board";        // board | timeline（サブタブを離れても保持）
+  let lastAssignee = "";     // 直近の担当者名（セッション内）
+
+  const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0) ||
+    new Date(a.createdAt) - new Date(b.createdAt);
+  const pad2 = n => String(n).padStart(2, "0");
+  // 日付は "YYYY-MM-DD" の文字列のまま扱う（Date 化による時差ずれを避ける）
+  const dayKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const fmtDay = (s) => s ? s.slice(5).replace("-", "/") : "";
+  const todayKey = () => dayKey(new Date());
+
+  async function render(pane, eventId, onChange) {
+    const tasks = await Repo.tasks.byEvent(eventId);
+    ctx = { pane, eventId, tasks: tasks.sort(byOrder), onChange };
+    paint();
+  }
+  async function reload() {
+    const tasks = await Repo.tasks.byEvent(ctx.eventId);
+    ctx.tasks = tasks.sort(byOrder);
+    paint();
+    ctx.onChange && ctx.onChange();   // S-4 の固定表示（タスク進捗）を追随させる
+  }
+
+  function paint() {
+    const { pane, tasks } = ctx;
+    const s = Domain.taskSummary(tasks);
+    pane.innerHTML = `
+      <div class="ops-note">イベント運営のタスクを管理します。この端末内に保存されます（別端末との同期はサーバ導入まで不可 / 4-1）。</div>
+      <div class="tk-head">
+        <div class="tk-progress">
+          <div class="tk-stat">進捗 <b>${s.done}/${s.total}</b>（${s.rate}%）${
+            s.overdue ? ` ・ <span class="over">期限超過 ${s.overdue}件</span>` : ""}</div>
+          <div class="tk-bar"><span style="width:${s.rate}%"></span></div>
+        </div>
+        <div class="toggles">
+          <button data-view="board" class="${view==="board"?"on":""}">ボード</button>
+          <button data-view="timeline" class="${view==="timeline"?"on":""}">タイムライン</button>
+        </div>
+        <button class="btn primary" id="tkAdd">＋ タスクを追加</button>
+      </div>
+      <div id="tkBody"></div>`;
+
+    pane.querySelectorAll(".tk-head [data-view]").forEach(b =>
+      b.onclick = () => { view = b.dataset.view; paint(); });
+    pane.querySelector("#tkAdd").onclick = () => openEditor(null);
+
+    const body = pane.querySelector("#tkBody");
+    if (!tasks.length) {
+      body.innerHTML = `<div class="empty"><div class="big">タスクがありません</div>
+        「＋ タスクを追加」から、備品手配・会場設営などの準備タスクを登録できます。</div>`;
+      return;
+    }
+    if (view === "board") renderBoard(body); else renderTimeline(body);
+  }
+
+  // ---- ボード（カンバン。ドラッグで状態変更・並べ替え） ----
+  function renderBoard(host) {
+    const { tasks } = ctx;
+    host.innerHTML = `
+      <div class="board">${Domain.TASK_FLOW.map(st => {
+        const list = tasks.filter(t => t.status === st);
+        return `<div class="col" data-col="${st}">
+          <div class="ch"><span class="dot ${st}"></span>${Domain.TASK_STATUS[st]}
+            <span class="cnt">${list.length}</span></div>
+          <div class="drop" data-drop="${st}">${list.map(card).join("")}</div>
+        </div>`;
+      }).join("")}</div>
+      <div class="ops-note" style="margin:14px 0 0">カードをドラッグすると状態と並び順が変わり、そのまま保存されます。カードをクリックすると編集できます。</div>`;
+    wireBoard(host);
+  }
+
+  const card = (t) => {
+    const over = Domain.taskOverdue(t);
+    return `<div class="tcard p-${t.priority || "normal"}" draggable="true" data-id="${t.id}">
+      <div class="t">${Util.esc(t.title)}</div>
+      <div class="m">
+        ${t.assignee ? `<span class="who">${Util.esc(t.assignee)}</span>` : ""}
+        ${t.dueDate ? `<span class="due ${over?"over":""}">${over?"⚠":"🗓"} ${fmtDay(t.dueDate)}</span>` : ""}
+        ${t.priority === "high" ? `<span class="pri">優先度 高</span>` : ""}
+      </div></div>`;
+  };
+
+  function wireBoard(host) {
+    host.querySelectorAll(".tcard").forEach(c => {
+      c.ondragstart = (e) => {
+        c.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", c.dataset.id);
+      };
+      c.ondragend = () => {
+        c.classList.remove("dragging");
+        host.querySelectorAll(".col").forEach(x => x.classList.remove("over"));
+      };
+      c.onclick = () => openEditor(ctx.tasks.find(t => t.id === c.dataset.id));
+    });
+    host.querySelectorAll("[data-drop]").forEach(zone => {
+      zone.ondragover = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        zone.closest(".col").classList.add("over");
+        // ドラッグ中は「掴んでいる要素そのもの」を移動する。innerHTML の全置換は行わない
+        // （置換すると掴んだ参照が親を失い、以後の操作が画面に反映されなくなる）
+        const dragging = host.querySelector(".tcard.dragging");
+        if (!dragging) return;
+        const after = afterElement(zone, e.clientY);
+        if (after == null) zone.appendChild(dragging);
+        else if (after !== dragging) zone.insertBefore(dragging, after);
+      };
+      zone.ondragleave = (e) => {
+        if (!zone.contains(e.relatedTarget)) zone.closest(".col").classList.remove("over");
+      };
+      zone.ondrop = (e) => { e.preventDefault(); commit(host); };
+    });
+  }
+
+  // カーソル位置より下にある最初のカード（そこへ挿入する）
+  const afterElement = (zone, y) =>
+    [...zone.querySelectorAll(".tcard:not(.dragging)")].find(el => {
+      const r = el.getBoundingClientRect();
+      return y < r.top + r.height / 2;
+    }) || null;
+
+  // DOM の並びを読み取り、変化したレコードだけを1トランザクションで保存（7-1）
+  async function commit(host) {
+    const map = {}; ctx.tasks.forEach(t => map[t.id] = t);
+    const now = new Date().toISOString();
+    const entries = [];
+    let statusChanged = false;
+    host.querySelectorAll("[data-drop]").forEach(zone => {
+      const status = zone.dataset.drop;
+      [...zone.querySelectorAll(".tcard")].forEach((el, i) => {
+        const t = map[el.dataset.id];
+        if (!t) return;
+        const order = i * 10;
+        if (t.status === status && t.order === order) return;
+        if (t.status !== status) statusChanged = true;
+        entries.push({ store:"tasks", record: { ...t, status, order, updatedAt: now,
+          doneAt: status === "done" ? (t.doneAt || now) : null } });
+      });
+    });
+    if (!entries.length) return;
+    try {
+      await Repo.bulkPut(entries);
+      await reload();
+      if (statusChanged) FB.toast("タスクの状態を更新しました");
+    } catch (e) { FB.error("タスクの保存に失敗: " + e.message); }
+  }
+
+  // ---- タイムライン（ガント風。今日線・週末シェード） ----
+  function renderTimeline(host) {
+    const { tasks } = ctx;
+    const dated = tasks.filter(t => t.startDate || t.dueDate);
+    const undated = tasks.filter(t => !t.startDate && !t.dueDate);
+    if (!dated.length) {
+      host.innerHTML = `<div class="empty"><div class="big">日付が設定されたタスクがありません</div>
+        タスクに開始日・期限日を設定すると、ここに表示されます。</div>` + undatedHtml(undated);
+      wireRows(host);
+      return;
+    }
+    // 範囲は「全タスクの最小開始日〜最大期限日」に今日を含め、前後1日の余白を付ける
+    const spans = dated.map(t => {
+      const a = t.startDate || t.dueDate, b = t.dueDate || t.startDate;
+      return { t, s: a <= b ? a : b, e: a <= b ? b : a };
+    });
+    const tk = todayKey();
+    const minKey = spans.map(x => x.s).concat(tk).sort()[0];
+    const maxKey = spans.map(x => x.e).concat(tk).sort().pop();
+    const first = shiftDay(minKey, -1);
+    const total = Math.min(diffDays(first, maxKey) + 2, 180);  // 上限180日
+
+    const cells = [];
+    const index = {};
+    for (let i = 0, k = first; i < total; i++, k = shiftDay(k, 1)) {
+      const d = new Date(k + "T00:00:00");
+      cells.push({ key:k, d, we: d.getDay() === 0 || d.getDay() === 6, now: k === tk });
+      index[k] = i;
+    }
+    // 範囲外（180日超）に落ちたぶんは端に寄せる
+    const at = (k) => index[k] != null ? index[k] : (k < first ? 0 : total - 1);
+
+    const WD = ["日","月","火","水","木","金","土"];
+    const months = [];
+    cells.forEach(c => {
+      const label = `${c.d.getFullYear()}年${c.d.getMonth()+1}月`;
+      const last = months[months.length-1];
+      if (last && last.label === label) last.n++; else months.push({ label, n:1 });
+    });
+    const nowLeft = index[tk] != null
+      ? `<div class="tl-today" style="left:calc(var(--dw) * ${index[tk] + 0.5})"></div>` : "";
+    const dayCells = cells.map(c =>
+      `<div class="tl-c ${c.we?"we":""} ${c.now?"now":""}"></div>`).join("");
+
+    host.innerHTML = `
+      <div class="tl"><div class="tl-inner">
+        <div class="tl-month">
+          <div class="mlabel" style="width:var(--nw)">期間</div>
+          ${months.map(m => `<div class="mlabel" style="width:calc(var(--dw) * ${m.n})">${m.label}</div>`).join("")}
+        </div>
+        <div class="tl-row head">
+          <div class="tl-name">タスク（${dated.length}件）</div>
+          <div class="tl-track">${cells.map(c =>
+            `<div class="tl-d ${c.we?"we":""} ${c.now?"now":""}"><b>${c.d.getDate()}</b>${WD[c.d.getDay()]}</div>`).join("")}</div>
+        </div>
+        ${spans.map(({ t, s, e }) => {
+          const i0 = at(s), i1 = at(e), over = Domain.taskOverdue(t);
+          const len = Math.max(i1 - i0 + 1, 1);
+          const label = len >= 3 ? `${fmtDay(s)}〜${fmtDay(e)}` : "";
+          return `<div class="tl-row clickable" data-id="${t.id}">
+            <div class="tl-name"><span class="dot ${t.status}"></span>
+              <span class="nm" title="${Util.esc(t.title)}">${Util.esc(t.title)}</span>
+              ${t.assignee ? `<span class="who">${Util.esc(t.assignee)}</span>` : ""}</div>
+            <div class="tl-track">${dayCells}${nowLeft}
+              <div class="tl-bar s-${t.status} ${over?"over":""}"
+                style="left:calc(var(--dw) * ${i0});width:calc(var(--dw) * ${len} - 3px)"
+                title="${Util.esc(t.title)} / ${Domain.TASK_STATUS[t.status]} / ${s}〜${e}">${label}</div>
+            </div></div>`;
+        }).join("")}
+      </div></div>
+      ${undatedHtml(undated)}`;
+    wireRows(host);
+  }
+
+  const undatedHtml = (list) => !list.length ? "" :
+    `<div class="tl-undated">日付未設定（${list.length}件）:
+      ${list.map(t => `<span class="chip" data-id="${t.id}">
+        <span class="dot ${t.status}"></span>${Util.esc(t.title)}</span>`).join("")}</div>`;
+
+  function wireRows(host) {
+    host.querySelectorAll("[data-id]").forEach(el =>
+      el.onclick = () => openEditor(ctx.tasks.find(t => t.id === el.dataset.id)));
+  }
+
+  // 日付文字列の加減算（Date のローカル日付で行い、時差・夏時間の影響を受けない）
+  function shiftDay(key, n) {
+    const d = new Date(key + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return dayKey(d);
+  }
+  const diffDays = (a, b) =>
+    Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+
+  // ---- 追加・編集モーダル ----
+  function openEditor(task) {
+    const isNew = !task;
+    const t = task || { title:"", detail:"", assignee:lastAssignee, status:"todo",
+      priority:"normal", startDate:"", dueDate:"" };
+    const opts = (obj, cur) => Object.entries(obj).map(([k, v]) =>
+      `<option value="${k}"${cur === k ? " selected" : ""}>${v}</option>`).join("");
+
+    const host = document.getElementById("modalHost");
+    host.innerHTML = `<div class="modal wide">
+      <h3>${isNew ? "タスクを追加" : "タスクを編集"}</h3>
+      <div class="field" style="margin-top:14px"><label>タイトル<span class="req">必須</span></label>
+        <input id="tkTitle" value="${Util.esc(t.title)}" placeholder="例: 会場の備品を手配する"></div>
+      <div class="form-2col">
+        <div class="field"><label>状態</label>
+          <select id="tkStatus">${opts(Domain.TASK_STATUS, t.status)}</select></div>
+        <div class="field"><label>優先度</label>
+          <select id="tkPriority">${opts(Domain.PRIORITY, t.priority || "normal")}</select></div>
+        <div class="field"><label>開始日</label>
+          <input type="date" id="tkStart" value="${t.startDate || ""}"></div>
+        <div class="field"><label>期限日</label>
+          <input type="date" id="tkDue" value="${t.dueDate || ""}"></div>
+      </div>
+      <div class="field"><label>担当者</label>
+        <input id="tkAssignee" value="${Util.esc(t.assignee || "")}" placeholder="例: 運営A"></div>
+      <div class="field"><label>メモ</label>
+        <textarea id="tkDetail" placeholder="補足・手順など">${Util.esc(t.detail || "")}</textarea></div>
+      <div class="err" id="tkErr" style="color:var(--danger);font-size:12px;min-height:18px"></div>
+      <div class="modal-actions">
+        ${isNew ? "" : '<button class="btn" id="tkDel" style="color:var(--danger)">削除</button>'}
+        <div class="spacer"></div>
+        <button class="btn" id="tkCancel">キャンセル</button>
+        <button class="btn primary" id="tkSave">保存</button>
+      </div></div>`;
+    host.classList.add("on");
+
+    const q = (sel) => host.querySelector(sel);
+    const close = () => { host.classList.remove("on"); host.innerHTML = ""; };
+    q("#tkCancel").onclick = close;
+    q("#tkTitle").focus();
+
+    q("#tkSave").onclick = async () => {
+      const title = q("#tkTitle").value.trim();
+      const start = q("#tkStart").value, due = q("#tkDue").value;
+      if (!title) { q("#tkErr").textContent = "タイトルを入力してください"; return; }
+      if (start && due && start > due) {
+        q("#tkErr").textContent = "開始日は期限日より後にできません"; return;
+      }
+      const status = q("#tkStatus").value;
+      const assignee = q("#tkAssignee").value.trim();
+      const now = new Date().toISOString();
+      const fields = { title, detail:q("#tkDetail").value.trim(), assignee, status,
+        priority:q("#tkPriority").value, startDate:start || null, dueDate:due || null,
+        updatedAt:now, doneAt: status === "done" ? (t.doneAt || now) : null };
+      const rec = isNew
+        ? { id:Util.uid(), eventId:ctx.eventId, order:nextOrder(status), createdAt:now, ...fields }
+        : { ...t, ...fields };
+      lastAssignee = assignee;
+      try {
+        await Repo.tasks.put(rec);
+        close();
+        await reload();
+        FB.toast(isNew ? "タスクを追加しました" : "タスクを保存しました");
+      } catch (e) { FB.error("タスクの保存に失敗: " + e.message); }
+    };
+
+    const del = q("#tkDel");
+    if (del) del.onclick = () => {
+      close();   // confirmModal がホストを全置換するため、先に閉じる
+      FB.confirmModal({ title:"このタスクを削除しますか？", okLabel:"削除する", danger:true,
+        body:`「${Util.esc(t.title)}」を削除します。`,
+        onOk: async () => {
+          try { await Repo.tasks.remove(t.id); await reload(); FB.toast("タスクを削除しました"); }
+          catch (e) { FB.error("タスクの削除に失敗: " + e.message); }
+        } });
+    };
+  }
+
+  // 追加先の列の末尾に置く
+  const nextOrder = (status) => {
+    const inCol = ctx.tasks.filter(t => t.status === status);
+    return inCol.length ? Math.max(...inCol.map(t => t.order ?? 0)) + 10 : 0;
+  };
+
+  return { render };
+})();
+
+
 // ===== [10] 主催者：設定（S-5 / F-32, F-33, F-36） =====
 const Settings = (() => {
   async function render(el) {
@@ -1121,7 +1593,7 @@ const Settings = (() => {
             ${implRow("告知（URL・投稿文・SNS共有）","D-1","done","実装済（読み取りのみ）")}
             ${implRow("運営スレッド（社内チャット）","E-1","done","実装済（単一ブラウザ内で永続。別端末同期は不可）")}
             ${implRow("運営Q&A（疑問の登録・解消）","E-1","done","実装済（同上）")}
-            ${implRow("タスク可視化（backlog風）","E-2","partial","次スライス（GanttChart資産を流用予定）")}
+            ${implRow("運営タスク（ボード／タイムライン）","E-2","done","実装済（ドラッグでの状態変更・並べ替えを永続）")}
             ${implRow("ファイル共有","E-3","partial","後回し（ご指示により保留）")}
             ${implRow("メール送信・SNS自動投稿・SEO/OGP","—","out","対象外（サーバが必要）")}
             ${implRow("決済・キャンセル待ち・QR・レスポンシブ","—","out","対象外（意図的に除外）")}
