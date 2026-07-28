@@ -26,3 +26,19 @@ jobs:
 
       - name: スモークテスト
         run: node tests/smoke.js
+
+      # CDN の URL が実在することを確認する。過去に 404 のパスを書いて
+      # QR 生成が動かなかったため（引き継ぎ書 7-10）。
+      - name: CDN の URL が実在するか
+        run: |
+          set -e
+          urls=$(grep -oE 'https://cdn\.jsdelivr\.net/npm/[^"]+' index.html | sort -u)
+          if [ -z "$urls" ]; then echo "::error::CDN URL が見つかりません"; exit 1; fi
+          for u in $urls; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$u")
+            echo "$code  $u"
+            if [ "$code" != "200" ]; then
+              echo "::error::$u が $code を返しました（存在しないパスの可能性）"
+              exit 1
+            fi
+          done

@@ -515,6 +515,12 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 "use strict";
 
 // ===== [1] ユーティリティ =====
+/* CDN の URL はここに集約する。**必ず実在を確認してから書くこと。**
+   過去に存在しないパスを書いて QR 生成が動かなかったことがある（引き継ぎ書 7-10）。
+   CI がこの2行を読み取って到達確認するので、書式（QR_LIB / QR_READ_LIB = "…"）を変えない。 */
+const QR_LIB = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+const QR_READ_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+
 const Util = (() => {
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => (
     {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -2083,7 +2089,7 @@ const EventDetail = (() => {
     };
     scanStop = stop;
     try {
-      const jsQR = await Util.loadScript("https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js", "jsQR");
+      const jsQR = await Util.loadScript(QR_READ_LIB, "jsQR");
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       host.innerHTML = `<div class="scan">
         <div class="sh">QRをかざしてください（1台での受付のみ。複数端末の同時受付はサーバが必要 / 4-1）</div>
@@ -3511,10 +3517,14 @@ const Participant = (() => {
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = "読み込み中…";
       try {
-        await Util.loadScript("https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js", "QRCode");
-        const canvas = document.createElement("canvas");
-        await window.QRCode.toCanvas(canvas, host.dataset.token, { width: 168, margin: 1 });
-        host.innerHTML = ""; host.appendChild(canvas);
+        /* qrcode-generator は DOM を使わず SVG 文字列を返すので、既存の
+           「文字列を組み立てて innerHTML」という書き方にそのまま乗る。
+           グローバル名は `qrcode`（小文字）。API は addData → make → createSvgTag。 */
+        const qrcode = await Util.loadScript(QR_LIB, "qrcode");
+        const qr = qrcode(0, "M");         // 0=バージョン自動選択 / M=誤り訂正レベル
+        qr.addData(host.dataset.token);
+        qr.make();
+        host.innerHTML = qr.createSvgTag(5, 0);   // セル5px・余白0
       } catch {
         host.innerHTML = `<div class="hint">QRの生成に失敗しました（CDNに接続できない可能性があります）。
           受付では氏名で検索してもらってください。</div>`;
@@ -3810,6 +3820,7 @@ const Participant = (() => {
 
 
 // ===== [12] 汎用ヘルパ =====
+
 function groupBy(arr, key) {
   const m = {};
   for (const x of arr) (m[x[key]] ||= []).push(x);

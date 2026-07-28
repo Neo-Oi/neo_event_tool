@@ -33,7 +33,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
 (async () => {
   window.eval(scriptText +
-    "\n;window.__M={App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,FB};");
+    "\n;window.__M={QR_LIB,QR_READ_LIB,App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,FB};");
   await wait(300);
 
   const M = window.__M;
@@ -45,6 +45,17 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   };
   const nonEmpty = (l) => { if (!content.innerHTML || content.innerHTML.length < 20) throw new Error(l + " が空"); };
   const clickTab = (i) => { content.querySelectorAll("#subtabs button")[i].click(); };
+  /* マイ申込の詳細を開くには savedTokens に控えのあるトークンが必要。
+     applications.byEvent() の返却順は主キー（ランダムID）順で実行ごとに変わるため、
+     「最初の非キャンセル」を選ぶと控えの無いトークンを引いて一覧に落ちることがある。 */
+  const savedTokenFor = async (eventId) => {
+    const saved = await M.Repo.savedTokens.all();
+    for (const s of saved.filter(x => x.eventId === eventId)) {
+      const app = await M.Repo.applications.byToken(s.token);
+      if (app && app.status !== "cancelled") return { token: s.token, app };
+    }
+    throw new Error(eventId + " に有効な控え付きの申込が無い");
+  };
 
   await step("DB open (v5)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().version !== 5) throw new Error("バージョンが5でない: " + M.DB.db().version); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); for (const s of ["events","persons","applications","savedTokens","messages","tasks","readStates","manuals","files"]) if (!M.DB.db().objectStoreNames.contains(s)) throw new Error(s + "ストアなし"); });
   await step("Seed.load", async () => { await M.Seed.load(); });
@@ -449,6 +460,54 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.EventDetail.render(content, "ev_public"); await wait(30);
   });
 
+  // 受付用QR（F-95）。CDN は取りに行けないので、ライブラリを差し込んで結線だけ検証する
+  await step("QR 受付用QRがSVGとして描画される", async () => {
+    /* Util.loadScript は window[globalName] が既にあれば取得をスキップする。
+       その性質を使って、本物と同じ形の最小スタブを置いてから描画経路を通す。
+       404 のURLを書いていた不具合を、ここで検出できるようにするための試験。 */
+    window.qrcode = (typeNumber, ecl) => {
+      if (typeNumber !== 0 || ecl !== "M") throw new Error("引数が想定と違う: " + typeNumber + "," + ecl);
+      let data = null;
+      return {
+        addData: (s) => { data = s; },
+        make: () => { if (!data) throw new Error("addData が呼ばれていない"); },
+        createSvgTag: (cell, margin) => `<svg data-cell="${cell}" data-margin="${margin}" data-token="${data}"></svg>`,
+      };
+    };
+    const { token, app } = await savedTokenFor("ev_public");
+    M.Participant.selectTicket(token);
+    await M.Participant.renderMyTicket(content); await wait(40);
+    const btn = content.querySelector("#qrShow");
+    if (!btn) throw new Error("QR表示ボタンがない");
+    btn.click(); await wait(80);
+    const svg = content.querySelector("#qrHost svg");
+    if (!svg) throw new Error("SVGが描画されない: " + content.querySelector("#qrHost").innerHTML.slice(0, 120));
+    if (svg.dataset.token !== app.token) throw new Error("トークンが渡っていない");
+    delete window.qrcode;
+    M.Participant.resetMyTicket();
+  });
+  await step("QR 生成に失敗したら氏名検索を案内する", async () => {
+    /* jsdom は外部スクリプトを取得しないため、CDN 不達そのものは再現できない
+       （onload も onerror も発火せず Promise が解決しない）。
+       try/catch は読み込み失敗と生成失敗の両方を受けるので、
+       生成時に例外を投げるスタブでフォールバック経路を検証する。 */
+    window.qrcode = () => { throw new Error("生成失敗のシミュレーション"); };
+    const { token } = await savedTokenFor("ev_public");
+    M.Participant.selectTicket(token);
+    await M.Participant.renderMyTicket(content); await wait(40);
+    content.querySelector("#qrShow").click(); await wait(120);
+    const html = content.querySelector("#qrHost").innerHTML;
+    if (!html.includes("氏名で検索")) throw new Error("フォールバックの案内が出ない: " + html.slice(0, 120));
+    delete window.qrcode;
+    M.Participant.resetMyTicket();
+  });
+  await step("QR CDNのURLが定数に集約されている", async () => {
+    for (const [name, url] of [["QR_LIB", M.QR_LIB], ["QR_READ_LIB", M.QR_READ_LIB]]) {
+      if (!/^https:\/\/cdn\.jsdelivr\.net\/npm\/[^@]+@\d+\.\d+\.\d+\//.test(url || ""))
+        throw new Error(name + " がバージョン固定のCDN URLでない: " + url);
+    }
+  });
+
   // ファイル共有（E-3 / F-102）
   await step("ファイル共有 シードのファイルが一覧に出る", async () => {
     await M.EventDetail.render(content, "ev_seminar"); await wait(30);
@@ -731,8 +790,8 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
   // ---- F-20 / F-07 ----
   await step("F-20 確認URL(?ticket=)から申込詳細へ復帰", async () => {
-    const a = (await M.Repo.applications.byEvent("ev_public"))[0];
-    window.history.replaceState(null, "", "/index.html?ticket=" + a.token);
+    const { token } = await savedTokenFor("ev_public");
+    window.history.replaceState(null, "", "/index.html?ticket=" + token);
     const hit = await M.App.routeFromUrl(); await wait(60);
     if (!hit) throw new Error("ルーティングされない");
     if (!content.innerHTML.includes("公開ページを開く")) throw new Error("申込詳細が出ない");
@@ -800,9 +859,10 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.Participant.renderPublic(content, "ev_public"); await wait(30);
     if (content.innerHTML.includes("teams.microsoft.com")) throw new Error("公開ページに視聴URLが漏れている");
     if (!content.innerHTML.includes("ハイブリッド")) throw new Error("開催形式が出ない");
-    const a = (await M.Repo.applications.byEvent("ev_public")).find(x => x.status !== "cancelled");
-    M.Participant.selectTicket(a.token);
+    const { token } = await savedTokenFor("ev_public");
+    M.Participant.selectTicket(token);
     await M.Participant.renderMyTicket(content); await wait(40);
+    if (!content.querySelector("#toPublic")) throw new Error("マイ申込の詳細が開いていない");
     if (!content.innerHTML.includes("teams.microsoft.com")) throw new Error("申込者に視聴URLが出ない");
     M.Participant.resetMyTicket();
   });
