@@ -74,6 +74,7 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .badge.phase{background:var(--blue-weak);color:var(--blue)}
 .badge.phase.ended{background:#eef0f3;color:var(--draft)}
 .badge.phase.full{background:#fbe9e9;color:var(--danger)}
+.badge.phase.before{background:#fff2df;color:var(--warn)}
 
 /* ボタン */
 .btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);color:var(--ink);
@@ -95,6 +96,7 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 
 /* 参加者：公開ページ */
 .pub .cover{height:200px;border-radius:var(--radius);background:linear-gradient(120deg,#2a4b86,#4f74c0);display:grid;place-items:center;color:#dbe6ff;font-weight:600}
+.pub img.cover{width:100%;object-fit:cover;display:block}
 .pub h1{font-size:24px;margin:18px 0 6px}
 .pub .kv{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
 .pub .kv .row{display:flex;gap:10px;padding:5px 0}
@@ -177,6 +179,15 @@ tr.expand-row td{background:#f7f9ff;padding:0}
 .copybox input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit}
 details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-top:14px}
 .ticket-item{cursor:pointer}
+
+/* 主催者からのお知らせ（参加者向け） */
+.notices{border:1px solid #f0e3a8;background:#fffbea;border-radius:var(--radius);padding:12px 14px;margin:14px 0}
+.notices .nh{font-size:12px;font-weight:700;color:#6a5a12;margin-bottom:8px}
+.notices .nitem{padding:8px 0;border-top:1px solid #f0e3a8}
+.notices .nitem:first-of-type{border-top:0;padding-top:0}
+.notices .nt{font-weight:700;font-size:13px}
+.notices .nm{font-size:11px;color:var(--muted);margin-top:2px}
+.notices .nb{white-space:pre-wrap;font-size:13px;margin-top:5px}
 
 /* 運営スレッド／Q&A（社内） */
 .ops-note{font-size:12px;color:var(--muted);background:#f4f6fb;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:14px}
@@ -328,7 +339,9 @@ const Util = (() => {
   };
   const fmtDate = (iso) => {
     if (!iso) return "";
-    const d = new Date(iso);
+    // "YYYY-MM-DD" は new Date() が UTC 解釈するため、時差のある環境で前日にずれる。
+    // 日付のみの文字列はローカル日付として組み立てる。
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + "T00:00:00") : new Date(iso);
     return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
   };
   // 申込締切は日付のみ。当日 23:59:59 まで受付（F-45）
@@ -336,6 +349,11 @@ const Util = (() => {
     if (!dateStr) return null;
     const d = new Date(dateStr + "T23:59:59");
     return d.getTime();
+  };
+  // 受付開始も日付のみ。当日 00:00:00 から受付（F-45b）
+  const dayStart = (dateStr) => {
+    if (!dateStr) return null;
+    return new Date(dateStr + "T00:00:00").getTime();
   };
   // 「今週」は月曜起点（F-60）
   const weekStartMonday = (now) => {
@@ -366,7 +384,7 @@ const Util = (() => {
   };
 
   return { esc, randHex, uid, newToken, normalize, toKatakana,
-           fmtDateTime, fmtDate, deadlineEnd, weekStartMonday, daysBetween,
+           fmtDateTime, fmtDate, deadlineEnd, dayStart, weekStartMonday, daysBetween,
            csvCell, buildCsv, downloadText, copy };
 })();
 
@@ -408,7 +426,8 @@ const DB = (() => {
         }
         // 運営（社内）向け。同一ブラウザ内で永続。別端末との同期はサーバ導入時まで不可（4-1）
         if (!db.objectStoreNames.contains("messages")) {
-          const s = db.createObjectStore("messages", { keyPath: "id" }); // スレッド＋Q&A兼用
+          // channel で3用途を兼用する: thread（社内チャット）/ qa（社内Q&A）/ notice（参加者向けお知らせ）
+          const s = db.createObjectStore("messages", { keyPath: "id" });
           s.createIndex("eventId", "eventId");
           s.createIndex("eventId_channel", ["eventId", "channel"]);
         }
@@ -513,13 +532,16 @@ const Domain = (() => {
   // 明示状態（保存する）
   const STATUS = { draft:"下書き", published:"公開中", cancelled:"中止" };
 
-  // 時期（保存しない。締切日時と現在時刻から都度算出 / F-05）
+  // 時期（保存しない。受付開始・締切日時と現在時刻から都度算出 / F-05）
   // 戻り値: {phase, label} phase ∈ before|open|closed|held|cancelled
+  // applyStartAt（受付開始日）が未設定なら「受付前」は発生せず、公開と同時に受付中となる。
   function timing(ev, now = Date.now()) {
     if (ev.status === "cancelled") return { phase:"cancelled", label:"中止" };
     if (ev.endAt && new Date(ev.endAt).getTime() < now) return { phase:"held", label:"開催済" };
     const dl = Util.deadlineEnd(ev.applyDeadline);
     if (dl != null && now > dl) return { phase:"closed", label:"受付終了" };
+    const st = Util.dayStart(ev.applyStartAt);
+    if (st != null && now < st) return { phase:"before", label:"受付前" };
     return { phase:"open", label:"受付中" };
   }
 
@@ -536,6 +558,8 @@ const Domain = (() => {
     if (t.phase === "cancelled") return { text:"中止されました", disabled:true };
     if (t.phase === "held")      return { text:"終了しました",   disabled:true };
     if (t.phase === "closed")    return { text:"受付終了",       disabled:true };
+    if (t.phase === "before")
+      return { text:`${Util.fmtDate(ev.applyStartAt)} から受付開始`, disabled:true };
     if (remaining(ev, apps) <= 0) return { text:"満席",     disabled:true };
     return { text:"申込む", disabled:false };
   }
@@ -630,7 +654,8 @@ const Seed = (() => {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     };
     const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"社員全般",
-      venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください" };
+      venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください",
+      applyStartAt:null };
 
     // 定員はイベントが持つ（チケット廃止）
     const events = [
@@ -646,6 +671,11 @@ const Seed = (() => {
         startAt:day(20,15,0), endAt:day(20,17,0), venueName:"役員会議室", capacity:15,
         applyDeadline:dateStr(18), status:"published", visibility:"limited",
         createdAt:day(-8), updatedAt:day(-2), ...base },
+      // 受付開始日が未来 → 時期は「受付前」になる（F-05, F-08 / phase:before の実例）
+      { id:"ev_before", title:"秋期キックオフ", description:"下期の方針共有。受付は来週から開始します。",
+        startAt:day(45,13,0), endAt:day(45,17,0), venueName:"本社 ホール", capacity:120,
+        applyDeadline:dateStr(40), status:"published", visibility:"public",
+        createdAt:day(-3), updatedAt:day(-3), ...base, applyStartAt:dateStr(7) },
       { id:"ev_draft", title:"（下書き）秋の全社イベント", description:"",
         startAt:null, endAt:null, venueName:"", applyDeadline:null, capacity:null,
         status:"draft", visibility:"public", createdAt:day(-12), updatedAt:day(-12), ...base },
@@ -702,6 +732,17 @@ const Seed = (() => {
         createdAt:day(-1,15,0), resolvedAt:null },
       { id:Util.uid(), eventId:"ev_soon", channel:"thread", author:"運営A",
         body:"カフェテリアの予約は取れています。", createdAt:day(-1,9,0) },
+      // 参加者向けお知らせ（公開ページとマイ申込に出る）
+      { id:Util.uid(), eventId:"ev_public", channel:"notice", author:"運営事務局",
+        title:"会場を4階から6階の大会議室に変更しました",
+        body:"参加人数が増えたため、より広い部屋へ移動します。当日は6階まで直接お越しください。",
+        createdAt:day(-2,13,0) },
+      { id:Util.uid(), eventId:"ev_public", channel:"notice", author:"運営事務局",
+        title:"登壇者を追加募集しています（残り2枠）",
+        body:"", createdAt:day(-6,10,0) },
+      { id:Util.uid(), eventId:"ev_soon", channel:"notice", author:"運営事務局",
+        title:"当日は社員証をお持ちください", body:"受付でご提示いただきます。",
+        createdAt:day(-1,10,0) },
     ];
 
     // 運営タスク（backlog風 / E-2）。状態は4段、並び順は order（10刻み）
@@ -904,7 +945,7 @@ const EventDetail = (() => {
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
           <h2>${Util.esc(ev.title)}</h2>
           <span class="badge ${ev.status}">${Domain.STATUS[ev.status]}</span>
-          <span class="badge phase ${t.phase==='held'?'ended':''}">${t.label}</span>
+          <span class="badge phase ${t.phase==='held'?'ended':t.phase==='before'?'before':''}">${t.label}</span>
           ${ev.visibility==="limited"&&ev.status!=="cancelled"?'<span class="badge limited">限定公開</span>':""}
         </div>
         <div class="meta">
@@ -920,6 +961,7 @@ const EventDetail = (() => {
         <button data-tab="thread" class="${tab==='thread'?'on':''}">運営スレッド</button>
         <button data-tab="qa" class="${tab==='qa'?'on':''}">運営Q&amp;A</button>
         <button data-tab="tasks" class="${tab==='tasks'?'on':''}">運営タスク</button>
+        <button data-tab="notice" class="${tab==='notice'?'on':''}">お知らせ</button>
         <button data-tab="promo" class="${tab==='promo'?'on':''}">告知</button>
         <button data-tab="edit" class="${tab==='edit'?'on':''}">概要・編集</button>
       </div>
@@ -934,6 +976,7 @@ const EventDetail = (() => {
     else if (tab === "thread") Ops.renderThread(pane, ev.id);
     else if (tab === "qa") Ops.renderQA(pane, ev.id);
     else if (tab === "tasks") Tasks.render(pane, ev.id, refreshTaskChip);
+    else if (tab === "notice") Ops.renderNotice(pane, ev.id);
     else if (tab === "promo") renderPromo(pane);
     else renderEdit(pane);
   }
@@ -1083,7 +1126,9 @@ ${url}`;
           <div class="row"><span class="k">説明</span><span style="white-space:pre-wrap">${Util.esc(ev.description)||"—"}</span></div>
           <div class="row"><span class="k">対象者</span><span>${Util.esc(ev.targetAudience)||"—"}</span></div>
           <div class="row"><span class="k">住所</span><span>${Util.esc(ev.venueAddress)||"—"}</span></div>
-          <div class="row"><span class="k">申込締切</span><span>${ev.applyDeadline?Util.fmtDate(ev.applyDeadline):"—"}</span></div>
+          <div class="row"><span class="k">受付期間</span><span>${
+            ev.applyStartAt ? Util.fmtDate(ev.applyStartAt) : "公開と同時"} 〜 ${
+            ev.applyDeadline ? Util.fmtDate(ev.applyDeadline) : "—"}</span></div>
           <div class="row"><span class="k">公開範囲</span><span>${ev.visibility==="limited"?"限定公開":"一般公開"}</span></div>
           <div class="row"><span class="k">問い合わせ先</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
         </div>
@@ -1094,23 +1139,39 @@ ${url}`;
           ${canDelete?'<button class="btn" id="deleteBtn" style="color:var(--danger)">削除</button>':""}
         </div>
       </div>
-      <div class="mock-flag">編集の保存・公開・中止・削除はモックです（状態遷移の永続化は C-1 で実装）。一方向遷移（下書き→公開→中止）と確認モーダルは実装済み。</div>`;
+      <div class="ops-note" style="margin-top:12px">状態遷移は一方向です（下書き→公開→中止）。公開後は下書きに戻せず、削除もできません。</div>`;
     pane.querySelector("#editBtn").onclick = () => App.openCreate(ev.id);
+
+    // 状態を1つ書き換えて詳細を再読込する。遷移は一方向（F-37）で、ここでしか変えない
+    const transition = async (status, msg) => {
+      try {
+        await Repo.events.put({ ...ev, status, updatedAt:new Date().toISOString() });
+        FB.toast(msg);
+        await render(ctx.el, ev.id);
+      } catch (e) { FB.error("状態の変更に失敗: " + e.message); }
+    };
+
     const pub = pane.querySelector("#publishBtn");
     if (pub) pub.onclick = () => FB.confirmModal({
       title:"イベントを公開しますか？", okLabel:"公開する",
       body:"公開すると下書きには戻せません。この操作は取り消せません。",
-      onOk:() => FB.toast("公開はモックです（保存は C-1 で実装）") });
+      onOk:() => transition("published", "公開しました") });
     const can = pane.querySelector("#cancelBtn");
     if (can) can.onclick = () => FB.confirmModal({
       title:"イベントを中止しますか？", okLabel:"中止する", danger:true,
-      body:"中止すると元に戻せません。既存の申込は変更されません。",
-      onOk:() => FB.toast("中止はモックです（保存は C-1 で実装）") });
+      body:"中止すると元に戻せません。既存の申込は変更されません（F-39）。",
+      onOk:() => transition("cancelled", "中止しました") });
     const del = pane.querySelector("#deleteBtn");
     if (del) del.onclick = () => FB.confirmModal({
       title:"下書きを削除しますか？", okLabel:"削除する", danger:true,
       body:"この下書きを削除します。",
-      onOk:() => FB.toast("削除はモックです（保存は C-1 で実装）") });
+      onOk: async () => {
+        try {
+          await Repo.events.remove(ev.id);
+          FB.toast("下書きを削除しました");
+          App.go("events");
+        } catch (e) { FB.error("削除に失敗: " + e.message); }
+      } });
   }
 
   // persons をまとめて読んでおく（申込一覧の氏名・メール表示に必要）
@@ -1226,7 +1287,62 @@ const Ops = (() => {
       <button class="btn sm" data-qadel="${q.id}" style="color:var(--danger)">削除</button>
     </div></div>`;
 
-  return { renderThread, renderQA };
+  // ---- お知らせ（主催者→参加者への一方向の連絡。messages の channel:'notice'） ----
+  /* メール送信はサーバが無いため不可能だが（4-1）、Peatix のメッセージがメール通知と
+     受信箱の2層である以上、後者に相当する層はサーバ無しでも成立する。公開ページと
+     マイ申込に出すことで、主催者→参加者の連絡手段を確保する。 */
+  async function renderNotice(pane, eventId) {
+    const all = await Repo.messages.byEvent(eventId);
+    const list = noticesOf(all);
+    pane.innerHTML = `
+      <div class="ops-note">参加者向けのお知らせです。<b>公開ページと参加者のマイ申込に表示されます</b>。
+        メール送信はできないため（サーバが必要）、参加者が見に来たときに気づく形になります。</div>
+      <div class="card pad" style="margin-bottom:14px">
+        <div class="field"><label>件名<span class="req">必須</span></label>
+          <input id="ntTitle" placeholder="例: 開催場所を4階から6階に変更しました"></div>
+        <div class="field"><label>本文</label>
+          <textarea id="ntBody" placeholder="変更の理由や補足があれば記入"></textarea></div>
+        <div class="crow" style="display:flex;gap:8px;align-items:center">
+          <input class="qa-author" id="ntAuthor" value="${Util.esc(lastAuthor)}" placeholder="差出人">
+          <button class="btn primary" id="ntAdd">お知らせを出す</button></div>
+      </div>
+      <div id="ntList">${list.length ? list.map(noticeCard).join("")
+        : `<div class="empty">お知らせはまだありません。</div>`}</div>`;
+
+    pane.querySelector("#ntAdd").onclick = async () => {
+      const title = pane.querySelector("#ntTitle").value.trim();
+      const body = pane.querySelector("#ntBody").value.trim();
+      if (!title) { FB.toast("件名を入力してください"); return; }
+      const author = pane.querySelector("#ntAuthor").value.trim() || "運営";
+      lastAuthor = author;
+      try {
+        await Repo.messages.put({ id:Util.uid(), eventId, channel:"notice", author,
+          title, body, createdAt:new Date().toISOString() });
+        FB.toast("お知らせを公開しました");
+        renderNotice(pane, eventId);
+      } catch (e) { FB.error("お知らせの保存に失敗: " + e.message); }
+    };
+    pane.querySelectorAll("[data-ntdel]").forEach(b => b.onclick = () =>
+      FB.confirmModal({ title:"このお知らせを取り下げますか？", okLabel:"取り下げる", danger:true,
+        body:"参加者からも見えなくなります。",
+        onOk: async () => {
+          try { await Repo.messages.remove(b.dataset.ntdel); renderNotice(pane, eventId); }
+          catch (e) { FB.error("取り下げに失敗: " + e.message); }
+        } }));
+  }
+  const noticeCard = (n) => `<div class="qa-item">
+    <div class="qa-q"><span class="badge phase">お知らせ</span><span>${Util.esc(n.title)}</span></div>
+    <div class="qa-meta">${Util.esc(n.author||"運営")}・${Util.fmtDateTime(n.createdAt)}</div>
+    ${n.body ? `<div style="white-space:pre-wrap">${Util.esc(n.body)}</div>` : ""}
+    <div class="row-actions" style="margin-top:8px">
+      <button class="btn sm" data-ntdel="${n.id}" style="color:var(--danger)">取り下げる</button>
+    </div></div>`;
+
+  // 参加者側に出す用（新しい順）。公開ページ・マイ申込の両方から使う
+  const noticesOf = (msgs) => msgs.filter(m => m.channel === "notice")
+    .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  return { renderThread, renderQA, renderNotice, noticesOf };
 })();
 
 
@@ -1587,9 +1703,10 @@ const Settings = (() => {
             ${implRow("アプリシェル・役割切替・タブ","B-2","partial","一部（画面遷移とフィードバックは配線済）")}
             ${implRow("ダッシュボード（指標・要対応）","D-2","done","実装済")}
             ${implRow("イベント一覧（時期トグル）","C-1","done","実装済")}
-            ${implRow("イベント作成・編集（5ステップ）","C-1","partial","モック（遷移・公開前チェックは動作／保存は未）")}
+            ${implRow("イベント作成・編集（5ステップ）","C-1","done","実装済（下書き作成・都度保存・公開／中止／削除・カバー画像を永続）")}
             ${implRow("イベント詳細・申込管理・CSV","C-3","partial","モック（検索・CSV出力は動作／チェックイン等の保存は未）")}
             ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","partial","モック（入力→確認→完了・マイ申込表示は動作／確定保存は未）")}
+            ${implRow("お知らせ（主催者→参加者）","E-4","done","実装済（公開ページとマイ申込に表示。メール送信は不可のため掲示型）")}
             ${implRow("告知（URL・投稿文・SNS共有）","D-1","done","実装済（読み取りのみ）")}
             ${implRow("運営スレッド（社内チャット）","E-1","done","実装済（単一ブラウザ内で永続。別端末同期は不可）")}
             ${implRow("運営Q&A（疑問の登録・解消）","E-1","done","実装済（同上）")}
@@ -1657,6 +1774,7 @@ const Participant = (() => {
     if (!ev || ev.status === "draft") {
       el.innerHTML = `<div class="empty"><div class="big">このイベントは表示できません</div></div>`; return;
     }
+    const notices = Ops.noticesOf(await Repo.messages.byEvent(eventId));
     const t = Domain.timing(ev);
     const rem = Domain.remaining(ev, apps);
     const btn = Domain.applyButtonLabel(ev, apps);
@@ -1666,14 +1784,18 @@ const Participant = (() => {
     el.innerHTML = `
       <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button></div>
       <div class="pub">
-        <div class="cover">カバー画像（未設定）</div>
+        ${coverHtml(ev)}
         <h1>${Util.esc(ev.title)}</h1>
         ${ev.status==="cancelled" ? `<div class="banner" style="position:static;border-radius:8px">このイベントは中止されました</div>`:""}
         <div class="kv">
           <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}〜${ev.endAt?Util.fmtDateTime(ev.endAt):""}</span></div>
           <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"} ${mapLink}</span></div>
           <div class="row"><span class="k">対象者</span><span>${Util.esc(ev.targetAudience)||"—"}</span></div>
+          <div class="row"><span class="k">受付</span><span>${
+            ev.applyStartAt ? `${Util.fmtDate(ev.applyStartAt)} 〜 ` : ""}${
+            ev.applyDeadline ? `${Util.fmtDate(ev.applyDeadline)} まで` : "—"}</span></div>
         </div>
+        ${noticeBlock(notices)}
         <div style="white-space:pre-wrap;margin:14px 0">${Util.esc(ev.description)||""}</div>
         <div class="seats">残席 ${rem>0?rem:"満席"}</div>
         <button class="btn primary apply" id="apply" ${btn.disabled?"disabled style='opacity:.55;cursor:not-allowed'":""}>${btn.text}</button>
@@ -1685,6 +1807,17 @@ const Participant = (() => {
     const applyBtn = el.querySelector("#apply");
     if (applyBtn && !btn.disabled) applyBtn.onclick = () => App.openApply(ev.id);
   }
+
+  // 主催者からのお知らせ。公開ページとマイ申込の両方に出す（参加者向けの唯一の連絡手段）
+  const noticeBlock = (notices) => !notices.length ? "" : `
+    <div class="notices">
+      <div class="nh">主催者からのお知らせ（${notices.length}）</div>
+      ${notices.map(n => `<div class="nitem">
+        <div class="nt">${Util.esc(n.title)}</div>
+        <div class="nm">${Util.fmtDateTime(n.createdAt)}・${Util.esc(n.author||"運営")}</div>
+        ${n.body ? `<div class="nb">${Util.esc(n.body)}</div>` : ""}
+      </div>`).join("")}
+    </div>`;
 
   // ---- 申込フロー S-7（入力→確認 / F-16, F-52, F-53, F-54, F-80, F-84） ----
   let flow = null; // { ev, phase:'input'|'confirm', data, host }
@@ -1872,6 +2005,7 @@ const Participant = (() => {
     if (!it) { selectedToken = null; return renderMyTicket(el); }
     const { ev, app } = it;
     const cancelled = app.status === "cancelled";
+    const notices = Ops.noticesOf(await Repo.messages.byEvent(ev.id));
     const label = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル済" };
     const mapLink = ev.venueAddress
       ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.venueAddress)}" target="_blank" rel="noopener">地図を開く</a>` : "";
@@ -1879,6 +2013,7 @@ const Participant = (() => {
       <div class="page-head"><button class="btn ghost" id="back">← マイ申込</button></div>
       <div class="card pad">
         <h2 style="font-size:18px">${Util.esc(ev.title)}</h2>
+        ${noticeBlock(notices)}
         <div class="summary" style="margin:14px 0">
           <div class="row"><span class="k">開催日時</span><span>${ev.startAt?Util.fmtDateTime(ev.startAt):"日程未定"}</span></div>
           <div class="row"><span class="k">会場</span><span>${Util.esc(ev.venueName)||"—"} ${mapLink}</span></div>
@@ -1913,6 +2048,19 @@ function groupBy(arr, key) {
   return m;
 }
 
+/* カバー画像（F-03）。IndexedDB から取り出した Blob を objectURL にして表示する。
+   URL は画面が差し替わるまで保持する必要があるため、直後には revoke しない。 */
+const _coverUrls = [];
+function coverHtml(ev) {
+  if (!ev.coverImage) return `<div class="cover">カバー画像（未設定）</div>`;
+  try {
+    const url = URL.createObjectURL(ev.coverImage);
+    _coverUrls.push(url);
+    if (_coverUrls.length > 20) URL.revokeObjectURL(_coverUrls.shift()); // 上限を設けて解放
+    return `<img class="cover" src="${url}" alt="${Util.esc(ev.title)}">`;
+  } catch { return `<div class="cover">カバー画像（表示できません）</div>`; }
+}
+
 
 // ===== [12b] 主催者：イベント作成・編集ウィザード S-3（5ステップ / F-69〜F-74） =====
 const Wizard = (() => {
@@ -1924,6 +2072,9 @@ const Wizard = (() => {
     { key:"setting", label:"5. 設定" },
   ];
   let form = null, step = 0, isEdit = false, el = null;
+  let coverFile = null;   // 新たに選択されたカバー画像（File は Blob なのでそのまま保存できる）
+  let coverKeep = null;   // 編集時に保持する既存の Blob
+  let wasPublic = false;  // 編集開始時点で一般公開だったか（F-66 の判定用）
 
   const isoToLocalInput = (iso) => {
     if (!iso) return "";
@@ -1934,25 +2085,78 @@ const Wizard = (() => {
   async function render(host, eventId) {
     el = host; step = 0;
     isEdit = !!eventId;
+    coverFile = null; coverKeep = null; wasPublic = false;
     if (isEdit) {
       const ev = await Repo.events.get(eventId);
+      coverKeep = ev.coverImage || null;
+      wasPublic = ev.status !== "draft" && ev.visibility === "public";
       form = { id:ev.id, title:ev.title||"", startAt:isoToLocalInput(ev.startAt), endAt:isoToLocalInput(ev.endAt),
         venueName:ev.venueName||"", venueAddress:ev.venueAddress||"", description:ev.description||"",
-        targetAudience:ev.targetAudience||"", coverImageName: ev.coverImage?"（設定済み）":"",
-        capacity:ev.capacity||"", applyDeadline:ev.applyDeadline||"",
-        visibility:ev.visibility||"public", contactInfo:ev.contactInfo||"" };
+        targetAudience:ev.targetAudience||"",
+        capacity:ev.capacity||"", applyStartAt:ev.applyStartAt||"", applyDeadline:ev.applyDeadline||"",
+        visibility:ev.visibility||"public", contactInfo:ev.contactInfo||"",
+        status:ev.status };
     } else {
       form = { id:null, title:"", startAt:"", endAt:"", venueName:"", venueAddress:"", description:"",
-        targetAudience:"", coverImageName:"", capacity:"", applyDeadline:"",
-        visibility:"public", contactInfo:"" };
+        targetAudience:"", capacity:"", applyStartAt:"", applyDeadline:"",
+        visibility:"public", contactInfo:"", status:"draft" };
     }
     paint();
   }
 
   function collect() { // 現在ステップの入力を form に退避（戻る操作でも保持 / F-72）
     el.querySelectorAll("[data-f]").forEach(inp => {
+      if (inp.dataset.f === "__cover") {           // ファイルは File のまま保持する
+        if (inp.files && inp.files[0]) coverFile = inp.files[0];
+        return;
+      }
       form[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : inp.value;
     });
+  }
+
+  const toIso = (local) => local ? new Date(local).toISOString() : null;
+
+  // form からイベントレコードを組み立てる。IndexedDB の書き込み前にすべて揃えておく（7-1）
+  async function buildRecord(status) {
+    const now = new Date().toISOString();
+    const prev = form.id ? await Repo.events.get(form.id) : null;
+    return {
+      id: form.id || Util.uid(),
+      title: form.title.trim(),
+      description: form.description.trim(),
+      targetAudience: form.targetAudience.trim(),
+      startAt: toIso(form.startAt), endAt: toIso(form.endAt),
+      venueName: form.venueName.trim(), venueAddress: form.venueAddress.trim(),
+      contactInfo: form.contactInfo.trim(),
+      coverImage: coverFile || coverKeep || null,     // File は Blob。そのまま保存できる
+      capacity: form.capacity ? +form.capacity : null,
+      applyStartAt: form.applyStartAt || null,
+      applyDeadline: form.applyDeadline || null,
+      status,
+      visibility: form.visibility,
+      groupId: prev?.groupId ?? null,
+      copiedFromId: prev?.copiedFromId ?? null,
+      createdAt: prev?.createdAt || now,
+      updatedAt: now,
+    };
+  }
+
+  // 保存（F-01, F-70, F-72）。status は呼び出し側が決める（遷移は一方向 / F-37）
+  async function persist(status) {
+    const rec = await buildRecord(status);
+    // F-41: 定員は有効な申込数を下回れない
+    if (rec.capacity != null && form.id) {
+      const apps = await Repo.applications.byEvent(form.id);
+      const used = Domain.usedSeats(apps);
+      if (rec.capacity < used) {
+        FB.error(`定員を${rec.capacity}人にはできません。すでに${used}件の有効な申込があります（F-41）`);
+        return null;
+      }
+    }
+    await Repo.events.put(rec);
+    form.id = rec.id; form.status = rec.status;
+    coverKeep = rec.coverImage; coverFile = null;
+    return rec;
   }
 
   function paint() {
@@ -1969,7 +2173,7 @@ const Wizard = (() => {
         <button class="btn" id="prev" ${step===0?'style="visibility:hidden"':''}>← 戻る</button>
         <div class="row-actions">${footerRight()}</div>
       </div>
-      <div class="mock-flag">保存はモックです（下書き作成・公開の永続化は C-1 で実装）。ステップ遷移・入力保持・公開前チェック（F-06）は動作します。</div>`;
+      <div class="ops-note" style="margin-top:12px">「保存して次へ」を押すたびに下書きとして保存されます（F-70, F-72）。離脱しても保存済みのステップまでが残り、一覧から再開できます。</div>`;
 
     el.querySelector("#back").onclick = () => { collect(); App.go("events"); };
     el.querySelector("#prev").onclick = () => { collect(); if (step>0) { step--; paint(); } };
@@ -1982,6 +2186,9 @@ const Wizard = (() => {
   function footerRight() {
     if (step < STEPS.length - 1)
       return `<button class="btn primary" id="next">保存して次へ →</button>`;
+    // 公開済み・中止済みは下書きへ戻せないので保存のみ（F-37）
+    if (form.status !== "draft")
+      return `<button class="btn primary" id="saveOnly">変更を保存</button>`;
     return `<button class="btn" id="check">公開前チェック</button>
             <button class="btn" id="saveDraft">下書き保存</button>
             <button class="btn primary" id="publish">公開する</button>`;
@@ -1989,19 +2196,42 @@ const Wizard = (() => {
 
   function wireFooter() {
     const next = el.querySelector("#next");
-    if (next) next.onclick = () => {
+    if (next) next.onclick = async () => {
       collect();
       if (step === 0 && !form.title.trim()) { // ステップ1はイベント名必須（F-70）
         showErr("title", "イベント名を入力してください");
         return;
       }
-      if (step === 0 && !isEdit) FB.toast("下書きを作成しました（モック）");
+      if (!guardVisibility()) return;
+      // ステップ1を保存した時点で下書きを新規作成する（F-70）。以降も都度保存するため、
+      // 離脱しても保存済みのステップまでが下書きとして残る（F-72）
+      try {
+        const first = !form.id;
+        if (!await persist(form.status)) return;
+        FB.toast(first ? "下書きを作成しました" : "保存しました");
+      } catch (e) { FB.error("保存に失敗: " + e.message); return; }
       step++; paint();
     };
     const check = el.querySelector("#check");
     if (check) check.onclick = () => { collect(); runPublishCheck(); };
+
+    const saveOnly = el.querySelector("#saveOnly");
+    if (saveOnly) saveOnly.onclick = async () => {
+      collect();
+      if (!guardVisibility()) return;
+      try {
+        if (await persist(form.status)) { FB.toast("変更を保存しました"); App.openEvent(form.id); }
+      } catch (e) { FB.error("保存に失敗: " + e.message); }
+    };
+
     const sd = el.querySelector("#saveDraft");
-    if (sd) sd.onclick = () => { collect(); FB.toast("下書きを保存しました（モック / 保存は C-1 で実装）"); };
+    if (sd) sd.onclick = async () => {
+      collect();
+      try {
+        if (await persist("draft")) { FB.toast("下書きを保存しました"); App.go("events"); }
+      } catch (e) { FB.error("保存に失敗: " + e.message); }
+    };
+
     const pub = el.querySelector("#publish");
     if (pub) pub.onclick = () => {
       collect();
@@ -2009,8 +2239,23 @@ const Wizard = (() => {
       if (issues.length) { runPublishCheck(); return; } // 不備があれば公開させない（F-06）
       FB.confirmModal({ title:"イベントを公開しますか？", okLabel:"公開する",
         body:"公開すると下書きには戻せません。この操作は取り消せません。",
-        onOk:() => FB.toast("公開しました（モック / 保存は C-1 で実装）") });
+        onOk: async () => {
+          try {
+            if (await persist("published")) { FB.toast("公開しました"); App.openEvent(form.id); }
+          } catch (e) { FB.error("公開に失敗: " + e.message); }
+        } });
     };
+  }
+
+  // 一般公開 → 限定公開へは戻せない（F-66）。下書きのうちは自由に変更できる
+  function guardVisibility() {
+    if (form.status === "draft") return true;
+    if (form.visibility === "limited" && wasPublic) {
+      FB.error("一般公開から限定公開へは戻せません（F-66）");
+      form.visibility = "public";
+      return false;
+    }
+    return true;
   }
 
   function showErr(field, msg) {
@@ -2032,7 +2277,19 @@ const Wizard = (() => {
     if (!f.endAt) issues.push("終了日時が未設定です");
     if (!f.venueName.trim()) issues.push("会場名が未入力です");
     if (!f.capacity || +f.capacity < 1) issues.push("定員が未設定です");
+    if (f.capacity && +f.capacity > 9999) issues.push("定員は9999以下にしてください（F-55）");
     if (!f.applyDeadline) issues.push("申込締切が未設定です");
+    if (f.applyStartAt && f.applyDeadline && f.applyStartAt > f.applyDeadline)
+      issues.push("受付開始が申込締切より後です");
+    if (f.applyStartAt && f.startAt &&
+        Util.dayStart(f.applyStartAt) > new Date(f.startAt).getTime())
+      issues.push("受付開始が開催日より後です");
+    // 文字数上限（F-54）
+    const lim = [["title","イベント名",100],["description","説明",2000],
+      ["targetAudience","対象者",200],["venueName","会場名",100],
+      ["venueAddress","住所",200],["contactInfo","問い合わせ先",200]];
+    for (const [k, label, max] of lim)
+      if ((f[k] || "").length > max) issues.push(`${label}は${max}文字以内にしてください（F-54）`);
     if (f.startAt && f.endAt && new Date(f.endAt) < new Date(f.startAt))
       issues.push("終了日時が開始日時より前です");
     if (f.applyDeadline && f.startAt &&
@@ -2075,10 +2332,14 @@ const Wizard = (() => {
         ${T("targetAudience","対象者",{ph:"社員全般"})}
         <div class="field"><label>カバー画像</label>
           <input type="file" accept="image/*" data-f="__cover">
-          <div class="hint">任意。未設定時はプレースホルダーを表示（F-03）。※モックでは保存しません</div></div>`;
+          <div class="hint">任意。未設定時はプレースホルダーを表示（F-03）。${
+            coverFile ? `選択中: ${Util.esc(coverFile.name)}` : coverKeep ? "現在: 設定済み（変更しなければ保持されます）" : ""}</div></div>`;
       case "apply": return `
         ${T("capacity","定員",{type:"number",hint:"1〜9999（F-55）。チケット制は廃止し、申込は「申込」に一本化"})}
-        ${T("applyDeadline","申込締切",{type:"date",hint:"当日23:59:59まで受付（F-45）"})}`;
+        <div class="form-2col">
+          ${T("applyStartAt","受付開始",{type:"date",hint:"任意。当日00:00から受付（F-45b）。未設定なら公開と同時に受付開始"})}
+          ${T("applyDeadline","申込締切",{type:"date",hint:"当日23:59:59まで受付（F-45）"})}
+        </div>`;
       case "setting": return `
         <div class="field"><label>公開範囲</label>
           <select data-f="visibility">

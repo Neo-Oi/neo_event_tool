@@ -53,7 +53,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
       M.Repo.events.all(), M.Repo.persons.all(), M.Repo.applications.all(),
       M.Repo.savedTokens.all(), M.DB.getAll("messages"), M.DB.getAll("tasks")]);
     const c = `ev=${ev.length} ps=${ps.length} ap=${ap.length} sv=${sv.length} msg=${msg.length} task=${tk.length}`;
-    if (ev.length !== 6 || sv.length !== 3 || msg.length !== 5 || tk.length !== 10) throw new Error("件数不正: " + c);
+    if (ev.length !== 7 || sv.length !== 3 || msg.length !== 8 || tk.length !== 10) throw new Error("件数不正: " + c);
     if (ap.some(a => "ticketTypeId" in a)) throw new Error("申込にticketTypeIdが残存");
     if (!ev.every(e => "capacity" in e)) throw new Error("イベントにcapacityがない");
     results.push(["   ", c]);
@@ -176,28 +176,127 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!chip || !chip.innerHTML.includes("タスク")) throw new Error("固定表示にタスク進捗がない");
   });
 
+  // お知らせ（主催者→参加者 / messages channel:'notice'）
+  await step("お知らせ 表示（シード2件）", async () => {
+    clickTab(4); await wait(40);
+    if (!content.querySelector("#ntAdd")) throw new Error("お知らせ投稿ボタンなし");
+    if (content.querySelectorAll("[data-ntdel]").length !== 2) throw new Error("シードのお知らせ2件が出ない");
+  });
+  await step("お知らせ 件名必須→投稿で永続", async () => {
+    content.querySelector("#ntAdd").click(); await wait(40);
+    if (content.querySelectorAll("[data-ntdel]").length !== 2) throw new Error("件名なしで投稿された");
+    content.querySelector("#ntTitle").value = "駐輪場は使えません";
+    content.querySelector("#ntBody").value = "近隣の有料駐輪場をご利用ください。";
+    content.querySelector("#ntAdd").click(); await wait(60);
+    const saved = (await M.DB.getAll("messages")).filter(m => m.channel === "notice" && m.eventId === "ev_public");
+    if (saved.length !== 3) throw new Error("お知らせが保存されない: " + saved.length);
+  });
+  await step("お知らせが参加者の公開ページに出る", async () => {
+    await M.Participant.renderPublic(content, "ev_public"); await wait(20);
+    if (!content.querySelector(".notices")) throw new Error("公開ページにお知らせ欄がない");
+    if (content.querySelectorAll(".notices .nitem").length !== 3) throw new Error("公開ページのお知らせ件数が不正");
+    if (!content.innerHTML.includes("駐輪場は使えません")) throw new Error("投稿したお知らせが出ない");
+    await M.EventDetail.render(content, "ev_public"); await wait(20);
+  });
+
   await step("告知タブ（X/LINEリンク）", async () => {
-    clickTab(4); await wait(20);
+    clickTab(5); await wait(20);
     if (!content.querySelector("#xShare").href.includes("twitter.com")) throw new Error("X共有リンク不正");
     if (!content.querySelector("#lineShare").href.includes("line.me")) throw new Error("LINE共有リンク不正");
   });
   await step("概要・編集タブ + 中止確認モーダル", async () => {
-    clickTab(5); await wait(20);
+    clickTab(6); await wait(20);
     const c = content.querySelector("#cancelBtn");
     if (c) { c.click(); await wait(20); if (!window.document.querySelector("#modalHost .modal")) throw new Error("確認モーダルなし"); window.document.querySelector("#mCancel").click(); }
+  });
+
+  // 受付開始日（F-45b）と phase:before（従来は到達不能だったデッド仕様）
+  await step("受付前フェーズが算出される（phase:before）", async () => {
+    const ev = await M.Repo.events.get("ev_before");
+    const t = M.Domain.timing(ev);
+    if (t.phase !== "before") throw new Error("phase=" + t.phase);
+    if (t.label !== "受付前") throw new Error("label=" + t.label);
+    const btn = M.Domain.applyButtonLabel(ev, []);
+    if (!btn.disabled || !btn.text.includes("受付開始")) throw new Error("F-08の文言が不正: " + btn.text);
+  });
+  await step("受付開始が未設定なら受付中のまま", async () => {
+    const ev = await M.Repo.events.get("ev_public");
+    if (M.Domain.timing(ev).phase !== "open") throw new Error("openにならない");
+  });
+  await step("公開ページの申込ボタンが受付前で無効", async () => {
+    await M.Participant.renderPublic(content, "ev_before"); await wait(20);
+    const b = content.querySelector("#apply");
+    if (!b.disabled) throw new Error("受付前なのに申込できる");
+  });
+
+  // C-1: イベントの書き込みが永続する
+  await step("C-1 状態遷移が永続（下書き→公開）", async () => {
+    await M.EventDetail.render(content, "ev_draft"); await wait(20);
+    clickTab(6); await wait(20);
+    content.querySelector("#publishBtn").click(); await wait(20);
+    window.document.querySelector("#mOk").click(); await wait(80);
+    const ev = await M.Repo.events.get("ev_draft");
+    if (ev.status !== "published") throw new Error("公開が保存されない: " + ev.status);
+  });
+  await step("C-1 公開後は下書きに戻せない（F-37）", async () => {
+    await M.EventDetail.render(content, "ev_draft"); await wait(20);
+    clickTab(6); await wait(20);
+    if (content.querySelector("#publishBtn")) throw new Error("公開済みに公開ボタンが出ている");
+    if (content.querySelector("#deleteBtn")) throw new Error("公開済みに削除ボタンが出ている");
+  });
+  await step("C-1 中止が永続し、申込は変更されない（F-39）", async () => {
+    const before = (await M.Repo.applications.byEvent("ev_public")).map(a => a.status).join(",");
+    await M.EventDetail.render(content, "ev_public"); await wait(20);
+    clickTab(6); await wait(20);
+    content.querySelector("#cancelBtn").click(); await wait(20);
+    window.document.querySelector("#mOk").click(); await wait(80);
+    const ev = await M.Repo.events.get("ev_public");
+    if (ev.status !== "cancelled") throw new Error("中止が保存されない");
+    const after = (await M.Repo.applications.byEvent("ev_public")).map(a => a.status).join(",");
+    if (before !== after) throw new Error("中止で申込が変わった");
   });
   await step("Settings.render（実装区分に運営行）", async () => { await M.Settings.render(content); if (!content.innerHTML.includes("運営スレッド")) throw new Error("実装区分に運営行なし"); if (!content.innerHTML.includes("運営タスク")) throw new Error("実装区分に運営タスク行なし"); if (!content.innerHTML.includes("チケット制")) throw new Error("チケット制廃止行なし"); });
 
   // ウィザード（申込枠→定員のみ）
   await step("Wizard.render(新規)", async () => { await M.Wizard.render(content, null); nonEmpty("wizard"); });
   await step("Wizard 名称未入力で次へ→エラー", async () => { content.querySelector("#next").click(); await wait(20); if (!content.querySelector(".field .err")) throw new Error("必須エラーなし"); });
-  await step("Wizard 5ステップ踏破（申込枠名の入力なし）", async () => {
+  await step("Wizard ステップ1保存で下書きが実際に作られる（F-70）", async () => {
+    const before = (await M.Repo.events.all()).length;
     content.querySelector('[data-f="title"]').value = "テストイベント";
-    for (let i = 0; i < 3; i++) { content.querySelector("#next").click(); await wait(20); }
+    content.querySelector("#next").click(); await wait(80);
+    const evs = await M.Repo.events.all();
+    if (evs.length !== before + 1) throw new Error("下書きが作られない");
+    const made = evs.find(e => e.title === "テストイベント");
+    if (!made || made.status !== "draft") throw new Error("下書きとして保存されていない");
+  });
+  await step("Wizard 5ステップ踏破＋受付開始欄（申込枠名なし）", async () => {
+    for (let i = 0; i < 2; i++) { content.querySelector("#next").click(); await wait(80); }
     if (content.innerHTML.includes("申込枠の名称")) throw new Error("枠名フィールドが残存");
     if (!content.querySelector('[data-f="capacity"]')) throw new Error("定員フィールドがない（step4）");
-    content.querySelector("#next").click(); await wait(20);
+    if (!content.querySelector('[data-f="applyStartAt"]')) throw new Error("受付開始フィールドがない（F-45b）");
+    content.querySelector("#next").click(); await wait(80);
     if (!content.querySelector("#publish")) throw new Error("最終ステップに公開ボタンなし");
+  });
+  await step("Wizard 離脱しても保存済みのステップが残る（F-72）", async () => {
+    const made = (await M.Repo.events.all()).find(e => e.title === "テストイベント");
+    if (!made) throw new Error("下書きが消えている");
+    await M.Wizard.render(content, made.id); await wait(40);
+    if (content.querySelector('[data-f="title"]').value !== "テストイベント") throw new Error("再開時に値が復元されない");
+  });
+  await step("Wizard 不備があると公開できない（F-06）", async () => {
+    const made = (await M.Repo.events.all()).find(e => e.title === "テストイベント");
+    await M.Wizard.render(content, made.id); await wait(40);
+    for (let i = 0; i < 4; i++) { content.querySelector("#next").click(); await wait(80); }
+    content.querySelector("#publish").click(); await wait(40);
+    if (window.document.querySelector("#modalHost .modal")) throw new Error("不備があるのに確認モーダルが出た");
+    if ((await M.Repo.events.get(made.id)).status !== "draft") throw new Error("不備があるのに公開された");
+  });
+  await step("Wizard 定員は有効な申込数を下回れない（F-41）", async () => {
+    await M.Wizard.render(content, "ev_soon"); await wait(40);
+    for (let i = 0; i < 3; i++) { content.querySelector("#next").click(); await wait(80); }
+    content.querySelector('[data-f="capacity"]').value = "1";   // 有効な申込は2件
+    content.querySelector("#next").click(); await wait(80);
+    if ((await M.Repo.events.get("ev_soon")).capacity !== 20) throw new Error("定員が下限を割って保存された");
   });
   await step("Wizard.render(編集)", async () => { await M.Wizard.render(content, "ev_public"); if (content.querySelector('[data-f="capacity"]') == null) { /* step4で確認 */ } nonEmpty("wizard-edit"); });
 
