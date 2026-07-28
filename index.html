@@ -1084,7 +1084,7 @@ const Seed = (() => {
       const d = new Date(now); d.setDate(d.getDate()+offset);
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     };
-    const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"どなたでもご参加いただけます",
+    const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"どなたでもご参加いただけます（法人・学生・個人を問いません）",
       venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください",
       applyStartAt:null, eventFormat:"onsite", onlineUrl:null, onlineNote:null, questions:[] };
     // 申込フォームの追加質問（F-a）。社外向けなので所属会社を聞くのが基本になる
@@ -1092,8 +1092,10 @@ const Seed = (() => {
     const qParty = { id:"q_party", label:"交流会に参加する", type:"checkbox", required:false, options:[] };
     const qJoin  = { id:"q_join",  label:"参加方法",       type:"select",   required:true,
                      options:["現地で参加","オンラインで参加"] };
-    const qComp  = { id:"q_comp",  label:"会社名",         type:"text",     required:true,  options:[] };
-    const qTitle = { id:"q_title", label:"役職",           type:"text",     required:false, options:[] };
+    // 所属は会社に限らない（学生・個人の参加もある）ので、区分で聞く（F-91b）
+    const qComp  = { id:"q_comp",  label:"ご所属",         type:"select",   required:true,
+                     options:["会社","学校","なし"] };
+    const qTitle = { id:"q_title", label:"所属先の名称・役職", type:"text",  required:false, options:[] };
     const qKnow  = { id:"q_know",  label:"本イベントを知ったきっかけ", type:"select", required:false,
                      options:["弊社担当者からの案内","自社サイト","SNS","知人の紹介","その他"] };
 
@@ -1105,7 +1107,7 @@ const Seed = (() => {
         createdAt:day(-20), updatedAt:day(-5), ...base,
         eventFormat:"hybrid", onlineUrl:"https://teams.microsoft.com/l/meetup-join/demo-lt-2026",
         onlineNote:"開始10分前から入室できます。マイクはミュートでお願いします。",
-        targetAudience:"エンジニア・技術に関心のある方",
+        targetAudience:"エンジニア・技術に関心のある方（学生の方も歓迎）",
         contactInfo:"カンファレンス事務局 conf@example.com（平日9:00〜17:00）",
         questions:[qComp, qJoin, qParty] },
       { id:"ev_soon", title:"製品ハンズオン体験会", description:"実機に触れながら製品の基本操作を体験いただけます。少人数制です。",
@@ -1141,7 +1143,7 @@ const Seed = (() => {
         startAt:day(28,14,0), endAt:day(28,16,30), venueName:"本社 セミナールーム", capacity:80,
         applyDeadline:dateStr(25), status:"published", visibility:"public",
         createdAt:day(-11), updatedAt:day(-4), ...base,
-        targetAudience:"業務改善に関心のある企業のご担当者",
+        targetAudience:"業務改善に関心のある方（法人・学生・個人を問いません）",
         contactInfo:"セミナー事務局 seminar@example.com（平日9:00〜17:00）",
         eventFormat:"hybrid", onlineUrl:"https://zoom.us/j/demo-seminar-2026",
         onlineNote:"接続URLは当日の朝にも本ページでご確認いただけます。",
@@ -1164,7 +1166,8 @@ const Seed = (() => {
         createdAt:day(-10), updatedAt:day(-1), ...base,
         targetAudience:"ご招待したお客様", contactInfo:"営業企画部 sales@example.com" },
     ];
-    // すべて社外の方（F-98）。所属会社はカスタム質問で聞き、persons には持たせない
+    // すべて社外の方（F-98）。所属はカスタム質問で聞き、persons には持たせない。
+    // 会社勤めに限らず、学生（大学ドメイン）や個人（フリーメール想定）も混ぜる（F-91b）
     const people = [
       ["田中 太郎","タナカ タロウ","tanaka@alpha.example.com"],
       ["鈴木 花子","スズキ ハナコ","suzuki@beta.example.com"],
@@ -1178,19 +1181,19 @@ const Seed = (() => {
       ["渡辺 修","ワタナベ オサム","watanabe@alpha.example.com"],
       ["松本 由紀","マツモト ユキ","matsumoto@beta.example.com"],
       ["井上 拓也","イノウエ タクヤ","inoue@gamma.example.com"],
-      ["木村 沙織","キムラ サオリ","kimura@delta.example.com"],
-      ["林 洋一","ハヤシ ヨウイチ","hayashi@epsilon.example.com"],
+      ["木村 沙織","キムラ サオリ","kimura@daigaku.example.ac.jp"],
+      ["林 洋一","ハヤシ ヨウイチ","hayashi@daigaku.example.ac.jp"],
       ["清水 麻衣","シミズ マイ","shimizu@alpha.example.com"],
       ["山口 亮","ヤマグチ リョウ","yamaguchi@beta.example.com"],
       ["森 詩織","モリ シオリ","mori@zeta.example.com"],
       ["池田 和也","イケダ カズヤ","ikeda@gamma.example.com"],
       ["橋本 千夏","ハシモト チナツ","hashimoto@delta.example.com"],
-      ["石川 直樹","イシカワ ナオキ","ishikawa@epsilon.example.com"],
+      ["石川 直樹","イシカワ ナオキ","ishikawa@personal.example.net"],
       ["前田 春香","マエダ ハルカ","maeda@zeta.example.com"],
       ["藤田 隆","フジタ タカシ","fujita@alpha.example.com"],
-      ["岡田 恵","オカダ メグミ","okada@beta.example.com"],
-      ["長谷川 淳","ハセガワ ジュン","hasegawa@gamma.example.com"],
-      ["村上 里奈","ムラカミ リナ","murakami@delta.example.com"],
+      ["岡田 恵","オカダ メグミ","okada@personal.example.net"],
+      ["長谷川 淳","ハセガワ ジュン","hasegawa@daigakuin.example.ac.jp"],
+      ["村上 里奈","ムラカミ リナ","murakami@personal.example.net"],
     ];
     const persons = people.map((p, i) => {
       const emailKey = p[2].trim().toLowerCase();
@@ -1198,17 +1201,28 @@ const Seed = (() => {
         contactConsent:true, consentAt:day(-6), createdAt:day(-6) };
     });
     // イベントごとのカスタム質問への回答（F-a）。参加者はすべて社外の方
-    const COMP = ["株式会社アルファ","株式会社ベータ","株式会社ガンマ","株式会社アルファ",
-                  "株式会社デルタ","株式会社ベータ","株式会社ガンマ","株式会社アルファ"];
-    const TITLE = ["情報システム部 部長","営業部","開発部 マネージャー","経営企画室",
-                   "総務部","カスタマーサポート","技術部","広報部"];
+    // 所属区分（F-91b）。会社勤めだけでなく、学生や個人での参加も混ぜる
+    const AFFIL = ["会社","会社","会社","会社","会社","会社","会社","会社",
+                   "会社","学校","会社","会社","なし","会社","学校","会社",
+                   "会社","なし","会社","学校","会社","会社","なし","会社"];
+    const TITLE = ["株式会社アルファ 情報システム部 部長","株式会社ベータ 営業部",
+                   "株式会社ガンマ 開発部 マネージャー","株式会社アルファ 経営企画室",
+                   "株式会社デルタ 総務部","株式会社ベータ カスタマーサポート",
+                   "株式会社ガンマ 技術部","株式会社アルファ 広報部",
+                   "株式会社アルファ","株式会社ベータ 研究員","株式会社ガンマ",
+                   "株式会社デルタ 主任","","株式会社アルファ","○○大学 情報工学科",
+                   "株式会社ベータ","株式会社ゼータ","","株式会社ガンマ 部長",
+                   "△△大学大学院","株式会社イプシロン","株式会社ゼータ 課長",
+                   "","株式会社デルタ"];
+    const aff = (i) => AFFIL[i % AFFIL.length];
+    const ttl = (i) => TITLE[i % TITLE.length];
     const KNOW = ["弊社担当者からの案内","自社サイト","SNS","知人の紹介","その他"];
     const ANSWERS = {
-      ev_public:  (i) => ({ q_comp:COMP[i], q_join:i%2?"オンラインで参加":"現地で参加", q_party:i%2===0 }),
-      ev_soon:    (i) => ({ q_comp:COMP[i], q_food:i===3?"乳製品アレルギー":"" }),
-      ev_seminar: (i) => ({ q_comp:COMP[i], q_title:TITLE[i],
+      ev_public:  (i) => ({ q_comp:aff(i), q_join:i%2?"オンラインで参加":"現地で参加", q_party:i%2===0 }),
+      ev_soon:    (i) => ({ q_comp:aff(i), q_food:i===3?"乳製品アレルギー":"" }),
+      ev_seminar: (i) => ({ q_comp:aff(i), q_title:ttl(i),
                             q_join:i===6?"オンラインで参加":"現地で参加", q_know:KNOW[i % KNOW.length] }),
-      ev_meetup:  (i) => ({ q_comp:COMP[i], q_party:i!==6 }),
+      ev_meetup:  (i) => ({ q_comp:aff(i), q_party:i!==6 }),
     };
 
     // ev_public / ev_soon / ev_past に有効な申込を作る（チケット廃止＝ticketTypeIdなし）
@@ -1283,7 +1297,7 @@ const Seed = (() => {
         startAt:day(off, 14, 0), endAt:day(off, 16, 30), venueName:venue, capacity:cap,
         applyDeadline:dateStr(off - 3), status: cancelled ? "cancelled" : "published",
         visibility:"public", createdAt:day(off - 40), updatedAt:day(off + 1), ...base,
-        targetAudience:"ご興味のある企業のご担当者",
+        targetAudience:"ご興味のある方（法人・学生・個人を問いません）",
         contactInfo:"イベント事務局 event@example.com",
         eventFormat:fmt, questions:[qComp, qTitle],
         onlineUrl: fmt === "onsite" ? null : `https://zoom.us/j/archive-${i}`,
@@ -1303,7 +1317,7 @@ const Seed = (() => {
           checkinAt: st === "checkedin" ? day(off, 13, 40) : null,
           cancelledAt: st === "cancelled" ? day(off - 5, 11, 0) : null,
           appliedAt: day(off - 10 + (k % 8), 9 + (k % 8), 0),
-          answers: { q_comp: COMP[pi % COMP.length], q_title: TITLE[pi % TITLE.length] },
+          answers: { q_comp: aff(pi), q_title: ttl(pi) },
           searchText: Util.normalize(p.name + p.nameKana + p.email),
         });
       }
@@ -3761,7 +3775,8 @@ const Wizard = (() => {
   }
 
   /* 申込フォームのカスタム質問（F-a）。氏名・カナ・メールは固定で、その先を主催者が定義する。
-     社外向けなので、会社名・役職・参加方法・知ったきっかけなどを聞くことになる。 */
+     所属区分・所属先の名称・参加方法・知ったきっかけなどを聞くことになる。
+     所属は会社に限らないので、区分は「会社／学校／なし」で聞く（F-91b）。 */
   const Q_TYPES = { text:"一行", textarea:"複数行", select:"選択肢", checkbox:"チェック" };
   function questionEditor() {
     return `<div class="qedit">

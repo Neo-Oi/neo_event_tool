@@ -189,10 +189,20 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if ((await M.Repo.events.get("ev_partner")).status !== "draft") throw new Error("公開されてしまった");
     if (!content.querySelector('[data-f="audience"]') === false) throw new Error("対象範囲の入力欄が残っている");
   });
-  await step("F-98 申込では所属会社を聞く", async () => {
+  await step("F-91b 所属は会社／学校／なしの選択で聞く", async () => {
     await M.Participant.renderApply(content, "ev_seminar"); await wait(40);
-    if (!content.querySelector('[data-q="q_comp"]')) throw new Error("会社名の質問がない");
+    const sel = content.querySelector('[data-q="q_comp"]');
+    if (!sel) throw new Error("所属の質問がない");
+    if (sel.tagName !== "SELECT") throw new Error("選択式になっていない: " + sel.tagName);
+    const opts = [...sel.options].map(o => o.value).filter(Boolean);
+    if (opts.join(",") !== "会社,学校,なし") throw new Error("選択肢が不正: " + opts.join(","));
     if (content.querySelector('[data-q="q_dept"]')) throw new Error("所属部署を聞いている（社内向けの名残）");
+  });
+  await step("F-91b シードに学校・なしの参加者が含まれる", async () => {
+    const vals = new Set((await M.Repo.applications.all())
+      .map(a => a.answers && a.answers.q_comp).filter(Boolean));
+    for (const v of ["会社","学校","なし"])
+      if (!vals.has(v)) throw new Error(v + " の回答が無い: " + [...vals].join(","));
   });
 
   await step("EventDetail.render(ev_public)", async () => { await M.EventDetail.render(content, "ev_public"); nonEmpty("detail"); });
@@ -606,12 +616,12 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     content.querySelector("#fName").value = "テスト 太郎";
     content.querySelector("#fKana").value = "テスト タロウ";
     content.querySelector("#fEmail").value = "test@example.com";
-    content.querySelector('[data-q="q_comp"]').value = "株式会社テスト";
+    content.querySelector('[data-q="q_comp"]').value = "学校";   // 会社／学校／なし の選択式（F-91b）
     content.querySelector("#toConfirm").click(); await wait(40);
     if (!content.querySelector("#submit")) throw new Error("確認画面に進めない");
-    if (!content.innerHTML.includes("株式会社テスト")) throw new Error("確認画面に回答が出ない");
+    if (!content.innerHTML.includes("学校")) throw new Error("確認画面に回答が出ない");
     content.querySelector("#submit").click(); await wait(120);
-    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_comp === "株式会社テスト");
+    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_comp === "学校");
     if (!a) throw new Error("申込が保存されない");
     if (!content.innerHTML.includes("申込が完了しました")) throw new Error("完了画面に進まない");
   });
@@ -620,7 +630,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!content.innerHTML.includes("テスト 太郎")) throw new Error("申込一覧に出ない");
   });
   await step("C-2 参加者からのキャンセルも共通処理（F-25）", async () => {
-    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_comp === "株式会社テスト");
+    const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_comp === "学校");
     await M.AppSvc.cancel(a.id);
     if ((await M.Repo.applications.get(a.id)).status !== "cancelled") throw new Error("共通キャンセルが効かない");
   });
