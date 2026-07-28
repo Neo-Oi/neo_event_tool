@@ -66,17 +66,20 @@ if (/\b(localStorage|sessionStorage)\b/.test(code))
 
 // --- 単一HTMLの自己完結（外部ファイルを作らない） ---
 const body = html.replace(/<script>[\s\S]*<\/script>/, "");
-/* 禁じたいのは「同梱すべきファイルを外に切り出すこと」。CDN 参照は技術方針で許可されている
-   ので、絶対URL（https://）は通し、相対パス＝ローカルファイルだけを弾く。
-   以前は <link href> を一律で落としていたため、Google Fonts の読み込みが通らなかった。 */
-const localRef = (tag, attr) => {
+/* 条文は「JS と CSS はインラインに置く」。CDN の許可は「**ライブラリ**読み込みは可」なので、
+   CSS ファイルや自前スクリプトを外部に置くことは許可されていない。
+   **一度ここを「https:// なら通す」に緩めたが、それでは `<script src="https://…/app.js">`
+   まで通ってしまい「成果物は1枚」が壊れる。緩めないこと。**
+   CDN のライブラリは実行時に `Util.loadScript` で読むか、本文に埋め込む。
+   フォント実体のようなアセットは CSS 内の `url()` で参照する（条文がアセットのCDN取得を許可）。 */
+const refs = (tag, attr) => {
   const re = new RegExp(`<${tag}[^>]+\\b${attr}\\s*=\\s*["']([^"']+)["']`, "gi");
-  return [...body.matchAll(re)].map(m => m[1]).filter(v => !/^https:\/\//.test(v));
+  return [...body.matchAll(re)].map(m => m[1]);
 };
-for (const v of localRef("script", "src"))
-  fail(`<script src="${v}"> がローカルを参照しています。JS はインラインにしてください`);
-for (const v of localRef("link", "href"))
-  fail(`<link href="${v}"> がローカルを参照しています。CSS はインラインにしてください`);
+for (const v of refs("script", "src"))
+  fail(`<script src="${v}"> は使えません。JS はインラインに置いてください（CDN は Util.loadScript か埋め込み）`);
+for (const v of refs("link", "href"))
+  fail(`<link href="${v}"> は使えません。CSS はインラインに置いてください（フォントは @font-face の url() で）`);
 if (/<img[^>]+src\s*=\s*["'](?!data:)[^"']*\.(png|jpe?g|gif|svg|webp)/i.test(body))
   fail("画像ファイルを参照しています。インラインSVGかデータURIにしてください");
 

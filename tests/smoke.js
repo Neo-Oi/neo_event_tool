@@ -117,27 +117,31 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!csv.includes("'=cmd")) throw new Error("buildCsv に反映されない: " + csv);
   });
 
-  await step("配色とフォントが会社サイト由来になっている", async () => {
+  await step("配色が会社サイト由来になっている", async () => {
     const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
-    // サイトで実際に使われている色
     for (const c of ["#20272e", "#194bf4", "#dee5ed", "#eff2ff"])
       if (!css.includes(c)) throw new Error("サイトの色が使われていない: " + c);
-    // 旧配色が残っていないこと
     for (const c of ["#12294d", "#2563eb", "#e8f0fe", "#1f2733"])
       if (css.includes(c)) throw new Error("旧配色が残っている: " + c);
     // 状態を表す色は意味があるので変えない
     for (const c of ["#137a4b", "#b26a00", "#c02828"])
       if (!css.includes(c)) throw new Error("状態色が失われている: " + c);
-    // 書体
-    if (!/font-family:"Zen Kaku Gothic New"/.test(css)) throw new Error("本文書体が Zen Kaku Gothic New でない");
-    if (!css.includes('"Jost"')) throw new Error("Jost が使われていない");
-    // フォントは CDN から読む（ローカルファイルを作らない）
-    const link = html.match(/<link[^>]+href="https:\/\/fonts\.googleapis\.com\/css2[^"]*"[^>]*>/);
-    if (!link) throw new Error("Google Fonts の読み込みが無い");
-    if (!/family=Jost/.test(link[0]) || !/family=Zen\+Kaku\+Gothic\+New/.test(link[0]))
-      throw new Error("読み込む書体が足りない: " + link[0]);
-    // 読み込めなくても壊れないよう、フォールバックが指定されていること
-    if (!/Zen Kaku Gothic New",system-ui/.test(css)) throw new Error("フォールバックの指定が無い");
+  });
+  await step("書体は外部CSSを読まず @font-face をインラインで持つ", async () => {
+    /* 条文は「JS と CSS はインラインに置く」。<link> で外部CSSを読むのは違反なので、
+       @font-face を自分で書き、フォント実体だけを配布元から取る形にしている。 */
+    if (/<link[^>]+href=/.test(html)) throw new Error("<link href> が復活している");
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const faces = css.match(/@font-face\s*\{[^}]*\}/g) || [];
+    if (faces.length < 3) throw new Error("@font-face が足りない: " + faces.length);
+    if (!faces.every(f => /font-family:\s*'Jost'/.test(f)))
+      throw new Error("Jost 以外の @font-face が混ざっている（日本語は容量の都合で入れない）");
+    if (!faces.every(f => /font-display:\s*swap/.test(f)))
+      throw new Error("font-display:swap が無い（読み込めない時に表示が壊れる）");
+    if (!/font-family:"Jost",system-ui/.test(css))
+      throw new Error("本文の書体指定が Jost + システムフォントでない");
+    // 日本語のフォールバックが残っていること
+    if (!/Hiragino Kaku Gothic ProN/.test(css)) throw new Error("日本語のフォールバックが無い");
   });
 
   await step("ヘッダーのロゴが会社サイトへのリンクになっている", async () => {

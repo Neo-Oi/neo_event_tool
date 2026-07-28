@@ -4,13 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1024">
 <title>イベント管理システム</title>
-<!-- 書体はサイトと同じものを Google Fonts から読む（CDN 参照は技術方針で許可されている）。
-     読み込めなかった場合は body の font-family がシステムフォントに落ちるので表示は壊れない。 -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
 <style>
 /* ===== [0] スタイル（インライン。青基調・濃紺ヘッダー） ===== */
+
+/* 書体（サイトと同じ Jost を英数字に使う）。
+   **`<link>` で外部CSSを読むのは技術方針に反する**（「JS と CSS はインラインに置く」）ため、
+   @font-face を自分で書き、フォント実体だけを配布元から取る。
+   条文はアイコンや画像をCDNで解決することを許可しており、フォント実体も同じアセット扱い。
+
+   日本語の Zen Kaku Gothic New は入れていない。サブセットが約470件・449KB あり、
+   インライン化すると成果物が倍以上になるため（引き継ぎ書 7-15）。日本語はシステムフォント。
+
+   URL にはバージョン（v20 など）が入っており、将来失効しうる。
+   その場合も font-display:swap によりフォールバックが使われ、表示は壊れない。 */
+/* Jost latin-ext */ @font-face {font-family: 'Jost';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73ord4iYl.woff2) format('woff2');unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;}
+/* Jost latin */ @font-face {font-family: 'Jost';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73oTd4g.woff2) format('woff2');unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+/* Jost latin-ext */ @font-face {font-family: 'Jost';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73ord4iYl.woff2) format('woff2');unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;}
+/* Jost latin */ @font-face {font-family: 'Jost';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73oTd4g.woff2) format('woff2');unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+/* Jost latin-ext */ @font-face {font-family: 'Jost';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73ord4iYl.woff2) format('woff2');unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;}
+/* Jost latin */ @font-face {font-family: 'Jost';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73oTd4g.woff2) format('woff2');unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
 /* 配色は日本コムシンク株式会社サイト（https://comthink.co.jp/）から採った。
    実際に使われている色: 本文 #20272e / アクセント #194bf4 / 罫線 #dee5ed /
    淡い青 #eff2ff / グレー #949494・#727272。
@@ -28,7 +40,7 @@
 html,body{margin:0;padding:0}
 /* サイトと同じ書体。本文は Zen Kaku Gothic New、英数字の見出しは Jost。
    読み込めなかった場合は従来のシステムフォントに落ちる */
-body{font-family:"Zen Kaku Gothic New",system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
+body{font-family:"Jost",system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
   color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6;min-width:1024px;
   -webkit-font-smoothing:antialiased}
 button{font:inherit;cursor:pointer}
@@ -80,7 +92,7 @@ body[data-view="participant"] main{max-width:640px}
 .metric{padding:16px 18px}
 .metric .label{color:var(--muted);font-size:12px;font-weight:600}
 .metric .value{font-size:30px;font-weight:700;line-height:1.2;margin-top:4px;
-  font-family:"Jost","Zen Kaku Gothic New",system-ui,sans-serif;letter-spacing:.01em}
+  font-family:"Jost",system-ui,sans-serif;letter-spacing:.01em}
 .metric .value small{font-size:14px;font-weight:600;color:var(--muted)}
 .metric.attn .value{color:var(--warn)}
 
