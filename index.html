@@ -793,11 +793,13 @@ const Repo = (() => {
       remove: (id) => DB.remove("events", id),
     },
     messages: {
+      all: () => DB.getAll("messages"),
       byEvent: (eventId) => DB.getAllByIndex("messages", "eventId", eventId),
       put: (m) => DB.put("messages", m),
       remove: (id) => DB.remove("messages", id),
     },
     tasks: {
+      all: () => DB.getAll("tasks"),
       byEvent: (eventId) => DB.getAllByIndex("tasks", "eventId", eventId),
       put: (t) => DB.put("tasks", t),
       remove: (id) => DB.remove("tasks", id),
@@ -1485,7 +1487,7 @@ const Dashboard = (() => {
       Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
     // 要対応リストに「あと何が残っているか」まで出すので、運営データも読む
-    const [msgs, tasks] = await Promise.all([DB.getAll("messages"), DB.getAll("tasks")]);
+    const [msgs, tasks] = await Promise.all([Repo.messages.all(), Repo.tasks.all()]);
     const msgsByEv = groupBy(msgs, "eventId");
     const tasksByEv = groupBy(tasks, "eventId");
 
@@ -1694,7 +1696,7 @@ const EventsList = (() => {
     const appsByEv = groupBy(apps, "eventId");
     // 運営状況（未解決Q&A・未対応タスク・準備の進捗）もカードに出すので、まとめて読む
     const [msgs, tasks, readRows] = await Promise.all([
-      DB.getAll("messages"), DB.getAll("tasks"), Repo.readStates.all()]);
+      Repo.messages.all(), Repo.tasks.all(), Repo.readStates.all()]);
     const msgsByEv = groupBy(msgs, "eventId");
     const tasksByEv = groupBy(tasks, "eventId");
     const reads = Ops.readMap(readRows);
@@ -2800,130 +2802,6 @@ const Tasks = (() => {
 })();
 
 
-// ===== [9e] 主催者：イベントマニュアル（Markdown / F-99。manuals ストア） =====
-/* 当日の進行・搬入・受付手順など、運営が見る手順書をイベントごとに持つ。
-   ビューは 編集 / 分割 / プレビュー の3つ。**書き終えた後は読む回数の方が圧倒的に多い**ので、
-   本文があるときはプレビューで開き、「編集」で書き換えに入る。初回（空）だけ編集で開く。 */
-const Manual = (() => {
-  let ctx = null;   // { pane, eventId, body, saved, mode }
-
-  const TEMPLATE = `# 当日マニュアル
-
-## タイムテーブル
-
-| 時刻 | 内容 | 担当 |
-|---|---|---|
-| 17:00 | 会場設営・受付準備 | 運営A |
-| 18:00 | 受付開始 | 運営B |
-| 18:30 | 開会 | 運営A |
-
-## 受付の手順
-
-1. 参加者に氏名を伺う
-2. 申込タブで検索、または **QRで受付** から読み取り
-3. 名札をお渡しする
-
-> 名簿に無い方は、その場で申込を作らず運営リーダーへ連絡すること。
-
-## 持ち物チェック
-
-- [ ] 名札・名簿の印刷
-- [ ] 延長コード・電源タップ
-- [ ] 受付用のノートPC
-
-## 連絡先
-
-- 運営リーダー: 内線 1234
-- 会場管理: 内線 5678
-`;
-
-  async function render(pane, eventId) {
-    const rec = await Repo.manuals.get(eventId);
-    const body = rec ? rec.body : "";
-    // 初回（本文が空）は編集から。以降はプレビューで開く
-    ctx = { pane, eventId, body, saved: body, mode: body.trim() ? "preview" : "edit",
-            updatedAt: rec ? rec.updatedAt : null };
-    paint();
-  }
-
-  const dirty = () => ctx.body !== ctx.saved;
-
-  function paint() {
-    const { pane, mode } = ctx;
-    const empty = !ctx.body.trim();
-    pane.innerHTML = `
-      <div class="ops-note">運営が当日に見る手順書です。Markdown で書けます。参加者には表示されません。</div>
-      <div class="mn-bar">
-        <div class="toggles" style="margin-left:0">
-          <button data-mode="edit" class="${mode==="edit"?"on":""}">編集</button>
-          <button data-mode="split" class="${mode==="split"?"on":""}">分割</button>
-          <button data-mode="preview" class="${mode==="preview"?"on":""}">プレビュー</button>
-        </div>
-        <span class="mn-state">${dirty() ? '<span class="dirty">未保存の変更があります</span>'
-          : ctx.updatedAt ? `最終更新 ${Util.fmtDateTime(ctx.updatedAt)}` : ""}</span>
-        ${empty ? `<button class="btn" id="mnTmpl">ひな形を挿入</button>` : ""}
-        <button class="btn ${dirty()?"primary":""}" id="mnSave" ${dirty()?"":"disabled style=opacity:.5"}>保存</button>
-      </div>
-      <div class="mn-body ${mode}">
-        ${mode !== "preview" ? `<textarea id="mnEdit" spellcheck="false"
-          placeholder="# 当日マニュアル&#10;&#10;Markdown で書けます。">${Util.esc(ctx.body)}</textarea>` : ""}
-        ${mode !== "edit" ? `<div class="mn-prev md" id="mnPrev">${
-          empty ? `<div class="empty"><div class="big">マニュアルがありません</div>
-            「編集」タブから書けます。「ひな形を挿入」で雛形から始められます。</div>`
-          : Util.markdown(ctx.body)}</div>` : ""}
-      </div>`;
-
-    pane.querySelectorAll(".mn-bar [data-mode]").forEach(b =>
-      b.onclick = () => { ctx.mode = b.dataset.mode; paint(); });
-
-    const ta = pane.querySelector("#mnEdit");
-    if (ta) {
-      ta.oninput = () => {
-        ctx.body = ta.value;
-        // 分割ビューは打つそばから反映する。textarea は作り直さない（カーソルが飛ぶため）
-        const prev = pane.querySelector("#mnPrev");
-        if (prev) prev.innerHTML = Util.markdown(ctx.body);
-        refreshBar();
-      };
-      if (ctx.mode === "edit") ta.focus();
-    }
-    const tmpl = pane.querySelector("#mnTmpl");
-    if (tmpl) tmpl.onclick = () => {
-      ctx.body = TEMPLATE; ctx.mode = "split"; paint();
-    };
-    pane.querySelector("#mnSave").onclick = save;
-  }
-
-  // 保存ボタンと状態表示だけ差し替える（入力中に全体を描き直さない）
-  function refreshBar() {
-    const btn = ctx.pane.querySelector("#mnSave");
-    const st = ctx.pane.querySelector(".mn-state");
-    if (btn) {
-      btn.disabled = !dirty();
-      btn.style.opacity = dirty() ? "" : ".5";
-      btn.classList.toggle("primary", dirty());
-    }
-    if (st) st.innerHTML = dirty() ? '<span class="dirty">未保存の変更があります</span>'
-      : ctx.updatedAt ? `最終更新 ${Util.fmtDateTime(ctx.updatedAt)}` : "";
-  }
-
-  async function save() {
-    if (!dirty()) return;
-    const now = new Date().toISOString();
-    try {
-      await Repo.manuals.put({ eventId: ctx.eventId, body: ctx.body, updatedAt: now });
-      ctx.saved = ctx.body; ctx.updatedAt = now;
-      FB.toast("マニュアルを保存しました");
-      // 保存したら読む状態に戻す（書き終えた後は読む方が多い）
-      ctx.mode = ctx.body.trim() ? "preview" : "edit";
-      paint();
-    } catch (e) { FB.error("マニュアルの保存に失敗: " + e.message); }
-  }
-
-  return { render };
-})();
-
-
 // ===== [9d] 主催者：参加者名簿 S-10（横断 / F-b） =====
 /* 「データ蓄積が価値」の証明にあたる画面。persons を横断で一覧し、同一人物の参加履歴を
    まとめて見る。Peatix はイベント終了30日後にフォームデータを削除するため、ここが差になる。
@@ -3060,6 +2938,130 @@ const Roster = (() => {
   }
 
   return { render, lock };
+})();
+
+
+// ===== [9e] 主催者：イベントマニュアル（Markdown / F-99。manuals ストア） =====
+/* 当日の進行・搬入・受付手順など、運営が見る手順書をイベントごとに持つ。
+   ビューは 編集 / 分割 / プレビュー の3つ。**書き終えた後は読む回数の方が圧倒的に多い**ので、
+   本文があるときはプレビューで開き、「編集」で書き換えに入る。初回（空）だけ編集で開く。 */
+const Manual = (() => {
+  let ctx = null;   // { pane, eventId, body, saved, mode }
+
+  const TEMPLATE = `# 当日マニュアル
+
+## タイムテーブル
+
+| 時刻 | 内容 | 担当 |
+|---|---|---|
+| 17:00 | 会場設営・受付準備 | 運営A |
+| 18:00 | 受付開始 | 運営B |
+| 18:30 | 開会 | 運営A |
+
+## 受付の手順
+
+1. 参加者に氏名を伺う
+2. 申込タブで検索、または **QRで受付** から読み取り
+3. 名札をお渡しする
+
+> 名簿に無い方は、その場で申込を作らず運営リーダーへ連絡すること。
+
+## 持ち物チェック
+
+- [ ] 名札・名簿の印刷
+- [ ] 延長コード・電源タップ
+- [ ] 受付用のノートPC
+
+## 連絡先
+
+- 運営リーダー: 内線 1234
+- 会場管理: 内線 5678
+`;
+
+  async function render(pane, eventId) {
+    const rec = await Repo.manuals.get(eventId);
+    const body = rec ? rec.body : "";
+    // 初回（本文が空）は編集から。以降はプレビューで開く
+    ctx = { pane, eventId, body, saved: body, mode: body.trim() ? "preview" : "edit",
+            updatedAt: rec ? rec.updatedAt : null };
+    paint();
+  }
+
+  const dirty = () => ctx.body !== ctx.saved;
+
+  function paint() {
+    const { pane, mode } = ctx;
+    const empty = !ctx.body.trim();
+    pane.innerHTML = `
+      <div class="ops-note">運営が当日に見る手順書です。Markdown で書けます。参加者には表示されません。</div>
+      <div class="mn-bar">
+        <div class="toggles" style="margin-left:0">
+          <button data-mode="edit" class="${mode==="edit"?"on":""}">編集</button>
+          <button data-mode="split" class="${mode==="split"?"on":""}">分割</button>
+          <button data-mode="preview" class="${mode==="preview"?"on":""}">プレビュー</button>
+        </div>
+        <span class="mn-state">${dirty() ? '<span class="dirty">未保存の変更があります</span>'
+          : ctx.updatedAt ? `最終更新 ${Util.fmtDateTime(ctx.updatedAt)}` : ""}</span>
+        ${empty ? `<button class="btn" id="mnTmpl">ひな形を挿入</button>` : ""}
+        <button class="btn ${dirty()?"primary":""}" id="mnSave" ${dirty()?"":"disabled style=opacity:.5"}>保存</button>
+      </div>
+      <div class="mn-body ${mode}">
+        ${mode !== "preview" ? `<textarea id="mnEdit" spellcheck="false"
+          placeholder="# 当日マニュアル&#10;&#10;Markdown で書けます。">${Util.esc(ctx.body)}</textarea>` : ""}
+        ${mode !== "edit" ? `<div class="mn-prev md" id="mnPrev">${
+          empty ? `<div class="empty"><div class="big">マニュアルがありません</div>
+            「編集」タブから書けます。「ひな形を挿入」で雛形から始められます。</div>`
+          : Util.markdown(ctx.body)}</div>` : ""}
+      </div>`;
+
+    pane.querySelectorAll(".mn-bar [data-mode]").forEach(b =>
+      b.onclick = () => { ctx.mode = b.dataset.mode; paint(); });
+
+    const ta = pane.querySelector("#mnEdit");
+    if (ta) {
+      ta.oninput = () => {
+        ctx.body = ta.value;
+        // 分割ビューは打つそばから反映する。textarea は作り直さない（カーソルが飛ぶため）
+        const prev = pane.querySelector("#mnPrev");
+        if (prev) prev.innerHTML = Util.markdown(ctx.body);
+        refreshBar();
+      };
+      if (ctx.mode === "edit") ta.focus();
+    }
+    const tmpl = pane.querySelector("#mnTmpl");
+    if (tmpl) tmpl.onclick = () => {
+      ctx.body = TEMPLATE; ctx.mode = "split"; paint();
+    };
+    pane.querySelector("#mnSave").onclick = save;
+  }
+
+  // 保存ボタンと状態表示だけ差し替える（入力中に全体を描き直さない）
+  function refreshBar() {
+    const btn = ctx.pane.querySelector("#mnSave");
+    const st = ctx.pane.querySelector(".mn-state");
+    if (btn) {
+      btn.disabled = !dirty();
+      btn.style.opacity = dirty() ? "" : ".5";
+      btn.classList.toggle("primary", dirty());
+    }
+    if (st) st.innerHTML = dirty() ? '<span class="dirty">未保存の変更があります</span>'
+      : ctx.updatedAt ? `最終更新 ${Util.fmtDateTime(ctx.updatedAt)}` : "";
+  }
+
+  async function save() {
+    if (!dirty()) return;
+    const now = new Date().toISOString();
+    try {
+      await Repo.manuals.put({ eventId: ctx.eventId, body: ctx.body, updatedAt: now });
+      ctx.saved = ctx.body; ctx.updatedAt = now;
+      FB.toast("マニュアルを保存しました");
+      // 保存したら読む状態に戻す（書き終えた後は読む方が多い）
+      ctx.mode = ctx.body.trim() ? "preview" : "edit";
+      paint();
+    } catch (e) { FB.error("マニュアルの保存に失敗: " + e.message); }
+  }
+
+  return { render };
 })();
 
 
