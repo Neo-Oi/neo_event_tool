@@ -104,6 +104,46 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
   await step("Dashboard.render", async () => { await M.Dashboard.render(content); nonEmpty("dashboard"); });
 
+  // 申込ヒートマップ（S-1 / F-103）
+  const hmCells = () => [...content.querySelectorAll(".hm-grid > div")];
+  const hmSum = () => hmCells().reduce((n, c) => n + (+c.dataset.n || 0), 0);
+  await step("ヒートマップ 7×26=182セルが描画される（F-103）", async () => {
+    const grid = content.querySelector(".hm-grid");
+    if (!grid) throw new Error("ヒートマップがない");
+    if (grid.getAttribute("role") !== "img") throw new Error("role=img がない");
+    if (!(grid.getAttribute("aria-label") || "").includes("ヒートマップ")) throw new Error("aria-label がない");
+    if (hmCells().length !== 182) throw new Error("セル数が不正: " + hmCells().length);
+    if (!hmCells().every(c => /^(2026|202[0-9])-\d{2}-\d{2}（.）: \d+件$/.test(c.title)))
+      throw new Error("title の形式が不正: " + hmCells()[0].title);
+  });
+  await step("ヒートマップ 中止イベントの申込は数えない（F-40）", async () => {
+    const before = hmSum();
+    if (!before) throw new Error("前提が崩れた（申込が1件も数えられていない）");
+    const cancelled = (await M.Repo.events.all()).find(e => e.status === "cancelled");
+    await M.Repo.applications.put({ id:M.Util.uid(), eventId:cancelled.id, personId:"p0",
+      token:M.Util.newToken(), status:"applied", checkinAt:null, cancelledAt:null,
+      appliedAt:new Date().toISOString(), answers:{}, searchText:"" });
+    await M.Dashboard.render(content); await wait(60);
+    if (hmSum() !== before) throw new Error(`中止イベントの申込が数えられている ${before}→${hmSum()}`);
+  });
+  await step("ヒートマップ 同日複数件は0件より濃い", async () => {
+    const multi = hmCells().find(c => +c.dataset.n >= 2);
+    if (!multi) throw new Error("同日に2件以上ある日がシードに無い（前提が崩れた）");
+    const lv = (c) => +(c.className.match(/l(\d)/) || [0, 0])[1];
+    if (lv(multi) <= 0) throw new Error("複数件の日が0件と同じ階調: " + multi.className);
+    const zero = hmCells().find(c => +c.dataset.n === 0);
+    if (zero && lv(zero) !== 0) throw new Error("0件のセルが l0 でない: " + zero.className);
+  });
+  await step("ヒートマップ 申込0件でも例外なく描画される（全セル --hm-0）", async () => {
+    await M.Repo.reset();
+    await M.Dashboard.render(content); await wait(60);
+    if (hmCells().length !== 182) throw new Error("0件時にセルが揃わない: " + hmCells().length);
+    if (!hmCells().every(c => c.className === "l0")) throw new Error("0件なのに濃いセルがある");
+    if (hmSum() !== 0) throw new Error("0件のはずが集計されている");
+    await M.Seed.load();                      // 後続のテストのため戻す
+    await M.Dashboard.render(content); await wait(60);
+  });
+
   // 開催カレンダー（S-1 / F-100）
   await step("カレンダー 要対応リストの下に月表示が出る", async () => {
     if (!content.querySelector(".cal-grid")) throw new Error("カレンダーがない");

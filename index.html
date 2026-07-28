@@ -11,6 +11,8 @@
   --ink:#1f2733; --muted:#6b7686; --line:#e2e6ee; --bg:#f4f6fb; --card:#fff;
   --ok:#137a4b; --warn:#b26a00; --danger:#c02828; --draft:#6b7280;
   --radius:10px; --shadow:0 1px 3px rgba(20,40,80,.08),0 4px 16px rgba(20,40,80,.06);
+  /* 申込ヒートマップの5段階（F-103）。最濃を --blue に合わせた系列。既存の色は変更しない */
+  --hm-0:#eef1f7; --hm-1:#cfe0fb; --hm-2:#93bbf7; --hm-3:#5590ef; --hm-4:#2563eb;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -341,8 +343,28 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 
 /* 申込推移（F-f） */
 .trend{margin-bottom:12px;overflow-x:auto}
-.trend .th{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
-.trend .th span{font-weight:400;margin-left:8px}
+/* 見出しは申込推移とヒートマップで共用する（宣言は変更せず、セレクタだけ拡張） */
+.trend .th,.hm .th{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.trend .th span,.hm .th span{font-weight:400;margin-left:8px}
+
+/* 申込ヒートマップ（S-1 / F-103） */
+.hm-body{display:flex;gap:6px;align-items:flex-start;overflow-x:auto;padding-bottom:2px}
+.hm-side{display:grid;grid-template-rows:repeat(7,11px);gap:3px;flex:none;
+  font-size:9px;line-height:11px;color:var(--muted);text-align:right;width:16px}
+.hm-cols{display:flex;flex-direction:column;gap:3px;flex:none}
+.hm-months{display:grid;grid-template-columns:repeat(26,11px);gap:3px;
+  font-size:9px;line-height:11px;height:11px;color:var(--muted)}
+.hm-months span{white-space:nowrap}
+.hm-grid{display:grid;grid-template-rows:repeat(7,11px);grid-auto-flow:column;
+  grid-auto-columns:11px;gap:3px}
+.hm-grid>div{width:11px;height:11px;border-radius:2px;background:var(--hm-0)}
+.hm-grid>div.l1{background:var(--hm-1)}
+.hm-grid>div.l2{background:var(--hm-2)}
+.hm-grid>div.l3{background:var(--hm-3)}
+.hm-grid>div.l4{background:var(--hm-4)}
+.hm-legend{display:flex;align-items:center;gap:4px;justify-content:flex-end;
+  margin-top:10px;font-size:10px;color:var(--muted)}
+.hm-legend i{width:11px;height:11px;border-radius:2px;display:inline-block}
 .trend svg{display:block}
 .trend .tl2{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
 
@@ -1588,6 +1610,7 @@ const Dashboard = (() => {
         ${metric("要対応", attn.length, "attn")}
         ${metric("下書き", drafts)}
       </div>
+      ${heatmapHtml(events, apps)}
       <h3 style="margin:26px 0 10px;font-size:15px">要対応リスト</h3>
       ${attn.length ? `<div class="attn-list">${attn.map(a =>
           attnItem(a, appsByEv[a.ev.id]||[], msgsByEv[a.ev.id]||[], tasksByEv[a.ev.id]||[])).join("")}</div>`
@@ -1609,6 +1632,86 @@ const Dashboard = (() => {
       };
     };
     nav("#calPrev", -1); nav("#calNext", 1); nav("#calToday", 0);
+  }
+
+  /* 申込ヒートマップ（F-103）。全イベントを横断して「いつ申込が入っているか」を俯瞰する。
+     イベント単位の推移（EventDetail の trendHtml）とは目的が別で、こちらは季節性や
+     告知の効き方を見るためのもの。矩形が182個になるので SVG ではなく CSS Grid で組む。 */
+  const HM_WEEKS = 26;
+  function heatmapHtml(events, apps) {
+    // 中止イベントの申込は数えない（F-40。「今週の申込数」と同じ扱いに揃える）
+    const cancelledIds = new Set(events.filter(e => e.status === "cancelled").map(e => e.id));
+    /* 申込側のキャンセル（application.status === "cancelled"）は**除外しない**。
+       ここで見たいのは「申込という行動があった事実」であって、最終的に席が埋まったかではない。
+       残席や参加人数を出す箇所（Domain.usedSeats / isValidApp）とは目的が違うので、
+       判定を揃えないこと。 */
+    const counts = {};
+    for (const a of apps) {
+      if (!a.appliedAt || cancelledIds.has(a.eventId)) continue;
+      const k = dayKey(new Date(a.appliedAt));
+      counts[k] = (counts[k] || 0) + 1;
+    }
+
+    // 今週の月曜（F-60）から遡って26週。ちょうど 7×26 マスになる
+    const start = new Date(Util.weekStartMonday(Date.now()));
+    start.setDate(start.getDate() - (HM_WEEKS - 1) * 7);
+    const todayK = dayKey(new Date());
+
+    const days = [];
+    for (let w = 0; w < HM_WEEKS; w++) {
+      for (let r = 0; r < 7; r++) {          // r=0 が月曜、r=6 が日曜
+        const d = new Date(start);
+        d.setDate(start.getDate() + w * 7 + r);
+        const k = dayKey(d);
+        // 未来日は件数を持たない。区別する枠線などは付けない
+        days.push({ d, k, n: k > todayK ? 0 : (counts[k] || 0) });
+      }
+    }
+
+    /* 濃淡はパーセンタイルで区切る（F-103b）。最大値基準にすると、1日だけ突出した日が
+       あったときに他の日が全部薄くなって読めなくなる。
+       **母集団は「2件以上の日」に限る。** 0件と1件は専用の段を持つので、残り3段が
+       受け持つのは2件以上の日だけ。0件を含めると期間の大半が0のときに p33=p66=0 に、
+       1件を含めると1件の日が大半のときに p33=p66=1 になり、どちらも中間の段が空になる
+       （実データで両方とも起きた）。 */
+    const nz = days.map(x => x.n).filter(n => n >= 2).sort((a, b) => a - b);
+    const pct = (q) => nz.length ? nz[Math.min(nz.length - 1, Math.floor(nz.length * q))] : 0;
+    const p33 = pct(0.33), p66 = pct(0.66);
+    const level = (n) => !n ? 0 : n === 1 ? 1 : n < p33 ? 2 : n < p66 ? 3 : 4;
+
+    const total = days.reduce((s, x) => s + x.n, 0);
+    const top = days.reduce((a, b) => b.n > a.n ? b : a, days[0]);
+    const label = total
+      ? `直近${HM_WEEKS}週の日別申込数のヒートマップ。合計${total}件、最多は ${Util.fmtDate(top.k)} の${top.n}件`
+      : `直近${HM_WEEKS}週の日別申込数のヒートマップ。この期間の申込はありません`;
+
+    // 月ラベル。週の月曜の月が前の週と変わったところに出す
+    let prevMonth = -1;
+    const months = [];
+    for (let w = 0; w < HM_WEEKS; w++) {
+      const mon = days[w * 7].d.getMonth();
+      months.push(mon !== prevMonth ? `<span>${mon + 1}月</span>` : "<span></span>");
+      prevMonth = mon;
+    }
+
+    return `
+      <div class="card pad hm" style="margin-top:14px">
+        <div class="th">申込ヒートマップ
+          <span>直近${HM_WEEKS}週・全イベント横断（中止イベントを除く）・合計${total}件</span></div>
+        <div class="hm-body">
+          <div class="hm-side">${
+            [0,1,2,3,4,5,6].map(r => `<div>${r % 2 === 0 && r < 5 ? WD[(r + 1) % 7] : ""}</div>`).join("")}</div>
+          <div class="hm-cols">
+            <div class="hm-months">${months.join("")}</div>
+            <div class="hm-grid" role="img" aria-label="${Util.esc(label)}">${
+              days.map(x => `<div class="l${level(x.n)}" data-n="${x.n}"
+                title="${x.k}（${WD[x.d.getDay()]}）: ${x.n}件"></div>`).join("")}</div>
+          </div>
+        </div>
+        <div class="hm-legend">少
+          ${[0,1,2,3,4].map(l => `<i style="background:var(--hm-${l})"></i>`).join("")}
+          多</div>
+      </div>`;
   }
 
   /* 要対応の1件。**やるべきことを本文として出し、状況を下に添える。**
