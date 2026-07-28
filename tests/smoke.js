@@ -33,7 +33,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
 (async () => {
   window.eval(scriptText +
-    "\n;window.__M={App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Roster,Settings,Wizard,Participant,FB};");
+    "\n;window.__M={App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Roster,Settings,Wizard,Participant,FB};");
   await wait(300);
 
   const M = window.__M;
@@ -46,14 +46,14 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   const nonEmpty = (l) => { if (!content.innerHTML || content.innerHTML.length < 20) throw new Error(l + " が空"); };
   const clickTab = (i) => { content.querySelectorAll("#subtabs button")[i].click(); };
 
-  await step("DB open (v3)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().version !== 3) throw new Error("バージョンが3でない: " + M.DB.db().version); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); for (const s of ["events","persons","applications","savedTokens","messages","tasks","readStates"]) if (!M.DB.db().objectStoreNames.contains(s)) throw new Error(s + "ストアなし"); });
+  await step("DB open (v4)", async () => { if (!M.DB.db()) throw new Error("DB未オープン"); if (M.DB.db().version !== 4) throw new Error("バージョンが4でない: " + M.DB.db().version); if (M.DB.db().objectStoreNames.contains("ticketTypes")) throw new Error("ticketTypesが残存"); for (const s of ["events","persons","applications","savedTokens","messages","tasks","readStates","manuals"]) if (!M.DB.db().objectStoreNames.contains(s)) throw new Error(s + "ストアなし"); });
   await step("Seed.load", async () => { await M.Seed.load(); });
   await step("Seed件数（チケット廃止後）", async () => {
     const [ev, ps, ap, sv, msg, tk] = await Promise.all([
       M.Repo.events.all(), M.Repo.persons.all(), M.Repo.applications.all(),
       M.Repo.savedTokens.all(), M.DB.getAll("messages"), M.DB.getAll("tasks")]);
     const c = `ev=${ev.length} ps=${ps.length} ap=${ap.length} sv=${sv.length} msg=${msg.length} task=${tk.length}`;
-    if (ev.length !== 7 || sv.length !== 3 || msg.length !== 8 || tk.length !== 10) throw new Error("件数不正: " + c);
+    if (ev.length !== 10 || sv.length !== 3 || msg.length !== 12 || tk.length !== 17) throw new Error("件数不正: " + c);
     if (ap.some(a => "ticketTypeId" in a)) throw new Error("申込にticketTypeIdが残存");
     if (!ev.every(e => "capacity" in e)) throw new Error("イベントにcapacityがない");
     results.push(["   ", c]);
@@ -101,6 +101,40 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!card.className.includes("done")) throw new Error("終了扱いのスタイルになっていない");
     content.querySelectorAll(".toggles button")[2].click(); await wait(60);
   });
+  // 対象範囲（社外向けが既定 / F-98）
+  await step("F-98 既定は社外向け", async () => {
+    if (M.Domain.DEFAULT_AUDIENCE !== "external") throw new Error("既定が社外向けでない");
+    if (M.Domain.audienceOf({}) !== "external") throw new Error("未設定データが社外向けにならない");
+    if (!M.Domain.hasExternal({ audience:"both" })) throw new Error("社内外が社外扱いにならない");
+    if (M.Domain.hasExternal({ audience:"internal" })) throw new Error("社内向けが社外扱いになっている");
+  });
+  await step("F-98 シードに社外向け・社内外・社内向けが揃う", async () => {
+    const evs = await M.Repo.events.all();
+    const n = (a) => evs.filter(e => M.Domain.audienceOf(e) === a).length;
+    if (!n("external") || !n("both") || !n("internal"))
+      throw new Error(`区分が揃わない ext=${n("external")} both=${n("both")} int=${n("internal")}`);
+    if (n("external") + n("both") <= n("internal")) throw new Error("社外向けが主体になっていない");
+  });
+  await step("F-98 カードと公開ページに対象範囲バッジが出る", async () => {
+    await M.EventsList.render(content); await wait(40);
+    const card = [...content.querySelectorAll(".evcard")].find(c => c.dataset.ev === "ev_seminar");
+    if (!card.querySelector(".badge.aud.external")) throw new Error("カードに社外向けバッジがない");
+    await M.Participant.renderPublic(content, "ev_seminar"); await wait(30);
+    if (!content.querySelector(".badge.aud.external")) throw new Error("公開ページにバッジがない");
+  });
+  await step("F-98 社外向けは問い合わせ先が必須（公開前チェック）", async () => {
+    await M.Wizard.render(content, "ev_partner"); await wait(40);   // 社外向けの下書き（問い合わせ先が空）
+    for (let i = 0; i < 4; i++) { content.querySelector("#next").click(); await wait(80); }
+    content.querySelector("#publish").click(); await wait(40);
+    if (window.document.querySelector("#modalHost .modal")) throw new Error("不備があるのに公開できる");
+    if ((await M.Repo.events.get("ev_partner")).status !== "draft") throw new Error("公開されてしまった");
+  });
+  await step("F-98 社外向けの申込では会社名を聞く", async () => {
+    await M.Participant.renderApply(content, "ev_seminar"); await wait(40);
+    if (!content.querySelector('[data-q="q_comp"]')) throw new Error("会社名の質問がない");
+    if (content.querySelector('[data-q="q_dept"]')) throw new Error("社外向けなのに所属部署を聞いている");
+  });
+
   await step("EventDetail.render(ev_public)", async () => { await M.EventDetail.render(content, "ev_public"); nonEmpty("detail"); });
   await step("申込一覧は4列（申込枠列なし）", async () => {
     const ths = content.querySelectorAll("#subpane thead th");
@@ -234,9 +268,66 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!chip || !chip.innerHTML.includes("タスク")) throw new Error("固定表示にタスク進捗がない");
   });
 
+  // イベントマニュアル（Markdown / F-99）
+  await step("マニュアル 本文があるとプレビューで開く", async () => {
+    clickTab(4); await wait(60);
+    if (!content.querySelector(".mn-body.preview")) throw new Error("プレビューで開かない");
+    if (content.querySelector("#mnEdit")) throw new Error("プレビューなのに編集欄がある");
+    if (!content.querySelector(".mn-prev h1")) throw new Error("Markdownが描画されない");
+  });
+  await step("マニュアル Markdown の表・チェックボックス・引用が描画される", async () => {
+    // 表・チェックボックス・引用を含むのは ev_seminar のマニュアル
+    await M.EventDetail.render(content, "ev_seminar"); await wait(30);
+    clickTab(4); await wait(60);
+    const prev = content.querySelector(".mn-prev");
+    if (!prev.querySelector("table th")) throw new Error("表が描画されない");
+    if (!prev.querySelector("li.task input[type=checkbox]")) throw new Error("チェックボックスが描画されない");
+    if (!prev.querySelector("li.task input[checked]")) throw new Error("チェック済みが反映されない");
+    if (!prev.querySelector("blockquote")) throw new Error("引用が描画されない");
+    if (!prev.querySelector("ol li")) throw new Error("番号付きリストが描画されない");
+    if (!prev.querySelector("strong")) throw new Error("強調が描画されない");
+    await M.EventDetail.render(content, "ev_public"); await wait(30);
+    clickTab(4); await wait(60);
+  });
+  await step("マニュアル HTMLはエスケープされる（本文をタグとして解釈しない）", async () => {
+    const html = M.Util.markdown('<img src=x onerror=alert(1)>\n\n[x](javascript:alert(1))');
+    if (/<img/i.test(html)) throw new Error("HTMLが素通りしている: " + html);
+    if (/javascript:/i.test(html) && /<a /i.test(html)) throw new Error("javascript: リンクが作られている");
+  });
+  await step("マニュアル 3ビューを切り替えられる", async () => {
+    const modes = content.querySelectorAll(".mn-bar [data-mode]");
+    if (modes.length !== 3) throw new Error("ビューが3つない");
+    modes[1].click(); await wait(30);                       // 分割
+    if (!content.querySelector(".mn-body.split")) throw new Error("分割にならない");
+    if (!content.querySelector("#mnEdit") || !content.querySelector(".mn-prev"))
+      throw new Error("分割に両方出ない");
+    modes[0].click(); await wait(30);                       // 編集
+    if (content.querySelector(".mn-prev")) throw new Error("編集なのにプレビューがある");
+  });
+  await step("マニュアル 編集→保存で永続し、プレビューに戻る", async () => {
+    const ta = content.querySelector("#mnEdit");
+    ta.value = "# 変更後の見出し\n\n本文を書き換えた。";
+    ta.dispatchEvent(new window.Event("input")); await wait(30);
+    if (content.querySelector("#mnSave").disabled) throw new Error("保存が有効にならない");
+    content.querySelector("#mnSave").click(); await wait(80);
+    const rec = await M.Repo.manuals.get("ev_public");
+    if (!rec || !rec.body.includes("変更後の見出し")) throw new Error("保存されない");
+    if (!content.querySelector(".mn-body.preview")) throw new Error("保存後にプレビューへ戻らない");
+  });
+  await step("マニュアル 未作成なら編集で開き、ひな形を挿入できる", async () => {
+    await M.EventDetail.render(content, "ev_soon"); await wait(30);
+    clickTab(4); await wait(60);
+    if (!content.querySelector("#mnEdit")) throw new Error("初回に編集で開かない");
+    if (!content.querySelector("#mnTmpl")) throw new Error("ひな形ボタンがない");
+    content.querySelector("#mnTmpl").click(); await wait(40);
+    if (!content.querySelector(".mn-body.split")) throw new Error("ひな形挿入後に分割にならない");
+    if (!content.querySelector("#mnEdit").value.includes("当日マニュアル")) throw new Error("ひな形が入らない");
+    await M.EventDetail.render(content, "ev_public"); await wait(30);
+  });
+
   // お知らせ（主催者→参加者 / messages channel:'notice'）
   await step("お知らせ 表示（シード2件）", async () => {
-    clickTab(4); await wait(40);
+    clickTab(5); await wait(40);
     if (!content.querySelector("#ntAdd")) throw new Error("お知らせ投稿ボタンなし");
     if (content.querySelectorAll("[data-ntdel]").length !== 2) throw new Error("シードのお知らせ2件が出ない");
   });
@@ -258,12 +349,12 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
 
   await step("告知タブ（X/LINEリンク）", async () => {
-    clickTab(5); await wait(20);
+    clickTab(6); await wait(20);
     if (!content.querySelector("#xShare").href.includes("twitter.com")) throw new Error("X共有リンク不正");
     if (!content.querySelector("#lineShare").href.includes("line.me")) throw new Error("LINE共有リンク不正");
   });
   await step("概要・編集タブ + 中止確認モーダル", async () => {
-    clickTab(6); await wait(20);
+    clickTab(7); await wait(20);
     const c = content.querySelector("#cancelBtn");
     if (c) { c.click(); await wait(20); if (!window.document.querySelector("#modalHost .modal")) throw new Error("確認モーダルなし"); window.document.querySelector("#mCancel").click(); }
   });
@@ -290,7 +381,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   // C-1: イベントの書き込みが永続する
   await step("C-1 状態遷移が永続（下書き→公開）", async () => {
     await M.EventDetail.render(content, "ev_draft"); await wait(20);
-    clickTab(6); await wait(20);
+    clickTab(7); await wait(20);
     content.querySelector("#publishBtn").click(); await wait(20);
     window.document.querySelector("#mOk").click(); await wait(80);
     const ev = await M.Repo.events.get("ev_draft");
@@ -298,14 +389,14 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
   await step("C-1 公開後は下書きに戻せない（F-37）", async () => {
     await M.EventDetail.render(content, "ev_draft"); await wait(20);
-    clickTab(6); await wait(20);
+    clickTab(7); await wait(20);
     if (content.querySelector("#publishBtn")) throw new Error("公開済みに公開ボタンが出ている");
     if (content.querySelector("#deleteBtn")) throw new Error("公開済みに削除ボタンが出ている");
   });
   await step("C-1 中止が永続し、申込は変更されない（F-39）", async () => {
     const before = (await M.Repo.applications.byEvent("ev_public")).map(a => a.status).join(",");
     await M.EventDetail.render(content, "ev_public"); await wait(20);
-    clickTab(6); await wait(20);
+    clickTab(7); await wait(20);
     content.querySelector("#cancelBtn").click(); await wait(20);
     window.document.querySelector("#mOk").click(); await wait(80);
     const ev = await M.Repo.events.get("ev_public");
@@ -486,7 +577,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   await step("F-20 ?event= で限定公開イベントを直接開ける（F-65）", async () => {
     window.history.replaceState(null, "", "/index.html?event=ev_limited");
     await M.App.routeFromUrl(); await wait(60);
-    if (!content.innerHTML.includes("経営戦略説明会")) throw new Error("限定公開ページが開かない");
+    if (!content.innerHTML.includes("事業説明会")) throw new Error("限定公開ページが開かない");
   });
   await step("F-07 ?preview= で下書きを参加者ビュー確認", async () => {
     const draft = (await M.Repo.events.all()).find(e => e.status === "draft");
@@ -522,7 +613,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   await step("F-d 複製で下書きが作られ copiedFromId が残る", async () => {
     const before = (await M.Repo.events.all()).length;
     await M.EventDetail.render(content, "ev_limited"); await wait(30);
-    content.querySelectorAll("#subtabs button")[6].click(); await wait(30);
+    content.querySelectorAll("#subtabs button")[7].click(); await wait(30);
     content.querySelector("#dupBtn").click(); await wait(30);
     window.document.querySelector("#mOk").click(); await wait(100);
     const evs = await M.Repo.events.all();
@@ -601,7 +692,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.Repo.reset();
     if ((await M.Repo.events.all()).length !== 0) throw new Error("初期化されない");
     await M.Seed.load();
-    if ((await M.Repo.events.all()).length !== 7) throw new Error("再投入されない");
+    if ((await M.Repo.events.all()).length !== 10) throw new Error("再投入されない");
   });
 
   await step("DB reset → 空", async () => { await M.Repo.reset(); if ((await M.Repo.events.all()).length !== 0) throw new Error("リセット後も残存"); });

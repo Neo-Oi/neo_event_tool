@@ -32,9 +32,12 @@ header.appbar .user{font-size:13px;color:#cdd7ea;display:flex;align-items:center
 header.appbar .user .avatar{width:26px;height:26px;border-radius:50%;background:var(--blue);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
 
 /* タブ */
-nav.tabs{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:2px;padding:0 20px;position:sticky;top:56px;z-index:15}
-nav.tabs button{background:transparent;border:0;padding:14px 16px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
-nav.tabs button.on{color:var(--blue);border-bottom-color:var(--blue)}
+/* タブは1つずつを大きく取り、ナビバーの余白を詰める */
+nav.tabs{background:#fff;border-bottom:1px solid var(--line);display:flex;gap:0;padding:0 12px;position:sticky;top:56px;z-index:15}
+nav.tabs button{background:transparent;border:0;padding:16px 40px;min-width:170px;font-size:15px;
+  color:var(--muted);font-weight:700;border-bottom:3px solid transparent;transition:background .12s}
+nav.tabs button:hover{background:#f7f9ff;color:var(--ink)}
+nav.tabs button.on{color:var(--blue);border-bottom-color:var(--blue);background:#f5f8ff}
 body[data-view="participant"] nav.tabs{background:#fbfcff}
 
 /* コンテンツ */
@@ -75,6 +78,10 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .badge.phase.ended{background:#eef0f3;color:var(--draft)}
 .badge.phase.full{background:#fbe9e9;color:var(--danger)}
 .badge.phase.before{background:#fff2df;color:var(--warn)}
+/* 対象範囲（F-98）。社外が絡むものは目立たせる */
+.badge.aud.internal{background:#eef0f3;color:var(--draft)}
+.badge.aud.external{background:#efe6fb;color:#6b3fa0}
+.badge.aud.both{background:#e6f2fb;color:#1c5f8a}
 
 /* ボタン */
 .btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);color:var(--ink);
@@ -210,6 +217,40 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .evcard .fl.mute{background:#eef0f3;color:var(--draft)}
 .evcard .fl.new{background:var(--blue);color:#fff}
 .evcard.unread{border-left:3px solid var(--blue)}
+
+/* イベントマニュアル（Markdown / F-99） */
+.mn-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.mn-state{font-size:12px;color:var(--muted);margin-left:auto}
+.mn-state .dirty{color:var(--warn);font-weight:700}
+.mn-body{border:1px solid var(--line);border-radius:var(--radius);background:#fff;overflow:hidden;min-height:420px;display:flex}
+.mn-body.split{display:grid;grid-template-columns:1fr 1fr}
+.mn-body.split .mn-prev{border-left:1px solid var(--line)}
+.mn-body textarea{width:100%;min-height:420px;border:0;padding:16px;resize:vertical;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.7;outline:none}
+.mn-prev{padding:8px 20px 20px;overflow:auto;min-height:420px;flex:1}
+
+/* Markdown の描画 */
+.md{font-size:14px;line-height:1.8;word-break:break-word}
+.md h1,.md h2,.md h3,.md h4{margin:20px 0 8px;line-height:1.4}
+.md h1{font-size:21px;border-bottom:2px solid var(--line);padding-bottom:6px}
+.md h2{font-size:17px;border-bottom:1px solid var(--line);padding-bottom:5px}
+.md h3{font-size:15px} .md h4{font-size:14px;color:var(--muted)}
+.md p{margin:8px 0}
+.md ul,.md ol{margin:8px 0;padding-left:24px}
+.md li{margin:3px 0}
+.md li.task{list-style:none;margin-left:-20px}
+.md li.task input{margin-right:6px}
+.md blockquote{margin:10px 0;padding:8px 14px;border-left:3px solid #bcd0fb;background:#f5f8ff;color:#33477a}
+.md blockquote p{margin:0}
+.md code{background:#f1f4f9;border-radius:4px;padding:1px 5px;font-size:12.5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.md pre{background:#1e2733;color:#e6edf6;border-radius:8px;padding:12px 14px;overflow-x:auto;margin:10px 0}
+.md pre code{background:transparent;color:inherit;padding:0;font-size:12.5px}
+.md table{border-collapse:collapse;margin:10px 0;width:100%}
+.md th,.md td{border:1px solid var(--line);padding:7px 10px;text-align:left;font-size:13px}
+.md th{background:#fafbfe;font-weight:700;color:var(--muted)}
+.md hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+.md a{text-decoration:underline}
 
 /* 参加者名簿（横断 / F-b） */
 .hist{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:13px;flex-wrap:wrap}
@@ -467,6 +508,87 @@ const Util = (() => {
     catch { return false; }
   };
 
+  /* Markdown（マニュアル用の最小サブセット / F-99）。外部ライブラリを使わない——
+     プレビューが既定ビューなので、CDN に繋がらないとマニュアルが読めない、という状態を
+     作りたくない。**先に全体をエスケープしてから組み立てる**ので、本文中の HTML は
+     タグとして解釈されない（マニュアルは運営が書くが、貼り付けた内容が混ざりうるため）。
+     対応: 見出し / 箇条書き（チェックボックス含む） / 番号付き / 引用 / 水平線 /
+           コード（インライン・フェンス） / 表 / 強調 / 取り消し線 / リンク */
+  function markdown(src) {
+    const lines = esc(src).replace(/\r\n?/g, "\n").split("\n");
+    const inline = (t) => t
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/~~([^~]+)~~/g, "<del>$1</del>")
+      .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+      // リンクは https?: のみ許可する（javascript: を通さない）
+      .replace(/\[([^\]]*)\]\((https?:[^)\s]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    const isRule = (l) => /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l);
+    const cells = (l) => l.replace(/^\s*\|?/, "").replace(/\|?\s*$/, "").split("|").map(c => c.trim());
+
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (/^\s*$/.test(l)) { i++; continue; }
+
+      if (/^\s*```/.test(l)) {                                   // フェンスコード
+        const buf = []; i++;
+        while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        out.push(`<pre><code>${buf.join("\n")}</code></pre>`);
+        continue;
+      }
+      const h = l.match(/^(#{1,6})\s+(.*)$/);
+      if (h) { out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); i++; continue; }
+      if (isRule(l)) { out.push("<hr>"); i++; continue; }
+
+      // 表: 1行目がヘッダ、2行目が区切り（|---|---|）
+      if (l.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:-]*-[-\s:|]*\|?\s*$/.test(lines[i+1])) {
+        const head = cells(l); i += 2;
+        const body = [];
+        while (i < lines.length && lines[i].includes("|") && !/^\s*$/.test(lines[i])) body.push(cells(lines[i++]));
+        out.push(`<table><thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join("")}</tr></thead>` +
+          `<tbody>${body.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+        continue;
+      }
+      // 引用。先に esc() しているので行頭の ">" は "&gt;" になっている点に注意
+      if (/^\s*&gt;\s?/.test(l)) {
+        const buf = [];
+        while (i < lines.length && /^\s*&gt;\s?/.test(lines[i]))
+          buf.push(lines[i++].replace(/^\s*&gt;\s?/, ""));
+        out.push(`<blockquote>${inline(buf.join("<br>"))}</blockquote>`);
+        continue;
+      }
+      if (/^\s*([-*+])\s+/.test(l)) {                            // 箇条書き（チェックボックス対応）
+        const buf = [];
+        while (i < lines.length && /^\s*([-*+])\s+/.test(lines[i])) {
+          let t = lines[i++].replace(/^\s*([-*+])\s+/, "");
+          const box = t.match(/^\[( |x|X)\]\s*(.*)$/);
+          buf.push(box
+            ? `<li class="task"><input type="checkbox" disabled ${/x/i.test(box[1])?"checked":""}> ${inline(box[2])}</li>`
+            : `<li>${inline(t)}</li>`);
+        }
+        out.push(`<ul>${buf.join("")}</ul>`);
+        continue;
+      }
+      if (/^\s*\d+\.\s+/.test(l)) {                              // 番号付き
+        const buf = [];
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i]))
+          buf.push(`<li>${inline(lines[i++].replace(/^\s*\d+\.\s+/, ""))}</li>`);
+        out.push(`<ol>${buf.join("")}</ol>`);
+        continue;
+      }
+      const buf = [];                                            // 段落
+      while (i < lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,6})\s+/.test(lines[i]) &&
+             !/^\s*([-*+]|\d+\.)\s+/.test(lines[i]) && !/^\s*&gt;/.test(lines[i]) &&
+             !/^\s*```/.test(lines[i]) && !isRule(lines[i])) buf.push(lines[i++]);
+      out.push(`<p>${inline(buf.join("<br>"))}</p>`);
+    }
+    return out.join("\n");
+  }
+
   /* CDN スクリプトの遅延読み込み（QRの生成・読取でのみ使う）。起動時には読まないので、
      オフラインでも他の機能は動く。globalName が既にあれば何もしない。 */
   const _loading = {};
@@ -486,14 +608,14 @@ const Util = (() => {
 
   return { esc, randHex, uid, newToken, normalize, toKatakana,
            fmtDateTime, fmtDate, fmtRange, deadlineEnd, dayStart, weekStartMonday, daysBetween,
-           csvCell, buildCsv, downloadText, copy, loadScript };
+           csvCell, buildCsv, downloadText, copy, loadScript, markdown };
 })();
 
 
 // ===== [2] DB（IndexedDB / Promise ラップ / onupgradeneeded） =====
 const DB = (() => {
   const NAME = "neo_event_tool";
-  const VERSION = 3; // v3: 既読位置 readStates を追加（v2: チケット廃止＋運営用 messages/tasks）
+  const VERSION = 4; // v4: イベントマニュアル manuals を追加（v3: readStates / v2: チケット廃止）
   let _db = null;
 
   function open() {
@@ -541,6 +663,11 @@ const DB = (() => {
         if (!db.objectStoreNames.contains("readStates")) {
           const s = db.createObjectStore("readStates", { keyPath: "key" });
           s.createIndex("eventId", "eventId");
+        }
+        // イベントマニュアル（v4 / F-99）。1イベント1件。本文が長くなるので events とは分ける
+        // （イベント一覧は全件読むため、そこに本文を載せると無駄に重くなる）
+        if (!db.objectStoreNames.contains("manuals")) {
+          db.createObjectStore("manuals", { keyPath: "eventId" });
         }
       };
       req.onsuccess = () => { _db = req.result; resolve(_db); };
@@ -618,6 +745,11 @@ const Repo = (() => {
       get: (key) => DB.get("readStates", key),
       put: (r) => DB.put("readStates", r),
     },
+    manuals: {
+      get: (eventId) => DB.get("manuals", eventId),
+      put: (m) => DB.put("manuals", m),
+      remove: (eventId) => DB.remove("manuals", eventId),
+    },
     persons: {
       all: () => DB.getAll("persons"),
       get: (id) => DB.get("persons", id),
@@ -649,6 +781,14 @@ const Domain = (() => {
   const STATUS = { draft:"下書き", published:"公開中", cancelled:"中止" };
   // 開催形式（F-c）。オンライン／ハイブリッドの視聴URLは申込者にだけ見せる
   const FORMAT = { onsite:"現地開催", online:"オンライン", hybrid:"ハイブリッド" };
+  /* 対象範囲（F-98）。**社外向けを既定とする。** 社外の方が申込むイベントを主とし、
+     社内向けはその一形態として扱う。未設定のデータも社外向けとみなす。
+     公開範囲（visibility）とは別軸で、「誰に向けているか」と「URLを知る人だけか」は
+     独立して決まる。 */
+  const AUDIENCE = { external:"社外向け", both:"社内外", internal:"社内向け" };
+  const DEFAULT_AUDIENCE = "external";
+  const audienceOf = (ev) => ev.audience || DEFAULT_AUDIENCE;
+  const hasExternal = (ev) => audienceOf(ev) !== "internal";   // 社外の人が申込む可能性がある
 
   // 時期（保存しない。受付開始・締切日時と現在時刻から都度算出 / F-05）
   // 戻り値: {phase, label} phase ∈ before|open|closed|held|cancelled
@@ -715,7 +855,8 @@ const Domain = (() => {
       overdue: tasks.filter(t => taskOverdue(t, now)).length };
   }
 
-  return { STATUS, FORMAT, timing, capacity, isValidApp, usedSeats, remaining,
+  return { STATUS, FORMAT, AUDIENCE, DEFAULT_AUDIENCE, audienceOf, hasExternal,
+           timing, capacity, isValidApp, usedSeats, remaining,
            applyButtonLabel, nearlyFull, staleDraft,
            TASK_STATUS, TASK_FLOW, PRIORITY, taskOverdue, taskSummary };
 })();
@@ -889,60 +1030,115 @@ const Seed = (() => {
     };
     const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"社員全般",
       venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください",
-      applyStartAt:null, eventFormat:"onsite", onlineUrl:null, onlineNote:null, questions:[] };
+      applyStartAt:null, eventFormat:"onsite", onlineUrl:null, onlineNote:null, questions:[],
+      audience:"external" };
     // 申込フォームの追加質問（F-a）。社内イベントで実際に要る項目を例示する
     const qDept  = { id:"q_dept",  label:"所属部署",       type:"text",     required:true,  options:[] };
     const qFood  = { id:"q_food",  label:"食事の制限",     type:"textarea", required:false, options:[] };
     const qParty = { id:"q_party", label:"懇親会に参加する", type:"checkbox", required:false, options:[] };
     const qJoin  = { id:"q_join",  label:"参加方法",       type:"select",   required:true,
                      options:["現地で参加","オンラインで参加"] };
+    // 社外向けでは所属会社を聞く（F-98）。社外の方に「所属部署」を聞いても意味がない
+    const qComp  = { id:"q_comp",  label:"会社名",         type:"text",     required:true,  options:[] };
+    const qTitle = { id:"q_title", label:"役職",           type:"text",     required:false, options:[] };
+    const qKnow  = { id:"q_know",  label:"本イベントを知ったきっかけ", type:"select", required:false,
+                     options:["弊社担当者からの案内","自社サイト","SNS","知人の紹介","その他"] };
 
     // 定員はイベントが持つ（チケット廃止）
     const events = [
-      { id:"ev_public", title:"社内技術LT大会 2026夏", description:"部門横断のライトニングトーク大会です。登壇・聴講どちらも歓迎。",
+      { id:"ev_public", title:"技術カンファレンス 2026夏", description:"社外エンジニアの方をお招きした技術カンファレンスです。登壇・聴講どちらも歓迎します。",
         startAt:day(14,18,30), endAt:day(14,20,30), venueName:"本社 大会議室", capacity:60,
         applyDeadline:dateStr(10), status:"published", visibility:"public",
         createdAt:day(-20), updatedAt:day(-5), ...base,
         eventFormat:"hybrid", onlineUrl:"https://teams.microsoft.com/l/meetup-join/demo-lt-2026",
         onlineNote:"開始10分前から入室できます。マイクはミュートでお願いします。",
-        questions:[qDept, qJoin, qParty] },
+        audience:"external", targetAudience:"エンジニア・技術に関心のある方",
+        contactInfo:"カンファレンス事務局 conf@example.com（平日9:00〜17:00）",
+        questions:[qComp, qJoin, qParty] },
       { id:"ev_soon", title:"新人歓迎ランチ会", description:"今年度の新入社員を交えたカジュアルなランチ会。",
         startAt:day(1,12,0), endAt:day(1,13,0), venueName:"7Fカフェテリア", capacity:20,
         applyDeadline:dateStr(0), status:"published", visibility:"public",
-        createdAt:day(-15), updatedAt:day(-3), ...base, questions:[qDept, qFood] },
-      { id:"ev_limited", title:"（限定）経営戦略説明会", description:"招待者向けの限定公開イベントです。",
+        createdAt:day(-15), updatedAt:day(-3), ...base,
+        audience:"internal", targetAudience:"今年度の新入社員と受入部署の社員",
+        questions:[qDept, qFood] },
+      { id:"ev_limited", title:"（限定）主要取引先向け 事業説明会", description:"ご招待した取引先の方のみを対象とした限定公開イベントです。",
         startAt:day(20,15,0), endAt:day(20,17,0), venueName:"役員会議室", capacity:15,
         applyDeadline:dateStr(18), status:"published", visibility:"limited",
-        createdAt:day(-8), updatedAt:day(-2), ...base },
+        createdAt:day(-8), updatedAt:day(-2), ...base,
+        audience:"external", targetAudience:"ご招待した取引先のご担当者",
+        contactInfo:"営業企画部 sales@example.com", questions:[qComp, qTitle] },
       // 受付開始日が未来 → 時期は「受付前」になる（F-05, F-08 / phase:before の実例）
-      { id:"ev_before", title:"秋期キックオフ", description:"下期の方針共有。受付は来週から開始します。",
+      { id:"ev_before", title:"秋の製品活用ウェビナー", description:"製品の活用事例をご紹介します。受付は来週から開始します。",
         startAt:day(45,13,0), endAt:day(45,17,0), venueName:"本社 ホール", capacity:120,
         applyDeadline:dateStr(40), status:"published", visibility:"public",
-        createdAt:day(-3), updatedAt:day(-3), ...base, applyStartAt:dateStr(7) },
-      { id:"ev_draft", title:"（下書き）秋の全社イベント", description:"",
+        createdAt:day(-3), updatedAt:day(-3), ...base, applyStartAt:dateStr(7),
+        audience:"external", targetAudience:"製品をご利用中・ご検討中の方",
+        contactInfo:"カスタマーサクセス cs@example.com", questions:[qComp] },
+      { id:"ev_draft", title:"（下書き）秋の合同展示会", description:"",
         startAt:null, endAt:null, venueName:"", applyDeadline:null, capacity:null,
         status:"draft", visibility:"public", createdAt:day(-12), updatedAt:day(-12), ...base },
-      { id:"ev_past", title:"春の勉強会", description:"開催済のイベント。",
+      { id:"ev_past", title:"春の技術勉強会", description:"開催済のイベント。社外の方にもご参加いただきました。",
         startAt:day(-30,14,0), endAt:day(-30,16,0), venueName:"3F研修室", capacity:30,
         applyDeadline:dateStr(-33), status:"published", visibility:"public",
         createdAt:day(-60), updatedAt:day(-30), ...base },
+      // ---- 社外向け（F-98）----
+      { id:"ev_seminar", title:"【一般公開】業務効率化セミナー 2026",
+        description:"自社の業務改善事例を公開するセミナーです。同業他社の方、お取引先の方どなたでもご参加いただけます。",
+        startAt:day(28,14,0), endAt:day(28,16,30), venueName:"本社 セミナールーム", capacity:80,
+        applyDeadline:dateStr(25), status:"published", visibility:"public",
+        createdAt:day(-11), updatedAt:day(-4), ...base,
+        audience:"external", targetAudience:"業務改善に関心のある企業のご担当者",
+        contactInfo:"セミナー事務局 seminar@example.com（平日9:00〜17:00）",
+        eventFormat:"hybrid", onlineUrl:"https://zoom.us/j/demo-seminar-2026",
+        onlineNote:"接続URLは当日の朝にも本ページでご確認いただけます。",
+        questions:[qComp, qTitle, qJoin, qKnow] },
+      { id:"ev_meetup", title:"合同勉強会（社内外オープン）",
+        description:"社員と社外エンジニアが一緒に発表する勉強会です。登壇枠・聴講枠ともに募集しています。",
+        startAt:day(35,19,0), endAt:day(35,21,0), venueName:"本社 大会議室", capacity:50,
+        applyDeadline:dateStr(32), status:"published", visibility:"public",
+        createdAt:day(-6), updatedAt:day(-1), ...base,
+        audience:"both", targetAudience:"社員および社外のエンジニア",
+        contactInfo:"勉強会運営 meetup@example.com",
+        applyStartAt:dateStr(3), questions:[qComp, qParty] },
+      { id:"ev_partner", title:"（下書き）パートナー向け新製品説明会",
+        description:"", startAt:null, endAt:null, venueName:"", applyDeadline:null, capacity:null,
+        status:"draft", visibility:"limited", createdAt:day(-2), updatedAt:day(-2), ...base,
+        audience:"external", targetAudience:"", contactInfo:"", questions:[qComp] },
       { id:"ev_cancel", title:"中止になった懇親会", description:"諸事情により中止。",
         startAt:day(7,19,0), endAt:day(7,21,0), venueName:"近隣レストラン", capacity:40,
         applyDeadline:dateStr(5), status:"cancelled", visibility:"public",
-        createdAt:day(-10), updatedAt:day(-1), ...base },
+        createdAt:day(-10), updatedAt:day(-1), ...base, audience:"internal" },
     ];
+    // p0〜p4 は社員、p5〜p7 は社外の方（F-98）。名寄せはメールアドレスで行うため区別は持たない
     const people = [
       ["田中 太郎","タナカ タロウ","tanaka@example.com"],
       ["鈴木 花子","スズキ ハナコ","suzuki@example.com"],
       ["佐藤 次郎","サトウ ジロウ","sato@example.com"],
       ["高橋 美咲","タカハシ ミサキ","takahashi@example.com"],
       ["伊藤 健","イトウ ケン","ito@example.com"],
+      ["山田 涼子","ヤマダ リョウコ","yamada@kabushiki-a.example.com"],
+      ["中村 大輔","ナカムラ ダイスケ","nakamura@kabushiki-b.example.com"],
+      ["小林 彩","コバヤシ アヤ","kobayashi@kabushiki-a.example.com"],
     ];
     const persons = people.map((p, i) => {
       const emailKey = p[2].trim().toLowerCase();
       return { id:"p"+i, emailKey, email:p[2], name:p[0], nameKana:p[1],
         contactConsent:true, consentAt:day(-6), createdAt:day(-6) };
     });
+    // イベントごとのカスタム質問への回答（F-a）。社内は所属部署、社外は会社名を聞く
+    const DEPT = ["開発部","営業部","総務部","人事部","広報部"];
+    const COMP = ["株式会社A","株式会社B","株式会社A"];      // p5〜p7 の所属
+    const ANSWERS = {
+      ev_public:  (i) => ({ q_comp:i<=4?"（社内）":COMP[i-5]||"株式会社C",
+                            q_join:i%2?"オンラインで参加":"現地で参加", q_party:i%2===0 }),
+      ev_soon:    (i) => ({ q_dept:DEPT[i], q_food:i===3?"乳製品アレルギー":"" }),
+      ev_seminar: (i) => ({ q_comp:COMP[i-5]||"株式会社C", q_title:i===5?"情報システム部 部長":"",
+                            q_join:i===6?"オンラインで参加":"現地で参加",
+                            q_know:["弊社担当者からの案内","自社サイト","知人の紹介"][i-5] || "その他" }),
+      ev_meetup:  (i) => (i <= 4 ? { q_comp:"（社内）", q_party:true }
+                                 : { q_comp:COMP[i-5]||"株式会社C", q_party:i!==6 }),
+    };
+
     // ev_public / ev_soon / ev_past に有効な申込を作る（チケット廃止＝ticketTypeIdなし）
     const apps = [];
     const mkApp = (ev, pi, status, offset) => {
@@ -952,10 +1148,7 @@ const Seed = (() => {
         status, checkinAt: status==="checkedin" ? day(offset,9,30) : null,
         cancelledAt: status==="cancelled" ? day(offset,12,0) : null,
         appliedAt: day(offset,9,0),
-        answers: ev==="ev_public"
-          ? { q_dept:["開発部","営業部","総務部","人事部","広報部"][pi], q_join:pi%2?"オンラインで参加":"現地で参加", q_party:pi%2===0 }
-          : ev==="ev_soon" ? { q_dept:["開発部","営業部","総務部","人事部","広報部"][pi], q_food:pi===3?"乳製品アレルギー":"" }
-          : {},
+        answers: ANSWERS[ev] ? ANSWERS[ev](pi) : {},
         searchText: Util.normalize(p.name + p.nameKana + p.email),
       });
     };
@@ -965,6 +1158,13 @@ const Seed = (() => {
     mkApp("ev_soon",3,"applied",-1);
     mkApp("ev_soon",4,"applied",-1);
     mkApp("ev_past",0,"checkedin",-31);
+    // 社外向けセミナー（社外の方のみ）と合同勉強会（社内外が混在）
+    mkApp("ev_seminar",5,"applied",-3);
+    mkApp("ev_seminar",6,"applied",-2);
+    mkApp("ev_seminar",7,"cancelled",-2);
+    mkApp("ev_meetup",1,"applied",-1);
+    mkApp("ev_meetup",5,"applied",-1);
+    mkApp("ev_meetup",6,"applied",0);
 
     // 運営（社内）向けメッセージ: スレッド（チャット）＋Q&A。同一ブラウザ内で永続
     const msgs = [
@@ -991,6 +1191,17 @@ const Seed = (() => {
       { id:Util.uid(), eventId:"ev_soon", channel:"notice", author:"運営事務局",
         title:"当日は社員証をお持ちください", body:"受付でご提示いただきます。",
         createdAt:day(-1,10,0) },
+      // 社外向け（F-98）。社内前提の案内が混ざらないよう文面を分ける
+      { id:Util.uid(), eventId:"ev_seminar", channel:"notice", author:"セミナー事務局",
+        title:"当日の受付方法について",
+        body:"1階受付で「業務効率化セミナー参加」とお伝えください。入館証をお渡しします。\nオンライン参加の方は、マイ申込に表示される視聴URLからご入室ください。",
+        createdAt:day(-2,11,0) },
+      { id:Util.uid(), eventId:"ev_seminar", channel:"thread", author:"運営A",
+        body:"社外の方が入館するので、受付名簿を警備室に事前提出しておきます。", createdAt:day(-2,15,0) },
+      { id:Util.uid(), eventId:"ev_seminar", channel:"qa", author:"運営B",
+        body:"社外の方の駐車場は用意する？", answer:"", resolved:false, createdAt:day(-1,11,0), resolvedAt:null },
+      { id:Util.uid(), eventId:"ev_meetup", channel:"thread", author:"運営C",
+        body:"社外参加者ぶんの入館手続きを忘れずに。", createdAt:day(-1,16,0) },
     ];
 
     // 運営タスク（backlog風 / E-2）。状態は4段、並び順は order（10刻み）
@@ -1004,7 +1215,7 @@ const Seed = (() => {
     };
     mkTask("ev_public","会場（大会議室）を押さえる","done","運営A","high",-9,-7);
     mkTask("ev_public","登壇者の募集と枠決め","done","運営B","high",-8,-4,"5枠。1枠5分。");
-    mkTask("ev_public","社内ポータルに告知を掲載","review","運営A","normal",-5,-2);
+    mkTask("ev_public","自社サイトとSNSに告知を掲載","review","運営A","normal",-5,-2);
     mkTask("ev_public","備品（マイク・延長コード）を手配","doing","運営C","normal",-2,3,"総務に依頼済み。数量は確定待ち。");
     mkTask("ev_public","プロジェクタの接続確認","todo","運営B","high",5,10);
     mkTask("ev_public","懇親会の軽食を発注","todo","","normal",-3,-1,"人数確定後。期限超過の例。");
@@ -1012,6 +1223,82 @@ const Seed = (() => {
     mkTask("ev_public","アンケートフォームを用意","todo","","low",null,null,"日付未設定の例。");
     mkTask("ev_soon","カフェテリアの席を確保","done","運営A","normal",-4,-2);
     mkTask("ev_soon","参加者名簿を印刷","todo","運営C","normal",0,0);
+    // 社外向けは入館・受付まわりの段取りが増える（F-98）
+    mkTask("ev_seminar","セミナールームを確保","done","運営A","high",-11,-9);
+    mkTask("ev_seminar","案内ページの文面を法務確認","done","運営B","high",-9,-5,"社外公開のため。");
+    mkTask("ev_seminar","来場者名簿を警備室へ提出","doing","運営A","high",-1,25,"入館証の発行に必要。");
+    mkTask("ev_seminar","配布資料を印刷（80部）","todo","運営C","normal",20,26);
+    mkTask("ev_seminar","オンライン配信のリハーサル","todo","運営B","high",24,27);
+    mkTask("ev_meetup","登壇者（社外2名）と日程調整","doing","運営A","high",-5,5);
+    mkTask("ev_meetup","入館手続きの案内を送付","todo","運営C","normal",28,33);
+
+    // イベントマニュアル（F-99）。社外向けは入館・受付の手順が増える
+    const manuals = [
+      { eventId:"ev_seminar", updatedAt:day(-2,17,0), body:
+`# 業務効率化セミナー 当日マニュアル
+
+社外のお客様をお迎えします。**受付での印象がそのまま会社の印象になります。**
+
+## タイムテーブル
+
+| 時刻 | 内容 | 担当 |
+|---|---|---|
+| 12:30 | 会場設営・配信機材のセット | 運営A・運営C |
+| 13:00 | 警備室で入館証を受け取る | 運営A |
+| 13:30 | 受付開始 | 運営B |
+| 14:00 | 開会・登壇 | 登壇者 |
+| 16:30 | 閉会・見送り | 全員 |
+
+## 受付の手順
+
+1. 1階受付でお客様の**会社名とお名前**を伺う
+2. 申込タブで検索、または **QRで受付** から読み取ってチェックイン
+3. **入館証**をお渡しし、セミナールームへご案内する
+
+> 名簿に無い方は、その場で申込を作らずに運営リーダーへ連絡すること。
+> 飛び込みの参加可否は当日の座席数で判断します。
+
+## オンライン参加の方
+
+- 視聴URLは申込者の「マイ申込」に表示されます
+- 開始10分前から入室可能。ホストは **運営C**
+- 接続トラブルの問い合わせ先: セミナー事務局 seminar@example.com
+
+## 持ち物チェック
+
+- [x] 会場予約の確認
+- [x] 来場者名簿を警備室へ提出
+- [ ] 配布資料 80部
+- [ ] 名札・受付用ノートPC
+- [ ] 延長コード・電源タップ
+
+## 連絡先
+
+| 役割 | 担当 | 連絡先 |
+|---|---|---|
+| 運営リーダー | 運営A | 内線 1234 |
+| 配信 | 運営C | 内線 2345 |
+| 会場・警備 | 総務部 | 内線 5678 |
+` },
+      { eventId:"ev_public", updatedAt:day(-4,10,0), body:
+`# 技術カンファレンス 進行メモ
+
+## 設営
+
+- 17:00 から大会議室で設営
+- プロジェクタの接続確認を**必ず開演前**に済ませる（HDMI変換は運営Bが保管）
+
+## 登壇の進行
+
+1. 1枠5分・入替1分
+2. 残り1分でベルを1回、時間切れで2回
+3. 質疑は全枠終了後にまとめて実施
+
+## 注意
+
+社外の登壇者が2名います。**入館手続きが必要**なので、当日朝までに警備室へ連絡すること。
+` },
+    ];
 
     // この端末が保持する自分の申込トークン（F-56）。マイ申込に表示される
     const saved = [apps[0], apps[3], apps[5]].map(a =>
@@ -1025,6 +1312,7 @@ const Seed = (() => {
       ...saved.map(record => ({ store:"savedTokens", record })),
       ...msgs.map(record => ({ store:"messages", record })),
       ...tasks.map(record => ({ store:"tasks", record })),
+      ...manuals.map(record => ({ store:"manuals", record })),
     ];
     await Repo.bulkPut(entries);
   }
@@ -1171,7 +1459,8 @@ const EventsList = (() => {
     const done = e.status === "cancelled" || t.phase === "held";
 
     const badges = [`<span class="badge ${e.status}">${Domain.STATUS[e.status]}</span>`,
-      `<span class="badge phase ${t.phase==="held"?"ended":t.phase==="before"?"before":""}">${t.label}</span>`];
+      `<span class="badge phase ${t.phase==="held"?"ended":t.phase==="before"?"before":""}">${t.label}</span>`,
+      audienceBadge(e)];
     if (e.visibility === "limited" && e.status !== "cancelled")
       badges.push(`<span class="badge limited">限定公開</span>`);
     if (!done && cap && rem <= 0) badges.push(`<span class="badge phase full">満席</span>`);
@@ -1241,6 +1530,7 @@ const EventDetail = (() => {
           <h2>${Util.esc(ev.title)}</h2>
           <span class="badge ${ev.status}">${Domain.STATUS[ev.status]}</span>
           <span class="badge phase ${t.phase==='held'?'ended':t.phase==='before'?'before':''}">${t.label}</span>
+          ${audienceBadge(ev)}
           ${ev.visibility==="limited"&&ev.status!=="cancelled"?'<span class="badge limited">限定公開</span>':""}
         </div>
         <div class="meta">
@@ -1257,6 +1547,7 @@ const EventDetail = (() => {
           ctx.unread ? `<span class="tabdot">${ctx.unread}</span>` : ""}</button>
         <button data-tab="qa" class="${tab==='qa'?'on':''}">運営Q&amp;A</button>
         <button data-tab="tasks" class="${tab==='tasks'?'on':''}">運営タスク</button>
+        <button data-tab="manual" class="${tab==='manual'?'on':''}">マニュアル</button>
         <button data-tab="notice" class="${tab==='notice'?'on':''}">お知らせ</button>
         <button data-tab="promo" class="${tab==='promo'?'on':''}">告知</button>
         <button data-tab="edit" class="${tab==='edit'?'on':''}">概要・編集</button>
@@ -1272,6 +1563,7 @@ const EventDetail = (() => {
     else if (tab === "thread") Ops.renderThread(pane, ev.id, clearUnread);
     else if (tab === "qa") Ops.renderQA(pane, ev.id);
     else if (tab === "tasks") Tasks.render(pane, ev.id, refreshTaskChip);
+    else if (tab === "manual") Manual.render(pane, ev.id);
     else if (tab === "notice") Ops.renderNotice(pane, ev.id);
     else if (tab === "promo") renderPromo(pane);
     else renderEdit(pane);
@@ -1584,7 +1876,8 @@ const EventDetail = (() => {
     const setLinks = () => {
       const body = pane.querySelector("#postBox").value;
       pane.querySelector("#xShare").href =
-        `https://twitter.com/intent/tweet?text=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}&hashtags=${encodeURIComponent("社内イベント")}`;
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(body)}&url=${encodeURIComponent(url)}&hashtags=${
+          encodeURIComponent(Domain.hasExternal(ev) ? "イベント" : "社内イベント")}`;
       pane.querySelector("#lineShare").href =
         `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`; // URLのみ（F-15）
     };
@@ -1618,6 +1911,8 @@ ${url}`;
           <div class="row"><span class="k">受付期間</span><span>${
             ev.applyStartAt ? Util.fmtDate(ev.applyStartAt) : "公開と同時"} 〜 ${
             ev.applyDeadline ? Util.fmtDate(ev.applyDeadline) : "—"}</span></div>
+          <div class="row"><span class="k">対象範囲</span><span>${audienceBadge(ev)}${
+            Domain.hasExternal(ev) ? '<span class="hint" style="display:inline;margin-left:8px">社外の方の個人情報を預かります</span>' : ""}</span></div>
           <div class="row"><span class="k">公開範囲</span><span>${ev.visibility==="limited"?"限定公開":"一般公開"}</span></div>
           <div class="row"><span class="k">問い合わせ先</span><span>${Util.esc(ev.contactInfo)||"—"}</span></div>
         </div>
@@ -2212,6 +2507,130 @@ const Tasks = (() => {
 })();
 
 
+// ===== [9e] 主催者：イベントマニュアル（Markdown / F-99。manuals ストア） =====
+/* 当日の進行・搬入・受付手順など、運営が見る手順書をイベントごとに持つ。
+   ビューは 編集 / 分割 / プレビュー の3つ。**書き終えた後は読む回数の方が圧倒的に多い**ので、
+   本文があるときはプレビューで開き、「編集」で書き換えに入る。初回（空）だけ編集で開く。 */
+const Manual = (() => {
+  let ctx = null;   // { pane, eventId, body, saved, mode }
+
+  const TEMPLATE = `# 当日マニュアル
+
+## タイムテーブル
+
+| 時刻 | 内容 | 担当 |
+|---|---|---|
+| 17:00 | 会場設営・受付準備 | 運営A |
+| 18:00 | 受付開始 | 運営B |
+| 18:30 | 開会 | 運営A |
+
+## 受付の手順
+
+1. 参加者に氏名を伺う
+2. 申込タブで検索、または **QRで受付** から読み取り
+3. 名札をお渡しする
+
+> 名簿に無い方は、その場で申込を作らず運営リーダーへ連絡すること。
+
+## 持ち物チェック
+
+- [ ] 名札・名簿の印刷
+- [ ] 延長コード・電源タップ
+- [ ] 受付用のノートPC
+
+## 連絡先
+
+- 運営リーダー: 内線 1234
+- 会場管理: 内線 5678
+`;
+
+  async function render(pane, eventId) {
+    const rec = await Repo.manuals.get(eventId);
+    const body = rec ? rec.body : "";
+    // 初回（本文が空）は編集から。以降はプレビューで開く
+    ctx = { pane, eventId, body, saved: body, mode: body.trim() ? "preview" : "edit",
+            updatedAt: rec ? rec.updatedAt : null };
+    paint();
+  }
+
+  const dirty = () => ctx.body !== ctx.saved;
+
+  function paint() {
+    const { pane, mode } = ctx;
+    const empty = !ctx.body.trim();
+    pane.innerHTML = `
+      <div class="ops-note">運営が当日に見る手順書です。Markdown で書けます。参加者には表示されません。</div>
+      <div class="mn-bar">
+        <div class="toggles" style="margin-left:0">
+          <button data-mode="edit" class="${mode==="edit"?"on":""}">編集</button>
+          <button data-mode="split" class="${mode==="split"?"on":""}">分割</button>
+          <button data-mode="preview" class="${mode==="preview"?"on":""}">プレビュー</button>
+        </div>
+        <span class="mn-state">${dirty() ? '<span class="dirty">未保存の変更があります</span>'
+          : ctx.updatedAt ? `最終更新 ${Util.fmtDateTime(ctx.updatedAt)}` : ""}</span>
+        ${empty ? `<button class="btn" id="mnTmpl">ひな形を挿入</button>` : ""}
+        <button class="btn ${dirty()?"primary":""}" id="mnSave" ${dirty()?"":"disabled style=opacity:.5"}>保存</button>
+      </div>
+      <div class="mn-body ${mode}">
+        ${mode !== "preview" ? `<textarea id="mnEdit" spellcheck="false"
+          placeholder="# 当日マニュアル&#10;&#10;Markdown で書けます。">${Util.esc(ctx.body)}</textarea>` : ""}
+        ${mode !== "edit" ? `<div class="mn-prev md" id="mnPrev">${
+          empty ? `<div class="empty"><div class="big">マニュアルがありません</div>
+            「編集」タブから書けます。「ひな形を挿入」で雛形から始められます。</div>`
+          : Util.markdown(ctx.body)}</div>` : ""}
+      </div>`;
+
+    pane.querySelectorAll(".mn-bar [data-mode]").forEach(b =>
+      b.onclick = () => { ctx.mode = b.dataset.mode; paint(); });
+
+    const ta = pane.querySelector("#mnEdit");
+    if (ta) {
+      ta.oninput = () => {
+        ctx.body = ta.value;
+        // 分割ビューは打つそばから反映する。textarea は作り直さない（カーソルが飛ぶため）
+        const prev = pane.querySelector("#mnPrev");
+        if (prev) prev.innerHTML = Util.markdown(ctx.body);
+        refreshBar();
+      };
+      if (ctx.mode === "edit") ta.focus();
+    }
+    const tmpl = pane.querySelector("#mnTmpl");
+    if (tmpl) tmpl.onclick = () => {
+      ctx.body = TEMPLATE; ctx.mode = "split"; paint();
+    };
+    pane.querySelector("#mnSave").onclick = save;
+  }
+
+  // 保存ボタンと状態表示だけ差し替える（入力中に全体を描き直さない）
+  function refreshBar() {
+    const btn = ctx.pane.querySelector("#mnSave");
+    const st = ctx.pane.querySelector(".mn-state");
+    if (btn) {
+      btn.disabled = !dirty();
+      btn.style.opacity = dirty() ? "" : ".5";
+      btn.classList.toggle("primary", dirty());
+    }
+    if (st) st.innerHTML = dirty() ? '<span class="dirty">未保存の変更があります</span>'
+      : ctx.updatedAt ? `最終更新 ${Util.fmtDateTime(ctx.updatedAt)}` : "";
+  }
+
+  async function save() {
+    if (!dirty()) return;
+    const now = new Date().toISOString();
+    try {
+      await Repo.manuals.put({ eventId: ctx.eventId, body: ctx.body, updatedAt: now });
+      ctx.saved = ctx.body; ctx.updatedAt = now;
+      FB.toast("マニュアルを保存しました");
+      // 保存したら読む状態に戻す（書き終えた後は読む方が多い）
+      ctx.mode = ctx.body.trim() ? "preview" : "edit";
+      paint();
+    } catch (e) { FB.error("マニュアルの保存に失敗: " + e.message); }
+  }
+
+  return { render };
+})();
+
+
 // ===== [9d] 主催者：参加者名簿 S-10（横断 / F-b） =====
 /* 「データ蓄積が価値」の証明にあたる画面。persons を横断で一覧し、同一人物の参加履歴を
    まとめて見る。Peatix はイベント終了30日後にフォームデータを削除するため、ここが差になる。
@@ -2330,6 +2749,8 @@ const Settings = (() => {
             ${implRow("イベント詳細・申込管理・CSV","C-3","done","実装済（チェックイン／取消・キャンセル・内容修正を永続）")}
             ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","done","実装済（名寄せ・トークン発行・定員判定・キャンセルを永続）")}
             ${implRow("確認URL／イベントURL／プレビュー","F-20","done","実装済（?ticket= / ?event= / ?preview= から復帰）")}
+            ${implRow("イベントマニュアル（Markdown）","F-99","done","実装済（編集／分割／プレビューの3ビュー。Markdownは自前描画でCDN非依存）")}
+            ${implRow("対象範囲（社外向け／社内外／社内向け）","F-98","done","実装済（既定は社外向け。社外向けは問い合わせ先が必須）")}
             ${implRow("お知らせ（主催者→参加者）","E-4","done","実装済（公開ページとマイ申込に表示。メール送信は不可のため掲示型）")}
             ${implRow("申込フォームのカスタム質問","F-a","done","実装済（定義・回答保存・CSV列・一覧表示）")}
             ${implRow("参加者名簿（横断・参加履歴）","F-b","done","実装済（名寄せ済みの蓄積を一覧・CSV出力）")}
@@ -2418,7 +2839,8 @@ const Participant = (() => {
       ${preview ? `<div class="note" style="margin-bottom:14px">これは<b>下書きのプレビュー</b>です（F-07）。参加者にはまだ見えません。</div>` : ""}
       <div class="pub">
         ${coverHtml(ev)}
-        <h1>${Util.esc(ev.title)}</h1>
+        <div style="margin-top:12px">${audienceBadge(ev)}</div>
+        <h1 style="margin-top:8px">${Util.esc(ev.title)}</h1>
         ${ev.status==="cancelled" ? `<div class="banner" style="position:static;border-radius:8px">このイベントは中止されました</div>`:""}
         <div class="kv">
           <div class="row"><span class="k">開催日時</span><span>${Util.fmtRange(ev.startAt, ev.endAt)}</span></div>
@@ -2782,6 +3204,13 @@ const Participant = (() => {
 
 
 // ===== [12] 汎用ヘルパ =====
+/* 対象範囲のバッジ（F-98）。社外の方が申込むイベントは一目で分かる必要がある。
+   個人情報の取り扱いも案内文も変わるため、主催者側・参加者側の両方に出す。 */
+function audienceBadge(ev) {
+  const a = Domain.audienceOf(ev);
+  return `<span class="badge aud ${a}">${Domain.AUDIENCE[a]}</span>`;
+}
+
 function groupBy(arr, key) {
   const m = {};
   for (const x of arr) (m[x[key]] ||= []).push(x);
@@ -2835,14 +3264,14 @@ const Wizard = (() => {
         venueName:ev.venueName||"", venueAddress:ev.venueAddress||"", description:ev.description||"",
         targetAudience:ev.targetAudience||"",
         capacity:ev.capacity||"", applyStartAt:ev.applyStartAt||"", applyDeadline:ev.applyDeadline||"",
-        visibility:ev.visibility||"public", contactInfo:ev.contactInfo||"",
+        visibility:ev.visibility||"public", audience:Domain.audienceOf(ev), contactInfo:ev.contactInfo||"",
         eventFormat:ev.eventFormat||"onsite", onlineUrl:ev.onlineUrl||"", onlineNote:ev.onlineNote||"",
         status:ev.status };
       questions = (ev.questions || []).map(q => ({ ...q, options:[...(q.options||[])] }));
     } else {
       form = { id:null, title:"", startAt:"", endAt:"", venueName:"", venueAddress:"", description:"",
         targetAudience:"", capacity:"", applyStartAt:"", applyDeadline:"",
-        visibility:"public", contactInfo:"",
+        visibility:"public", audience:Domain.DEFAULT_AUDIENCE, contactInfo:"",
         eventFormat:"onsite", onlineUrl:"", onlineNote:"", status:"draft" };
       questions = [];
     }
@@ -2884,6 +3313,7 @@ const Wizard = (() => {
       questions: questions.filter(q => q.label.trim()),   // ラベル未入力の行は捨てる（F-a）
       status,
       visibility: form.visibility,
+      audience: form.audience || Domain.DEFAULT_AUDIENCE,
       groupId: prev?.groupId ?? null,
       copiedFromId: prev?.copiedFromId ?? null,
       createdAt: prev?.createdAt || now,
@@ -3108,6 +3538,9 @@ const Wizard = (() => {
       issues.push("申込締切が開催日より後です");
     if (f.startAt && new Date(f.startAt).getTime() < Date.now())
       issues.push("開催日が過去の日時です");
+    // 社外の方は社内の連絡経路を使えないため、問い合わせ先を必須にする（F-98）
+    if (f.audience && f.audience !== "internal" && !f.contactInfo.trim())
+      issues.push("社外向けのイベントは問い合わせ先が必須です（F-98）");
     return issues;
   }
   function runPublishCheck() {
@@ -3162,6 +3595,12 @@ const Wizard = (() => {
         </div>
         ${questionEditor()}`;
       case "setting": return `
+        <div class="field"><label>対象範囲</label>
+          <select data-f="audience">
+            ${Object.entries(Domain.AUDIENCE).map(([k,v]) =>
+              `<option value="${k}" ${f.audience===k?"selected":""}>${v}</option>`).join("")}
+          </select>
+          <div class="hint">社外向け・社内外では<b>問い合わせ先が必須</b>になります（社外の方は社内の連絡経路を使えないため / F-98）</div></div>
         <div class="field"><label>公開範囲</label>
           <select data-f="visibility">
             <option value="public" ${f.visibility==="public"?"selected":""}>一般公開</option>
