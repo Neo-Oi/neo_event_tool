@@ -882,6 +882,30 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     content.querySelector("#csvBtn").click(); await wait(40);
   });
 
+  // 受け入れ確認3: 締切を開催日より後に設定して公開しようとすると検出される（F-06/F-50）
+  await step("受け入れ確認3: 締切>開催日は公開が止まる", async () => {
+    await M.Wizard.render(content, null); await wait(40);
+    const set = (f, v) => { content.querySelector(`[data-f="${f}"]`).value = v; };
+    const p2 = n => String(n).padStart(2, "0");
+    const dtLocal = (d) => { const x = new Date(Date.now() + d*86400000);
+      return `${x.getFullYear()}-${p2(x.getMonth()+1)}-${p2(x.getDate())}T14:00`; };
+    const ymd = (d) => { const x = new Date(Date.now() + d*86400000);
+      return `${x.getFullYear()}-${p2(x.getMonth()+1)}-${p2(x.getDate())}`; };
+    set("title", "締切検証イベント"); set("startAt", dtLocal(10)); set("endAt", dtLocal(10));
+    content.querySelector("#next").click(); await wait(80);        // → 会場
+    set("venueName", "会議室B");
+    content.querySelector("#next").click(); await wait(80);        // → 詳細
+    set("description", "締切検証用の説明");
+    content.querySelector("#next").click(); await wait(80);        // → 申込
+    set("capacity", "10"); set("applyDeadline", ymd(15));          // 締切が開催日より後
+    content.querySelector("#next").click(); await wait(80);        // → 設定
+    set("contactInfo", "事務局 test@example.com");
+    content.querySelector("#publish").click(); await wait(40);
+    if (window.document.querySelector("#modalHost .modal")) throw new Error("締切>開催日なのに公開確認が出た");
+    const made = (await M.Repo.events.all()).find(e => e.title === "締切検証イベント");
+    if (!made || made.status !== "draft") throw new Error("締切>開催日なのに公開された");
+  });
+
   // ---- 受け入れ確認（要件定義書 4-5）を通しで（D-4） ----
   await step("D-4 通し: 作成→公開→申込→受付→CSV→中止", async () => {
     await M.Repo.reset();

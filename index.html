@@ -3839,13 +3839,13 @@ const Seed = (() => {
       uploadedAt:day(offset, 11, 0), uploadedBy:by });
     const files = [
       mkFile("ev_seminar", "会場レイアウト.txt", "text/plain",
-        "セミナールーム 座席配置\\n\\n前方: 登壇者席2 / スクリーン\\n中央: 6列×8席=48席\\n後方: 配信機材・スタッフ席\\n通路: 中央に1本（幅1.2m）\\n", -6, "運営A"),
+        "セミナールーム 座席配置\n\n前方: 登壇者席2 / スクリーン\n中央: 6列×8席=48席\n後方: 配信機材・スタッフ席\n通路: 中央に1本（幅1.2m）\n", -6, "運営A"),
       mkFile("ev_seminar", "進行台本.txt", "text/plain",
-        "13:30 開場・受付開始\\n14:00 開会挨拶（運営A・3分）\\n14:05 事例紹介1（20分）\\n14:30 休憩（10分）\\n14:40 事例紹介2（20分）\\n15:05 質疑応答（20分）\\n15:30 閉会\\n", -4, "運営B"),
+        "13:30 開場・受付開始\n14:00 開会挨拶（運営A・3分）\n14:05 事例紹介1（20分）\n14:30 休憩（10分）\n14:40 事例紹介2（20分）\n15:05 質疑応答（20分）\n15:30 閉会\n", -4, "運営B"),
       mkFile("ev_seminar", "受付名簿_提出用.csv", "text/csv",
-        "会社名,氏名,来場予定\\n株式会社アルファ,山田 涼子,現地\\n株式会社ベータ,中村 大輔,オンライン\\n", -2, "運営A"),
+        "会社名,氏名,来場予定\n株式会社アルファ,山田 涼子,現地\n株式会社ベータ,中村 大輔,オンライン\n", -2, "運営A"),
       mkFile("ev_public", "登壇者一覧.txt", "text/plain",
-        "枠1 自社 開発部\\n枠2 社外ゲスト（要入館手続き）\\n枠3 社外ゲスト（要入館手続き）\\n枠4 自社 情報システム部\\n枠5 LT枠（当日募集）\\n", -5, "運営B"),
+        "枠1 自社 開発部\n枠2 社外ゲスト（要入館手続き）\n枠3 社外ゲスト（要入館手続き）\n枠4 自社 情報システム部\n枠5 LT枠（当日募集）\n", -5, "運営B"),
     ];
 
     // この端末が保持する自分の申込トークン（F-56）。マイ申込に表示される
@@ -3895,11 +3895,19 @@ const Dashboard = (() => {
        「満席」とだけ出ても、増席するのか案内を出すのかが分からず手が止まるため。
        level は緊急度で、danger（今日中）→ warn（近い）→ mute（放置）の順に並べる。 */
     const attn = [];
+    // 「本日・明日」は暦日で比較する。ミリ秒差の floor だと、開始時刻を過ぎた
+    // 当日イベントが d=-1 になって要対応から消え、深夜に見ると翌朝のイベントが
+    // 「本日開催」と誤表示される
+    const calDays = (iso) => {
+      const a = new Date(now); a.setHours(0,0,0,0);
+      const b = new Date(iso); b.setHours(0,0,0,0);
+      return Math.round((b - a) / 86400000);
+    };
     for (const e of events) {
       const ap = appsByEv[e.id]||[];
       const cap = Domain.capacity(e), used = Domain.usedSeats(ap), rem = Domain.remaining(e, ap);
       if (e.status==="published" && e.startAt) {
-        const d = Util.daysBetween(now, new Date(e.startAt).getTime());
+        const d = calDays(e.startAt);
         if (d===0) attn.push({ ev:e, kind:"date", level:"danger", reason:"本日開催",
           action:"当日の運営を最終確認してください。受付の準備とマニュアルの確認を。" });
         else if (d===1) attn.push({ ev:e, kind:"date", level:"warn", reason:"明日開催",
@@ -4172,13 +4180,16 @@ const EventsList = (() => {
     const tasksByEv = groupBy(tasks, "eventId");
     const reads = Ops.readMap(readRows);
 
-    // 区分（F-44 表）
+    // 区分（F-44 表）。「これから」は開催日 ≧ 今日の**日単位**判定——
+    // 開始時刻との比較にすると、開催当日の開始時刻を過ぎた瞬間（開催中！）に
+    // 「終了・中止」へ落ちてしまう
+    const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
     const groups = { undated:[], upcoming:[], past:[] };
     for (const e of events) {
       const started = e.startAt ? new Date(e.startAt).getTime() : null;
       if (started == null && e.status !== "cancelled") groups.undated.push(e);
       else if (e.status === "cancelled") groups.past.push(e);
-      else if (started < now) groups.past.push(e);
+      else if (started < todayStart.getTime()) groups.past.push(e);
       else groups.upcoming.push(e); // 開催日 ≧ 今日（中止を除く）
     }
     groups.undated.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt)); // 作成日降順
@@ -4657,7 +4668,7 @@ const EventDetail = (() => {
   const shareUrl = (ev) => `${location.origin}${location.pathname}?event=${ev.id}`;
   const postText = (ev, url) =>
 `【${ev.title}】を開催します！
-🗓 ${ev.startAt ? Util.fmtDateTime(ev.startAt) : "日程調整中"}
+🗓 ${ev.startAt ? Util.fmtRange(ev.startAt, ev.endAt) : "日程調整中"}
 📍 ${ev.venueName || "会場調整中"}
 参加申込はこちら👇
 ${url}`;
@@ -5698,8 +5709,21 @@ const Settings = (() => {
         </table>
       </div>`;
     el.querySelector("#seed").onclick = async () => {
-      try { await Seed.load(); FB.toast("デモデータを投入しました"); App.refresh(); }
-      catch (e) { FB.error("シード投入に失敗: " + e.message); }
+      const doSeed = async () => {
+        try { await Seed.load(); FB.toast("デモデータを投入しました"); App.refresh(); }
+        catch (e) { FB.error("シード投入に失敗: " + e.message); }
+      };
+      /* データが残ったまま重ねて投入すると、イベント・参加者は固定IDで上書きされる一方、
+         申込・メッセージ・タスク・ファイルは毎回新しいIDで**重複していく**。
+         残っている場合は初期化してから投入する（受け入れ確認 4-5 の14と同じ手順）。 */
+      const existing = await Repo.events.all();
+      if (!existing.length) { await doSeed(); return; }
+      FB.confirmModal({ title:"既にデータがあります", okLabel:"初期化して投入", danger:true,
+        body:"そのまま追加すると申込・タスクなどが重複します。<b>すべてのデータを初期化してから</b>デモデータを投入します。",
+        onOk: async () => {
+          try { await Repo.reset(); } catch (e) { FB.error("初期化に失敗: " + e.message); return; }
+          await doSeed();
+        } });
     };
     el.querySelector("#reset").onclick = async () => {
       if (!confirm("データベースを初期化します。すべてのデータが削除されます。よろしいですか？")) return;
@@ -5750,7 +5774,10 @@ const Participant = (() => {
     const [ev, apps] = await Promise.all([
       Repo.events.get(eventId),
       Repo.applications.byEvent(eventId)]);
-    const preview = App.isPreview(eventId);   // 下書きの見え方確認（F-07）
+    // 下書きの見え方確認（F-07）。プレビュー扱いは**下書きに限る**——
+    // previewId は解除されずに残るため、プレビュー後に公開したイベントを
+    // 開いたときまで「下書きのプレビュー」バナーが出てしまう
+    const preview = !!ev && ev.status === "draft" && App.isPreview(eventId);
     if (!ev || (ev.status === "draft" && !preview)) {
       el.innerHTML = `<div class="empty"><div class="big">このイベントは表示できません</div></div>`; return;
     }
@@ -5808,10 +5835,13 @@ const Participant = (() => {
     const f = ev.eventFormat || "onsite";
     if (f === "onsite" || !ev.onlineUrl) return "";
     if (cancelled) return `<div class="ops-note">キャンセル済みのため視聴URLは表示されません。</div>`;
+    // リンク化は https?: のみ（マニュアルの Markdown リンクと同じ規則）。
+    // esc() は属性値を安全にするだけで javascript: スキームは通してしまう
+    const linkable = /^https?:\/\//i.test(ev.onlineUrl);
     return `<div class="online-box">
       <div class="oh">${Domain.FORMAT[f]}の視聴情報（申込者のみ）</div>
       <div class="copybox"><input readonly value="${Util.esc(ev.onlineUrl)}">
-        <a class="btn primary" href="${Util.esc(ev.onlineUrl)}" target="_blank" rel="noopener">開く</a></div>
+        ${linkable ? `<a class="btn primary" href="${Util.esc(ev.onlineUrl)}" target="_blank" rel="noopener">開く</a>` : ""}</div>
       ${ev.onlineNote ? `<div class="on">${Util.esc(ev.onlineNote)}</div>` : ""}
     </div>`;
   };
@@ -6463,6 +6493,9 @@ const Wizard = (() => {
       issues.push("申込締切が開催日より後です");
     if (f.startAt && new Date(f.startAt).getTime() < Date.now())
       issues.push("開催日が過去の日時です");
+    // 視聴URLは http(s) のみ（F-93）。それ以外はマイ申込でリンク化されない
+    if ((f.onlineUrl || "").trim() && !/^https?:\/\//i.test(f.onlineUrl.trim()))
+      issues.push("視聴URLは http:// または https:// で始まる形式にしてください（F-93）");
     // 社外の方は社内の連絡経路を使えないため、問い合わせ先は常に必須（F-98）
     if (!f.contactInfo.trim())
       issues.push("問い合わせ先が未入力です（社外の方の唯一の連絡手段になります / F-98）");
