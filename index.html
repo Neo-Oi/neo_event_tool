@@ -27,11 +27,15 @@
    実際に使われている色: 本文 #20272e / アクセント #194bf4 / 罫線 #dee5ed /
    淡い青 #eff2ff / グレー #949494・#727272。
    状態を表す色（--ok / --warn / --danger）は意味を持つので変えていない。
-   ヒートマップの5段階は #dee5ed → #194bf4 の補間で算出した。 */
+   ヒートマップの5段階は #dee5ed → #194bf4 の補間で算出した。
+
+   **--muted と --draft はサイトのグレー（#727272 / #949494）をそのまま使うと
+   文字色として薄すぎる**（下書きバッジで 2.66:1、WCAG AA の 4.5 に届かない）。
+   文字として読ませる色なので、彩りより可読性を優先して暗くした。 */
 :root{
   --navy:#20272e; --navy-2:#3b4147; --blue:#194bf4; --blue-weak:#eff2ff;
-  --ink:#20272e; --muted:#727272; --line:#dee5ed; --bg:#f4f6fa; --card:#fff;
-  --ok:#137a4b; --warn:#b26a00; --danger:#c02828; --draft:#949494;
+  --ink:#20272e; --muted:#6b6b6b; --line:#dee5ed; --bg:#f4f6fa; --card:#fff;
+  --ok:#137a4b; --warn:#b26a00; --danger:#c02828; --draft:#5f5f5f;
   --radius:10px; --shadow:0 1px 3px rgba(32,39,46,.08),0 4px 16px rgba(32,39,46,.06);
   /* 申込ヒートマップの5段階（F-103）。--blue に向けた補間 */
   --hm-0:#dee5ed; --hm-1:#b3c3ef; --hm-2:#7f9bf0; --hm-3:#4c73f2; --hm-4:#194bf4;

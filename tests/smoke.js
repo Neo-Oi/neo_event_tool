@@ -127,6 +127,30 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     for (const c of ["#137a4b", "#b26a00", "#c02828"])
       if (!css.includes(c)) throw new Error("状態色が失われている: " + c);
   });
+  await step("文字色のコントラストが WCAG AA を満たす", async () => {
+    /* 配色をサイトに寄せたとき、サイトのグレーをそのまま文字に使って
+       下書きバッジが 2.66:1 まで落ちたことがある。数値で縛っておく。 */
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const v = (name) => (css.match(new RegExp("--" + name + ":\\s*(#[0-9a-f]{6})", "i")) || [])[1];
+    const hx = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+    const lin = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+    const L = (c) => { const [r, g, b] = hx(c); return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b); };
+    const ratio = (a, b) => { const x = L(a), y = L(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const checks = [
+      ["本文",             v("ink"),   "#ffffff"],
+      ["補助テキスト",       v("muted"), "#ffffff"],
+      ["補助（ページ地）",    v("muted"), v("bg")],
+      ["下書き・開催済バッジ", v("draft"), "#eef0f3"],
+      ["アクセント on 淡青",  v("blue"),  v("blue-weak")],
+      ["ヘッダー文字",       "#ffffff",  v("navy")],
+    ];
+    for (const [name, fg, bg] of checks) {
+      if (!fg || !bg) throw new Error(name + " の色を読み取れない: " + fg + " / " + bg);
+      const r = ratio(fg, bg);
+      if (r < 4.5) throw new Error(`${name} のコントラストが不足: ${r.toFixed(2)}:1（${fg} on ${bg}、AA は 4.5 以上）`);
+    }
+  });
+
   await step("書体は外部CSSを読まず @font-face をインラインで持つ", async () => {
     /* 条文は「JS と CSS はインラインに置く」。<link> で外部CSSを読むのは違反なので、
        @font-face を自分で書き、フォント実体だけを配布元から取る形にしている。 */
