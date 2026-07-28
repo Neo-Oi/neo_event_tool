@@ -5774,7 +5774,10 @@ const Participant = (() => {
     const [ev, apps] = await Promise.all([
       Repo.events.get(eventId),
       Repo.applications.byEvent(eventId)]);
-    const preview = App.isPreview(eventId);   // 下書きの見え方確認（F-07）
+    // 下書きの見え方確認（F-07）。プレビュー扱いは**下書きに限る**——
+    // previewId は解除されずに残るため、プレビュー後に公開したイベントを
+    // 開いたときまで「下書きのプレビュー」バナーが出てしまう
+    const preview = !!ev && ev.status === "draft" && App.isPreview(eventId);
     if (!ev || (ev.status === "draft" && !preview)) {
       el.innerHTML = `<div class="empty"><div class="big">このイベントは表示できません</div></div>`; return;
     }
