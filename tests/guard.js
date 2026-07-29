@@ -93,6 +93,18 @@ else {
   if (hits) fail(`Repository 層を迂回した DB 直呼びが ${hits.length} 件あります（Repo にメソッドを足して経由させてください）`);
 }
 
+/* --- ビュー切替の一元化（F-81b） ---
+   参加者ビューは viewport を width=device-width に差し替えて実機の幅で描く。
+   body.dataset.view を直接書く箇所が増えると **その経路だけ切替が漏れ**、
+   参加者の画面が 1024px 幅のまま縮小表示される（画面を見ても気づきにくい）。
+   代入は App.applyView() の1箇所だけに保つ。 */
+const viewAssign = code.match(/document\s*\.\s*body\s*\.\s*dataset\s*\.\s*view\s*=/g) || [];
+if (viewAssign.length !== 1)
+  fail(`body.dataset.view への代入が ${viewAssign.length} 箇所あります（1 であるべき）。` +
+       `App.applyView() に集約してください——viewport の切替が漏れます`);
+if (!/name="viewport"/.test(body))
+  fail("viewport の meta がありません（参加者ビューのスマホ表示に必要です / F-81b）");
+
 // --- 区画マーカーの並び（引き継ぎ書 7-3） ---
 const markers = [...html.matchAll(/^\/\/ ===== \[([0-9]+[a-z]?)\]/gm)].map(x => x[1]);
 const key = (s) => {

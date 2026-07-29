@@ -37,7 +37,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 (async () => {
   window.eval(vendorText);                    // 先にライブラリを読み込む
   window.eval(scriptText +
-    "\n;window.__M={QR_READ_LIB,App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,FB};");
+    "\n;window.__M={QR_READ_LIB,App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,Auth,FB};");
   await wait(300);
 
   const M = window.__M;
@@ -110,7 +110,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (c("=HYPERLINK(\"http://evil\",\"x\")") !== '"\'=HYPERLINK(""http://evil"",""x"")"')
       throw new Error("引用符との組み合わせが不正: " + c('=HYPERLINK("http://evil","x")'));
     // 通常の値は変えない
-    for (const ok of ["田中 太郎", "tanaka@alpha.example.com", "3", "2026/08/11 18:30", ""])
+    for (const ok of ["田中 太郎", "abc@example.com", "3", "2026/08/11 18:30", ""])
       if (c(ok) !== ok) throw new Error("通常の値が変わった: " + ok + " → " + c(ok));
     // 実際の出力にも効いていること
     const csv = M.Util.buildCsv([["氏名"], ["=cmd|'/c calc'!A1"]]);
@@ -741,7 +741,86 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 
   // 参加者（最後仕上げ。表示のみ確認）
   await step("Participant.renderPublic(ev_public)", async () => { await M.Participant.renderPublic(content, "ev_public"); nonEmpty("public"); });
-  await step("Participant.renderMyTicket（マイ申込）", async () => { await M.Participant.renderMyTicket(content); if (!content.innerHTML.includes("マイ申込")) throw new Error("マイ申込の見出しなし"); if (content.querySelectorAll(".ticket-item").length !== 3) throw new Error("件数不正"); });
+  /* イベントを探す（F-83b）。開いても「受付終了」しか押せないイベントを並べない。 */
+  await step("F-83b イベントを探すに締切切れ・終了・中止を出さない", async () => {
+    await M.Participant.renderList(content); await wait(40);
+    const shown = [...content.querySelectorAll("[data-ev]")].map(c => c.dataset.ev);
+    if (!shown.length) throw new Error("1件も出ていない");
+    const evs = await M.Repo.events.all();
+    for (const id of shown) {
+      const ph = M.Domain.timing(evs.find(e => e.id === id)).phase;
+      if (ph !== "open" && ph !== "before") throw new Error(`${id} は ${ph} なのに出ている`);
+    }
+    // 除外対象が実際にシードに居ること（居なければ検証になっていない）
+    const hidden = evs.filter(e => e.status === "published" && e.visibility === "public" &&
+      ["closed", "held", "cancelled"].includes(M.Domain.timing(e).phase));
+    if (!hidden.length) throw new Error("締切切れ・終了・中止の公開イベントがシードに無い");
+    const leaked = hidden.filter(e => shown.includes(e.id));
+    if (leaked.length) throw new Error("出てはいけない: " + leaked.map(e => e.id).join(","));
+  });
+
+  /* ---- 参加者のログイン（F-107）----
+     一覧はログイン必須。ただし確認URLで開く1件はトークンが認可なのでログイン不要（4-6）。 */
+  await step("F-107 マイ申込はログインが必要", async () => {
+    M.Auth.logout(); M.Participant.resetMyTicket();
+    await M.Participant.renderMyTicket(content); await wait(30);
+    if (!content.querySelector("#lgPw")) throw new Error("ログイン画面が出ない");
+    if (content.querySelector(".ticket-item")) throw new Error("ログイン前なのに申込が見えている");
+    // 誤解を招かないよう限界を明記している（F-101 と同じ立場）
+    if (!content.innerHTML.includes("操作の抑止")) throw new Error("保護の限界が説明されていない");
+  });
+  await step("F-107 誤ったパスワードでは入れず、入力したメールは残る", async () => {
+    content.querySelector("#lgEmail").value = "abc@example.com";
+    content.querySelector("#lgPw").value = "wrong";
+    content.querySelector("#lgGo").click(); await wait(40);
+    if (!content.querySelector("#lgPw")) throw new Error("誤りでも入れた");
+    if (!content.innerHTML.includes("メールアドレスまたはパスワードが違います")) throw new Error("エラーが出ない");
+    if (content.querySelector("#lgEmail").value !== "abc@example.com") throw new Error("メールが消えた");
+  });
+  await step("F-107 未登録のメールでも文言を変えない（登録の有無を漏らさない）", async () => {
+    content.querySelector("#lgEmail").value = "nobody@example.com";
+    content.querySelector("#lgPw").value = "abc123";
+    content.querySelector("#lgGo").click(); await wait(40);
+    if (!content.innerHTML.includes("メールアドレスまたはパスワードが違います")) throw new Error("文言が違う");
+  });
+  await step("F-107 パスワードを持たない人はログインできない", async () => {
+    let threw = false;
+    try { await M.Auth.login("suzuki@beta.example.com", ""); } catch { threw = true; }
+    if (!threw) throw new Error("パスワード未設定でも通ってしまう");
+    if (M.Auth.person()) throw new Error("ログイン状態になっている");
+  });
+  await step("F-107 abc@example.com / abc123 で入れ、本人の申込だけが出る", async () => {
+    content.querySelector("#lgEmail").value = "abc@example.com";
+    content.querySelector("#lgPw").value = "abc123";
+    content.querySelector("#lgGo").click(); await wait(60);
+    if (content.querySelector("#lgPw")) throw new Error("ログインできない");
+    if (M.Auth.person().id !== "p0") throw new Error("別人になっている: " + M.Auth.person().id);
+    /* 一覧の出どころが端末の控え（savedTokens）ではなく personId であること。
+       控えは3件しか無いので、本人の申込数と一致すれば personId で引いている証拠になる。 */
+    const mine = await M.Repo.applications.byPerson("p0");
+    const shown = [...content.querySelectorAll(".ticket-item")];
+    const exists = [];
+    for (const a of mine) if (await M.Repo.events.get(a.eventId)) exists.push(a);
+    if (!exists.length) throw new Error("本人の申込が0件（シードを確認）");
+    if (shown.length !== exists.length)
+      throw new Error(`件数不正: 画面${shown.length} / 本人${exists.length}`);
+    if (!shown.every(c => mine.some(a => a.token === c.dataset.token)))
+      throw new Error("他人の申込が混ざっている");
+  });
+  await step("F-107 ログアウトできる", async () => {
+    content.querySelector("#lgOut").click(); await wait(40);
+    if (!content.querySelector("#lgPw")) throw new Error("ログアウトできない");
+    if (M.Auth.person()) throw new Error("ログイン状態が残っている");
+  });
+  await step("F-107 確認URLの1件はログイン無しで見られる（4-6 / F-20）", async () => {
+    const { token } = await savedTokenFor("ev_public");
+    M.Auth.logout();
+    M.Participant.selectTicket(token);
+    await M.Participant.renderMyTicket(content); await wait(40);
+    if (content.querySelector("#lgPw")) throw new Error("トークン経由でログインを求めている");
+    if (!content.querySelector("#toPublic")) throw new Error("申込詳細が出ない");
+    M.Participant.resetMyTicket();
+  });
 
   // ---- C-3: 申込管理の永続化 ----
   await step("C-3 チェックインと取消が永続（F-24）", async () => {
@@ -777,7 +856,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   await step("C-3 別人のメールアドレスへは変更できない（4-5）", async () => {
     const target = (await M.Repo.applications.byEvent("ev_soon"))[0];
     let threw = false;
-    try { await M.AppSvc.editApplicant(target.id, { name:"a", kana:"ア", email:"tanaka@alpha.example.com" }); }
+    try { await M.AppSvc.editApplicant(target.id, { name:"a", kana:"ア", email:"abc@example.com" }); }
     catch { threw = true; }
     if (!threw) throw new Error("誤統合が許されている");
   });
@@ -787,7 +866,8 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     const evId = "ev_limited";
     const beforeP = (await M.Repo.persons.all()).length;
     const { app, person } = await M.AppSvc.apply(evId, {
-      name:"田中 太郎", kana:"たなか たろう", email:" TANAKA@ALPHA.example.com ", consent:true, answers:{} });
+      // 前後の空白と大文字は emailKey の正規化（trim + 小文字化のみ / 4-5）で吸収される
+      name:"田中 太郎", kana:"たなか たろう", email:" ABC@Example.com ", consent:true, answers:{} });
     if ((await M.Repo.persons.all()).length !== beforeP) throw new Error("既存の人が名寄せされず増えた");
     if (person.id !== "p0") throw new Error("emailKey での名寄せが効いていない: " + person.id);
     if (person.nameKana !== "タナカ タロウ") throw new Error("カナがカタカナ化されていない");
@@ -796,14 +876,14 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   });
   await step("C-2 同一イベントへの二重申込を拒否（F-17）", async () => {
     let threw = false;
-    try { await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"tanaka@alpha.example.com", consent:false, answers:{} }); }
+    try { await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"abc@example.com", consent:false, answers:{} }); }
     catch { threw = true; }
     if (!threw) throw new Error("二重申込ができてしまう");
   });
   await step("C-2 キャンセル後の再申込は許す（F-42）", async () => {
     const mine = (await M.Repo.applications.byEvent("ev_limited")).filter(a => a.personId === "p0");
     await M.AppSvc.cancel(mine[0].id);
-    const { app } = await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"tanaka@alpha.example.com", consent:false, answers:{} });
+    const { app } = await M.AppSvc.apply("ev_limited", { name:"田中 太郎", kana:"タナカ タロウ", email:"abc@example.com", consent:false, answers:{} });
     if (!app) throw new Error("再申込できない");
     const all = (await M.Repo.applications.byEvent("ev_limited")).filter(a => a.personId === "p0");
     if (all.length !== 2) throw new Error("再申込が別レコードになっていない: " + all.length);
@@ -874,6 +954,85 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     window.history.replaceState(null, "", "/index.html?preview=" + draft.id);
     await M.App.routeFromUrl(); await wait(60);
     if (!content.innerHTML.includes("下書きのプレビュー")) throw new Error("プレビュー表示にならない");
+  });
+
+  /* ---- 参加者ビューのスマホ表示（F-81b） ----
+     主催者側は PC幅のみのまま（F-81）。切り替わるのは参加者側だけ。 */
+  const cssText = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  const mobileBlock = () => {
+    const m = cssText.match(/@media \(max-width:640px\) \{([\s\S]*?)\n\}/);
+    if (!m) throw new Error("参加者ビュー用のメディアクエリ（max-width:640px）が無い");
+    return m[1];
+  };
+  const vpContent = () =>
+    window.document.querySelector('meta[name="viewport"]').getAttribute("content");
+
+  await step("F-81b 主催者ビューの viewport は PC幅のまま（F-81）", async () => {
+    M.App.setView("organizer"); await wait(60);
+    if (vpContent() !== "width=1024") throw new Error("PC幅固定でない: " + vpContent());
+  });
+  await step("F-81b 参加者ビューは実機の幅で描く", async () => {
+    M.App.setView("participant"); await wait(60);
+    if (!/width=device-width/.test(vpContent())) throw new Error("device-width にならない: " + vpContent());
+    if (window.document.body.dataset.view !== "participant") throw new Error("body の属性が切り替わらない");
+    M.App.setView("organizer"); await wait(60);
+    if (vpContent() !== "width=1024") throw new Error("主催者ビューへ戻しても device-width のまま");
+  });
+  /* 確認URLからの復帰は setView を通らない別経路。**ここが applyView を迂回していると、
+     参加者がメールのURLから開いたときだけ 1024px 幅の縮小表示になる**（F-20 / F-81b）。 */
+  await step("F-81b 確認URLからの復帰でも viewport が切り替わる", async () => {
+    const { token } = await savedTokenFor("ev_public");
+    window.history.replaceState(null, "", "/index.html?ticket=" + token);
+    await M.App.routeFromUrl(); await wait(60);
+    if (!/width=device-width/.test(vpContent()))
+      throw new Error("routeFromUrl が applyView を迂回している: " + vpContent());
+    M.App.setView("organizer"); await wait(60);
+  });
+  /* 描画の直列化。要求が重なったとき、以前は**遅い方が後から上書きして**
+     先に始めた画面が勝っていた。最後の要求だけが残ること。 */
+  await step("描画が重なっても最後の要求だけが残る", async () => {
+    M.Auth.logout(); M.Participant.resetMyTicket();
+    M.App.setView("participant");     // 一覧の描画を要求し…
+    M.App.go("myticket");             // …待たずに別ページを要求する
+    await wait(200);
+    if (!content.querySelector("#lgPw"))
+      throw new Error("先の描画に上書きされた: " + content.innerHTML.replace(/\s+/g, " ").slice(0, 90));
+    // 逆向きも同じこと（後の要求が一覧なら一覧が残る）
+    M.App.go("myticket");
+    M.App.go("list");
+    await wait(200);
+    if (!content.innerHTML.includes("開催予定のイベント"))
+      throw new Error("一覧が残らない: " + content.innerHTML.replace(/\s+/g, " ").slice(0, 90));
+    M.App.setView("organizer"); await wait(80);
+  });
+
+  // 主催者ビューへ戻ると参加者はログアウトする（F-107 / F-101 の名簿再ロックと対称）
+  await step("F-107 主催者ビューへ戻るとログアウトする", async () => {
+    await M.Auth.login("abc@example.com", "abc123");
+    if (!M.Auth.person()) throw new Error("前提のログインが成立していない");
+    M.App.setView("organizer"); await wait(60);
+    if (M.Auth.person()) throw new Error("ログインが残っている");
+  });
+  /* スマホ用のルールが主催者ビューに漏れると、PC でウィンドウを縮めたときに
+     主催者側のレイアウトが崩れる（viewport の指定はデスクトップでは無視されるため、
+     メディアクエリだけが当たる）。全ルールが参加者ビューにスコープされていること。 */
+  await step("F-81b スマホ用CSSが主催者ビューに漏れていない", async () => {
+    const selectors = mobileBlock().split("}")
+      .map(s => s.split("{")[0].replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    if (!selectors.length) throw new Error("ルールが1つも無い");
+    const leaked = selectors.filter(s =>
+      !s.split(",").every(one => one.trim().startsWith('body[data-view="participant"]')));
+    if (leaked.length) throw new Error("スコープされていないルール: " + leaked.join(" / "));
+  });
+  /* iOS Safari は 16px 未満の入力欄にフォーカスすると自動でズームし、戻らない。
+     申込フォームは参加者が必ず通る画面なので、ここは見た目より挙動を優先する。 */
+  await step("F-81b 入力欄は16px以上（iOS の自動ズーム防止）", async () => {
+    const rule = mobileBlock().match(/\.field input[\s\S]*?\{([^}]*)\}/);
+    if (!rule) throw new Error("入力欄のルールが無い");
+    const m = rule[1].match(/font-size:\s*(\d+(?:\.\d+)?)px/);
+    if (!m) throw new Error("font-size が指定されていない");
+    if (parseFloat(m[1]) < 16) throw new Error("16px 未満では iOS が自動ズームする: " + m[1] + "px");
   });
 
   // ---- F-b / F-c / F-d / F-f ----
