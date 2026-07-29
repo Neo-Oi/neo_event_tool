@@ -2,6 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<!-- viewport はビューごとに切り替える（F-81 / F-81b）。ここは主催者ビューの初期値。
+     主催者側は PC幅のみなので 1024px 固定、参加者側は App.applyView() が
+     width=device-width に差し替える。**参加者ビューは実機の幅で描く。** -->
 <meta name="viewport" content="width=1024">
 <title>イベント管理システム</title>
 <style>
@@ -47,6 +50,8 @@ html,body{margin:0;padding:0}
 body{font-family:"Jost",system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
   color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6;min-width:1024px;
   -webkit-font-smoothing:antialiased}
+/* 参加者ビューだけ下限を外す（F-81b）。主催者ビューは PC幅のみなので 1024px を残す */
+body[data-view="participant"]{min-width:0}
 button{font:inherit;cursor:pointer}
 a{color:var(--blue)}
 h1,h2,h3{margin:0}
@@ -363,6 +368,10 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .lock p{color:var(--muted);margin:0 0 16px;font-size:13px}
 .lock .lk-form{display:flex;gap:8px;justify-content:center}
 .lock .lk-form input{width:220px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font:inherit}
+/* 参加者のログイン（F-107）は入力欄が2つあるので縦積みにする */
+.lock .lk-form.col{flex-direction:column;align-items:center}
+.lock .lk-form.col input{width:100%;max-width:260px}
+.lock .lk-form.col .btn{margin-top:2px}
 .lock .lk-err{color:var(--danger);font-size:13px;font-weight:700;margin-top:10px}
 
 /* 参加者名簿（横断 / F-b） */
@@ -525,6 +534,89 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .modal.wide{width:560px}
 .modal.wide .field{margin-bottom:12px;text-align:left}
 .modal .modal-actions .spacer{flex:1}
+
+/* ===== 参加者ビューのスマホ表示（F-81b） =====
+   主催者側は PC幅のみのまま（F-81）。**社外の参加者の端末は選べない**ので、
+   参加者側だけを実機の幅で描く。
+
+   すべてのルールを `body[data-view="participant"]` にスコープしている理由:
+   参加者ビューでは viewport を width=device-width に切り替えるが、
+   **PC のブラウザ幅を縮めた場合は viewport の指定が無視される**ため、
+   スコープを外すと主催者ビューにもこのブロックが当たってしまう。
+
+   境界は 640px。`main` の max-width が参加者ビューで 640px なので、
+   それ以下ではもともと横幅いっぱいに使っている＝そこから下だけを組み替える。 */
+@media (max-width:640px) {
+  /* ヘッダー: ロゴ・アプリ名・役割切替・ユーザーの4つは並ばない。
+     ロゴ（会社の署名。社外の方への信頼の手がかり）と役割切替を残し、
+     アプリ名とユーザー表示を落とす。ユーザー表示「運営担当」は主催者側の概念で、
+     参加者の画面には元から意味が無い。 */
+  body[data-view="participant"] header.appbar{padding:0 12px;gap:8px;overflow:hidden}
+  /* ロゴは 483x37 の横長で、height:22px だと約287px を占める。14px まで落とす。
+     さらに狭い端末では縮小して収める（潰さずに比率を保つため object-fit） */
+  body[data-view="participant"] header.appbar .logo{flex:0 1 auto;min-width:0}
+  body[data-view="participant"] header.appbar .logo img{height:14px;max-width:100%;
+    object-fit:contain;object-position:left}
+  body[data-view="participant"] header.appbar .brand{display:none}
+  body[data-view="participant"] header.appbar .user{display:none}
+  body[data-view="participant"] header.appbar .role{flex:none}
+  body[data-view="participant"] header.appbar .role button{padding:5px 11px;font-size:12px}
+  body[data-view="participant"] header.appbar .role .vw{display:none}
+
+  /* タブは2つ。幅を等分し、指で押せる高さ（約46px）を確保する */
+  body[data-view="participant"] nav.tabs{padding:0}
+  body[data-view="participant"] nav.tabs button{flex:1;min-width:0;padding:14px 6px;font-size:14px}
+
+  /* 本文。長いトークンやURLが載るので折り返しを許す */
+  body[data-view="participant"] main{padding:16px 14px 60px;overflow-wrap:break-word}
+  body[data-view="participant"] .page-head{flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  body[data-view="participant"] .page-head h2{font-size:18px}
+  body[data-view="participant"] .card.pad{padding:14px}
+  body[data-view="participant"] .empty{padding:32px 12px}
+
+  /* 公開ページ */
+  body[data-view="participant"] .pub .cover{height:150px}
+  body[data-view="participant"] .pub h1{font-size:20px;margin:14px 0 6px}
+  body[data-view="participant"] .pub .kv{padding:12px}
+  body[data-view="participant"] .pub .apply{padding:16px;font-size:16px}
+
+  /* 定義リストは横並びを解いて縦に積む。`.k` の固定幅（96px / 120px）を
+     狭い画面に残すと、値の側が数文字ぶんしか残らない */
+  body[data-view="participant"] .pub .kv .row,
+  body[data-view="participant"] .summary .row{flex-direction:column;gap:2px;padding:6px 0}
+  body[data-view="participant"] .pub .kv .row .k,
+  body[data-view="participant"] .summary .row .k{width:auto;font-size:12px;font-weight:600}
+
+  /* 入力欄。**font-size は 16px 以上にする。**
+     iOS Safari は 16px 未満の入力欄にフォーカスすると自動でズームし、
+     戻らないまま横スクロールが残る。申込フォームは参加者が必ず通る画面なので、
+     ここだけは見た目より挙動を優先する。 */
+  body[data-view="participant"] .field input,
+  body[data-view="participant"] .field textarea,
+  body[data-view="participant"] .field select,
+  body[data-view="participant"] .lock .lk-form input{font-size:16px;padding:11px 12px}
+  body[data-view="participant"] .flow-steps{gap:6px;font-size:12px}
+
+  /* ボタンは指で押せる大きさに（縦 約42px） */
+  body[data-view="participant"] .btn{padding:11px 16px;font-size:14px}
+  body[data-view="participant"] .btn.sm{padding:8px 12px;font-size:13px}
+  body[data-view="participant"] .row-actions{flex-wrap:wrap}
+
+  /* 確認URL・視聴URLの入力欄は1行を占め、ボタンは下へ回す */
+  body[data-view="participant"] .copybox{flex-wrap:wrap}
+  body[data-view="participant"] .copybox input{flex:1 1 100%}
+
+  /* 受付用QR。既定は 5px セル（約145px）で、他人の端末のカメラには小さい。
+     SVG は viewBox を持つので幅で拡大できる */
+  body[data-view="participant"] .qr-box svg{width:100%;max-width:240px;height:auto;
+    display:block;margin:0 auto}
+
+  /* トーストは画面幅に収める（右下 20px 固定だと溢れる） */
+  body[data-view="participant"] #toastHost{left:12px;right:12px;bottom:12px}
+
+  body[data-view="participant"] .modal{padding:18px}
+  body[data-view="participant"] .modal .modal-actions{flex-wrap:wrap}
+}
 </style>
 </head>
 <body data-view="organizer">
@@ -541,8 +633,9 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
   <div class="brand">📋 イベント管理システム</div>
   <div class="spacer"></div>
   <div class="role" id="roleSwitch">
-    <button data-role="organizer" class="on">主催者ビュー</button>
-    <button data-role="participant">参加者ビュー</button>
+    <!-- 「ビュー」はスマホ幅で隠す（F-81b）。ヘッダーに3要素を並べる余裕がないため -->
+    <button data-role="organizer" class="on">主催者<span class="vw">ビュー</span></button>
+    <button data-role="participant">参加者<span class="vw">ビュー</span></button>
   </div>
   <div class="user"><span class="avatar">運</span><span>運営担当</span></div>
 </header>
@@ -3587,8 +3680,11 @@ const Seed = (() => {
     ];
     // すべて社外の方（F-98）。所属はカスタム質問で聞き、persons には持たせない。
     // 会社勤めに限らず、学生（大学ドメイン）や個人（フリーメール想定）も混ぜる（F-91b）
+    /* 4列目はパスワード（F-107）。**持っている人だけがログインできる。**
+       全員に配ると 24 個の値を作ることになり、しかも同じ値を並べれば意味が無い。
+       デモで確認できれば足りるので、田中 太郎 の1件だけ用意する。 */
     const people = [
-      ["田中 太郎","タナカ タロウ","tanaka@alpha.example.com"],
+      ["田中 太郎","タナカ タロウ","abc@example.com","abc123"],
       ["鈴木 花子","スズキ ハナコ","suzuki@beta.example.com"],
       ["佐藤 次郎","サトウ ジロウ","sato@gamma.example.com"],
       ["高橋 美咲","タカハシ ミサキ","takahashi@alpha.example.com"],
@@ -3616,8 +3712,10 @@ const Seed = (() => {
     ];
     const persons = people.map((p, i) => {
       const emailKey = p[2].trim().toLowerCase();
-      return { id:"p"+i, emailKey, email:p[2], name:p[0], nameKana:p[1],
+      const rec = { id:"p"+i, emailKey, email:p[2], name:p[0], nameKana:p[1],
         contactConsent:true, consentAt:day(-6), createdAt:day(-6) };
+      if (p[3]) rec.password = p[3];        // ログインできるのはこれを持つ人だけ（F-107）
+      return rec;
     });
     // イベントごとのカスタム質問への回答（F-a）。参加者はすべて社外の方
     // 所属区分（F-91b）。会社勤めだけでなく、学生や個人での参加も混ぜる
@@ -5767,13 +5865,21 @@ const Participant = (() => {
     const [events, apps] = await Promise.all([
       Repo.events.all(), Repo.applications.all()]);
     const appsByEv = groupBy(apps, "eventId");
-    const visible = events.filter(e =>
-      e.status === "published" && e.visibility === "public" &&
-      (!e.endAt || new Date(e.endAt).getTime() >= now))
-      .sort((a,b)=> new Date(a.startAt||0)-new Date(b.startAt||0));
+    /* 出すのは「今から申込める／これから受付が始まる」ものだけ（F-83b）。
+       **締切を過ぎたイベントは出さない。** 以前は開催日が未来なら出していたので、
+       開いても「受付終了」のボタンしか押せないイベントが並び、探す側には区別がつかなかった。
+       判定は Domain.timing に任せる——時期を保存しない方針（4-3）に揃え、ここで
+       締切と現在時刻を再び比べない。held（開催済）・closed（受付終了）・cancelled（中止）は
+       これで自動的に落ちる。満席は残す（申込は不可だが、開催そのものは知らせる価値がある）。 */
+    const visible = events.filter(e => {
+      if (e.status !== "published" || e.visibility !== "public") return false;
+      const phase = Domain.timing(e, now).phase;
+      return phase === "open" || phase === "before";
+    }).sort((a,b)=> new Date(a.startAt||0)-new Date(b.startAt||0));
 
     el.innerHTML = `
-      <div class="page-head"><h2>開催予定のイベント</h2></div>
+      <div class="page-head"><h2>開催予定のイベント</h2>
+        <span class="sub">申込を受け付けているイベントのみ</span></div>
       ${visible.length ? visible.map(e => {
         const ap = appsByEv[e.id]||[];
         const rem = Domain.remaining(e, ap);
@@ -5784,8 +5890,9 @@ const Participant = (() => {
           <div style="margin-top:6px">残席 ${rem>0?rem:"満席"}</div>
         </div>`;
       }).join("")
-      : `<div class="empty"><div class="big">公開中のイベントはありません</div>
-         主催者ビューでイベントを公開すると、ここに表示されます。</div>`}`;
+      : `<div class="empty"><div class="big">申込を受け付けているイベントはありません</div>
+         主催者ビューでイベントを公開すると、ここに表示されます。
+         締切を過ぎたイベントは表示されません。</div>`}`;
     el.querySelectorAll("[data-ev]").forEach(c =>
       c.onclick = () => App.openPublic(c.dataset.ev));
   }
@@ -6078,26 +6185,80 @@ const Participant = (() => {
       FB.toast(await Util.copy(url) ? "URLをコピーしました" : "コピーできませんでした");
   }
 
-  // ---- マイ申込 S-9（F-56, F-57, F-89, F-90）— savedTokens を実データで読む ----
+  /* ---- マイ申込 S-9（F-56, F-57, F-89, F-90）----
+     **一覧はログインが必要（F-107）。個別の1件はトークンが認可なのでログイン不要**（4-6）。
+     この2本立てを崩さないこと:
+     - 確認URL（`?ticket=`）はメールで受け取った人が開く経路で、その人はパスワードを持たない。
+       ここでログインを求めると F-20 が成立しなくなる。トークンを知っていること自体が認可（4-6）。
+     - 一覧は「その人の申込を全部見せる」ので、本人であることの確認が要る。
+     一覧の出どころも変わった: **以前は savedTokens（この端末の控え）**を読んでいたため、
+     同じブラウザを使った別人の申込まで並んでいた。ログイン後は personId で引く。 */
   let selectedToken = null;
 
   async function renderMyTicket(el) {
-    const saved = await Repo.savedTokens.all();
+    if (selectedToken) return renderTicketDetail(el, selectedToken);
+    const me = Auth.person();
+    if (!me) return renderLogin(el);
+    return renderMyList(el, me);
+  }
+
+  function renderLogin(el, err, email = "") {
+    el.innerHTML = `
+      <div class="page-head"><h2>マイ申込</h2></div>
+      <div class="lock">
+        <div class="lk-icon">🔑</div>
+        <h3>ログインしてください</h3>
+        <p>申込内容の確認とキャンセルには、申込に使ったメールアドレスでのログインが必要です。<br>
+          イベントを探す・申込むだけならログインは要りません。</p>
+        <div class="lk-form col">
+          <input id="lgEmail" type="email" placeholder="メールアドレス"
+                 value="${Util.esc(email)}" autocomplete="username">
+          <input id="lgPw" type="password" placeholder="パスワード" autocomplete="current-password">
+          <button class="btn primary" id="lgGo">ログイン</button>
+        </div>
+        ${err ? `<div class="lk-err">${Util.esc(err)}</div>` : ""}
+        <div class="note" style="text-align:left;margin-top:20px">
+          <b>デモ用のアカウント</b>: <span class="mono">abc@example.com</span> /
+          <span class="mono">abc123</span>（田中 太郎）<br>
+          サーバが無いため、パスワードはこのブラウザの IndexedDB にあり、DevTools から読めます。
+          <b>これは秘匿ではなく操作の抑止です</b>——F-101 の参加者名簿と同じ限界で、
+          防げるのは肩越しの覗き見と誤操作までです。<br>
+          確認URL（<span class="mono">?ticket=</span>）から開いた1件は、ログイン無しで見られます。
+        </div>
+      </div>`;
+    const go = () => {
+      const em = el.querySelector("#lgEmail").value;
+      const pw = el.querySelector("#lgPw").value;
+      Auth.login(em, pw)
+        .then(p => { FB.toast(`${p.name} さんとしてログインしました`); renderMyTicket(el); })
+        .catch(e => renderLogin(el, e.message, em));   // 入力したメールは残す
+    };
+    el.querySelector("#lgGo").onclick = go;
+    // Enter で送信できるようにする（パスワード欄で改行して詰まるのを避ける）
+    el.querySelectorAll("#lgEmail,#lgPw").forEach(i =>
+      i.onkeydown = (e) => { if (e.key === "Enter") go(); });
+    el.querySelector("#lgEmail").focus();
+  }
+
+  async function renderMyList(el, me) {
+    // ログイン中の本人の申込を personId で引く（索引あり）。端末の控えには依存しない
+    const apps = await Repo.applications.byPerson(me.id);
     const items = [];
-    for (const s of saved) {
-      const app = await Repo.applications.byToken(s.token);
-      if (!app) continue;
+    for (const app of apps) {
       const ev = await Repo.events.get(app.eventId);
       if (!ev) continue;
-      items.push({ token:s.token, app, ev });
+      items.push({ token:app.token, app, ev });
     }
-    if (selectedToken) { renderTicketDetail(el, items); return; }
+    const head = `<div class="page-head"><h2>マイ申込</h2>
+      <span class="sub">${Util.esc(me.name)} さん</span>
+      <span class="toggles"><button id="lgOut">ログアウト</button></span></div>`;
+    const wire = () => { el.querySelector("#lgOut").onclick = () => {
+      Auth.logout(); FB.toast("ログアウトしました"); renderMyTicket(el); }; };
 
     if (!items.length) {
-      el.innerHTML = `<div class="page-head"><h2>マイ申込</h2></div>
-        <div class="empty"><div class="big">保存された申込はありません</div>
-        イベントに申込むと、確認用の申込控えがこの端末に保存されます。</div>`;
-      return;
+      el.innerHTML = head + `<div class="empty"><div class="big">申込はありません</div>
+        イベントに申込むと、ここに一覧が出ます。</div>`;
+      wire(); return;
     }
     // 並び: これから開催 → 終了済み → キャンセル済み（F-89）
     const now = Date.now();
@@ -6107,21 +6268,22 @@ const Participant = (() => {
 
     const label = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル済" };
     const cls = { applied:"phase", checkedin:"published", cancelled:"draft" };
-    el.innerHTML = `<div class="page-head"><h2>マイ申込</h2></div>
-      ${items.map(it => `
+    el.innerHTML = head +
+      items.map(it => `
         <div class="card pad ticket-item" data-token="${it.token}" style="margin-bottom:12px">
           <div style="font-weight:700;font-size:15px">${Util.esc(it.ev.title)}</div>
           <div style="color:var(--muted);margin-top:4px">${Util.fmtRange(it.ev.startAt, it.ev.endAt)}</div>
           <div style="margin-top:6px"><span class="badge ${cls[it.app.status]}">${label[it.app.status]}</span></div>
-        </div>`).join("")}`;
+        </div>`).join("");
+    wire();
     el.querySelectorAll(".ticket-item").forEach(c =>
       c.onclick = () => { selectedToken = c.dataset.token; renderMyTicket(el); });
   }
 
-  async function renderTicketDetail(el, items) {
-    const it = items.find(x => x.token === selectedToken);
-    if (!it) { selectedToken = null; return renderMyTicket(el); }
-    const { ev, app } = it;
+  async function renderTicketDetail(el, token) {
+    const app = await Repo.applications.byToken(token);
+    const ev = app ? await Repo.events.get(app.eventId) : null;
+    if (!app || !ev) { selectedToken = null; return renderMyTicket(el); }
     const cancelled = app.status === "cancelled";
     const notices = Ops.noticesOf(await Repo.messages.byEvent(ev.id));
     const label = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル済" };
@@ -6176,6 +6338,40 @@ const Participant = (() => {
 
   return { renderList, renderPublic, renderApply, renderComplete, renderMyTicket,
            resetMyTicket, selectTicket };
+})();
+
+
+// ===== [11b] 参加者のログイン（マイ申込の保護 / F-107） =====
+/* **これは既存のトークン認可（4-6）を置き換えるものではなく、一覧を出すために足したもの。**
+   確認URL（`?ticket=`）で1件を開く経路はトークンだけで通る。一覧は本人の申込を全部見せる
+   ので、本人であることの確認を挟む。
+
+   限界を正しく書いておく: サーバが無いのでパスワードは IndexedDB に平文で入り、
+   DevTools から読める。**秘匿ではなく操作の抑止**で、F-101 の参加者名簿と同じ位置づけ。
+   ハッシュ化しても、照合するコードごと手元にあるので強度は変わらない（書き換えれば通る）。
+   だから偽の安心を与えないよう、ログイン画面にこの旨を明記している。 */
+const Auth = (() => {
+  /* ログイン中の参加者。**セッション内のみ保持し、保存しない。**
+     再読込でログアウトする。「ログイン中かどうか」を持たせないので、状態の
+     不整合が構造的に起きない（時期を保存しないのと同じ考え方 / 4-3）。 */
+  let current = null;
+
+  // 名寄せキーと同じ正規化。trim と小文字化のみ（それ以上は別人の誤統合を招く / 4-5）
+  const keyOf = (email) => String(email ?? "").trim().toLowerCase();
+
+  async function login(email, password) {
+    const p = await Repo.persons.byEmailKey(keyOf(email));
+    /* 「登録が無い」と「パスワードが違う」を文言で区別しない。
+       どのメールアドレスが登録済みかを画面から確かめられないようにするため。 */
+    if (!p || !p.password || p.password !== String(password ?? ""))
+      throw new Error("メールアドレスまたはパスワードが違います");
+    current = p;
+    return p;
+  }
+  const logout = () => { current = null; };
+  const person = () => current;
+
+  return { login, logout, person };
 })();
 
 
@@ -6609,7 +6805,28 @@ const App = (() => {
     ? route.page==="myticket"
     : ["list","public","apply","complete"].includes(route.page);
 
-  async function renderContent() {
+  /* 描画の直列化と世代管理。
+     `renderContent` は非同期なので、**要求が重なると遅い方が後から上書きしていた**
+     （`setView` の直後に `go()` を呼ぶと、先に始めた画面が後から勝つ。確認作業で実際に踏んだ）。
+     やっていることは2つだけ:
+       ① 直前の描画が終わるまで次を始めない（同時に走らせない）
+       ② 順番が来た時点でより新しい要求があれば、自分の描画は捨てる
+     結果、**最後の要求だけが画面に残る**。捨てられる描画は DOM に触らないので、
+     追い越された画面が一瞬映ることもない。
+     **描画関数側には手を入れていない**——各画面が `el` に直接書く作りは変えず、
+     入口だけで順序を保証している。 */
+  let renderSeq = 0;
+  let painting = Promise.resolve();
+
+  function renderContent() {
+    const seq = ++renderSeq;
+    // paint は内部で例外を捕まえるが、鎖が切れないよう失敗側も繋いでおく
+    painting = painting.then(() => paint(seq), () => paint(seq));
+    return painting;
+  }
+
+  async function paint(seq) {
+    if (seq !== renderSeq) return;        // より新しい要求に追い越された
     const el = document.getElementById("content");
     el.innerHTML = `<div class="empty">読み込み中…</div>`;
     try {
@@ -6644,25 +6861,40 @@ const App = (() => {
   function openTicket(token) {
     Participant.selectTicket(token);
     route = { view:"participant", page:"myticket", param:null };
-    document.body.dataset.view = "participant";
-    document.querySelectorAll("#roleSwitch button").forEach(b =>
-      b.classList.toggle("on", b.dataset.role === "participant"));
     render();
+  }
+
+  /* 見え方（body の属性・役割ボタン・viewport）を route.view に合わせる。
+     **viewport の差し替えが要点**: 主催者側は PC幅のみなので 1024px 固定のまま（F-81）、
+     参加者側は実機の幅で描く（F-81b）。
+
+     **render() から必ず呼ぶので、route.view を変えれば見え方も追従する。**
+     以前は setView / openTicket / routeFromUrl が各自で body の属性を書いていて、
+     **`openPublic` など route だけ差し替える経路では属性が変わっていなかった**
+     （下書きプレビュー F-07 が主催者の見え方のまま描かれていた）。
+     ここを迂回して body.dataset.view を直接書かないこと。guard.js が代入箇所の数を見ている。 */
+  const VIEWPORT = { organizer:"width=1024",
+                     participant:"width=device-width, initial-scale=1" };
+  function applyView(view) {
+    document.body.dataset.view = view;
+    const vp = document.querySelector('meta[name="viewport"]');
+    if (vp) vp.setAttribute("content", VIEWPORT[view] || VIEWPORT.organizer);
+    document.querySelectorAll("#roleSwitch button").forEach(b =>
+      b.classList.toggle("on", b.dataset.role === view));
   }
   function refresh() { renderContent(); } // データ変更後に現在ページを再描画
   function setView(view) {
     // 参加者ビューへ切り替えたら名簿は再ロックする（主催者席を離れる想定 / F-101）
     if (view !== "organizer") Roster.lock();
+    // 主催者ビューへ戻ったら参加者はログアウトする（同じ端末を続けて使う想定 / F-107）
+    else Auth.logout();
     route = view === "organizer"
       ? { view, page:"dashboard", param:null }
       : { view, page:"list", param:null };
-    document.body.dataset.view = view;
-    document.querySelectorAll("#roleSwitch button").forEach(b =>
-      b.classList.toggle("on", b.dataset.role === view));
     render();
   }
 
-  function render() { renderTabs(); renderContent(); }
+  function render() { applyView(route.view); renderTabs(); renderContent(); }
 
   function wire() {
     document.querySelectorAll("#roleSwitch button").forEach(b =>
@@ -6694,9 +6926,6 @@ const App = (() => {
     if (!ev) { FB.error("イベントが見つかりません"); return false; }
     if (preview) previewId = id;         // 下書きでも参加者ビューで見えるようにする（F-07）
     route = { view:"participant", page:"public", param:id };
-    document.body.dataset.view = "participant";
-    document.querySelectorAll("#roleSwitch button").forEach(b =>
-      b.classList.toggle("on", b.dataset.role === "participant"));
     render();
     return true;
   }
