@@ -4518,8 +4518,7 @@ const EventDetail = (() => {
       <div class="card"><table class="list">
         <thead><tr><th>氏名</th><th>カナ</th><th>状態</th><th style="width:120px">操作</th></tr></thead>
         <tbody id="appRows"></tbody>
-      </table></div>
-      <div class="ops-note" style="margin-top:12px">チェックインの時刻は操作時刻を記録します（来場時刻ではありません / F-24）。開催済みでも受付できます。</div>`;
+      </table></div>`;
 
     const box = pane.querySelector("#searchBox");
     box.oninput = () => { query = box.value; paintRows(pane); };
@@ -4835,8 +4834,7 @@ ${url}`;
           ${canCancel?'<button class="btn" id="cancelBtn" style="color:var(--danger)">中止する</button>':""}
           ${canDelete?'<button class="btn" id="deleteBtn" style="color:var(--danger)">削除</button>':""}
         </div>
-      </div>
-      <div class="ops-note" style="margin-top:12px">状態遷移は一方向です（下書き→公開→中止）。公開後は下書きに戻せず、削除もできません。</div>`;
+      </div>`;
     pane.querySelector("#editBtn").onclick = () => App.openCreate(ev.id);
     // 下書きのままでも参加者ビューでの見え方を確認できる（F-07）
     pane.querySelector("#previewBtn").onclick = () => App.openPreview(ev.id);
@@ -4941,7 +4939,6 @@ const Ops = (() => {
     await markRead(eventId, "thread");
     onRead && onRead();
     pane.innerHTML = `
-      <div class="ops-note">運営メンバー間のチャットです。参加者には表示されません。</div>
       <div class="chat" id="chatList">
         ${msgs.length ? msgs.map(bubble).join("")
           : `<div class="empty">まだ投稿がありません。最初のメッセージを送ってみましょう。</div>`}
@@ -4977,7 +4974,6 @@ const Ops = (() => {
     const qas = all.filter(m => m.channel === "qa")
       .sort((a,b) => (a.resolved?1:0)-(b.resolved?1:0) || new Date(b.createdAt)-new Date(a.createdAt));
     pane.innerHTML = `
-      <div class="ops-note">運営内の疑問を登録して解消します。参加者には表示されません。</div>
       <div class="card pad" style="margin-bottom:14px">
         <div class="field"><label>新しい疑問</label>
           <textarea id="qaBody" placeholder="例: 受付の荷物は地下と1階のどちらに運ぶ？"></textarea></div>
@@ -5032,7 +5028,6 @@ const Ops = (() => {
     const all = await Repo.messages.byEvent(eventId);
     const list = noticesOf(all);
     pane.innerHTML = `
-      <div class="ops-note">参加者向けのお知らせです。<b>公開ページと参加者のマイ申込に表示されます</b>。</div>
       <div class="card pad" style="margin-bottom:14px">
         <div class="field"><label>件名<span class="req">必須</span></label>
           <input id="ntTitle" placeholder="例: 開催場所を4階から6階に変更しました"></div>
@@ -5115,7 +5110,6 @@ const Tasks = (() => {
     const { pane, tasks } = ctx;
     const s = Domain.taskSummary(tasks);
     pane.innerHTML = `
-      <div class="ops-note">イベント運営のタスクを管理します。参加者には表示されません。</div>
       <div class="tk-head">
         <div class="tk-progress">
           <div class="tk-stat">進捗 <b>${s.done}/${s.total}</b>（${s.rate}%）${
@@ -5154,8 +5148,7 @@ const Tasks = (() => {
             <span class="cnt">${list.length}</span></div>
           <div class="drop" data-drop="${st}">${list.map(card).join("")}</div>
         </div>`;
-      }).join("")}</div>
-      <div class="ops-note" style="margin:14px 0 0">カードをドラッグすると状態と並び順が変わり、そのまま保存されます。カードをクリックすると編集できます。</div>`;
+      }).join("")}</div>`;
     wireBoard(host);
   }
 
@@ -5440,7 +5433,6 @@ const Roster = (() => {
       <div class="card pad lock">
         <div class="lk-icon">🔒</div>
         <h3>参加者名簿はパスワードで保護されています</h3>
-        <p>イベントを横断した個人情報を表示します。閲覧にはパスワードが必要です。</p>
         <div class="lk-form">
           <input type="password" id="lkPw" placeholder="パスワード" autocomplete="off">
           <button class="btn primary" id="lkGo">解除</button>
@@ -5600,7 +5592,6 @@ const Manual = (() => {
     const { pane, mode } = ctx;
     const empty = !ctx.body.trim();
     pane.innerHTML = `
-      <div class="ops-note">運営が当日に見る手順書です。Markdown で書けます。参加者には表示されません。</div>
       <div class="mn-bar">
         <div class="toggles" style="margin-left:0">
           <button data-mode="edit" class="${mode==="edit"?"on":""}">編集</button>
@@ -5706,7 +5697,6 @@ const Files = (() => {
     const { pane, files } = ctx;
     const total = files.reduce((n, f) => n + (f.size || 0), 0);
     pane.innerHTML = `
-      <div class="ops-note">運営で共有するファイルです。参加者には表示されません。</div>
       <div class="fl-bar">
         <label class="btn primary" for="flInput">＋ ファイルを追加</label>
         <input type="file" id="flInput" multiple style="display:none">
@@ -5789,8 +5779,6 @@ const Settings = (() => {
       <div class="page-head"><h2>設定</h2></div>
       <div class="card pad">
         <h3 style="font-size:15px;margin-bottom:8px">データ</h3>
-        <p style="color:var(--muted);margin:0 0 12px">
-          デモ用のシードデータを投入するか、データベースを初期化できます。</p>
         <div class="row-actions">
           <button class="btn primary" id="seed">デモデータを投入</button>
           <button class="btn" id="reset">データベースを初期化</button>
@@ -5883,9 +5871,7 @@ const Participant = (() => {
           <div style="margin-top:6px">残席 ${rem>0?rem:"満席"}</div>
         </div>`;
       }).join("")
-      : `<div class="empty"><div class="big">申込を受け付けているイベントはありません</div>
-         主催者ビューでイベントを公開すると、ここに表示されます。
-         締切を過ぎたイベントは表示されません。</div>`}`;
+      : `<div class="empty"><div class="big">申込を受け付けているイベントはありません</div></div>`}`;
     el.querySelectorAll("[data-ev]").forEach(c =>
       c.onclick = () => App.openPublic(c.dataset.ev));
   }
@@ -5908,7 +5894,7 @@ const Participant = (() => {
 
     el.innerHTML = `
       <div class="page-head"><button class="btn ghost" id="back">← 一覧へ</button></div>
-      ${preview ? `<div class="note" style="margin-bottom:14px">これは<b>下書きのプレビュー</b>です（F-07）。参加者にはまだ見えません。</div>` : ""}
+      ${preview ? `<div class="note" style="margin-bottom:14px">これは<b>下書きのプレビュー</b>です。参加者にはまだ見えません。</div>` : ""}
       <div class="pub">
         ${coverHtml(ev)}
         <h1>${Util.esc(ev.title)}</h1>
@@ -5952,7 +5938,7 @@ const Participant = (() => {
   const onlineBlock = (ev, cancelled) => {
     const f = ev.eventFormat || "onsite";
     if (f === "onsite" || !ev.onlineUrl) return "";
-    if (cancelled) return `<div class="ops-note">キャンセル済みのため視聴URLは表示されません。</div>`;
+    if (cancelled) return "";
     return `<div class="online-box">
       <div class="oh">${Domain.FORMAT[f]}の視聴情報（申込者のみ）</div>
       <div class="copybox"><input readonly value="${Util.esc(ev.onlineUrl)}">
@@ -6089,7 +6075,7 @@ const Participant = (() => {
         <div class="card pad">
           <h3 style="font-size:16px;margin-bottom:14px">${Util.esc(ev.title)} に申込</h3>
           ${fld("fName","氏名",data.name,{key:"name",ph:"山田 太郎"})}
-          ${fld("fKana","氏名（カナ）",data.kana,{key:"kana",ph:"ヤマダ タロウ",hint:"ひらがな・カタカナで入力（保存時にカタカナへ変換）"})}
+          ${fld("fKana","氏名（カナ）",data.kana,{key:"kana",ph:"ヤマダ タロウ",hint:"ひらがな・カタカナで入力"})}
           ${fld("fEmail","メールアドレス",data.email,{key:"email",type:"email",ph:"taro@example.com"})}
           ${questionFields(ev, data, err)}
           <div class="consent"><input type="checkbox" id="fConsent" ${data.consent?"checked":""}>
@@ -6169,7 +6155,6 @@ const Participant = (() => {
         <details class="reveal"><summary>別の端末で確認する</summary>
           <div class="copybox"><input readonly value="${Util.esc(url)}">
             <button class="btn" id="copyUrl">コピー</button></div>
-          <div class="hint" style="margin-top:6px">この確認URLからいつでも申込内容を確認できます。</div>
         </details>
       </div>`;
     el.querySelector("#toTicket").onclick = () => App.go("myticket");
@@ -6200,8 +6185,6 @@ const Participant = (() => {
       <div class="lock">
         <div class="lk-icon">🔑</div>
         <h3>ログインしてください</h3>
-        <p>申込内容の確認とキャンセルには、申込に使ったメールアドレスでのログインが必要です。<br>
-          イベントを探す・申込むだけならログインは要りません。</p>
         <div class="lk-form col">
           <input id="lgEmail" type="email" placeholder="メールアドレス"
                  value="${Util.esc(email)}" autocomplete="username">
@@ -6501,8 +6484,7 @@ const Wizard = (() => {
       <div class="wizard-actions">
         <button class="btn" id="prev" ${step===0?'style="visibility:hidden"':''}>← 戻る</button>
         <div class="row-actions">${footerRight()}</div>
-      </div>
-      <div class="ops-note" style="margin-top:12px">「保存して次へ」を押すたびに下書きとして保存されます（F-70, F-72）。離脱しても保存済みのステップまでが残り、一覧から再開できます。</div>`;
+      </div>`;
 
     el.querySelector("#back").onclick = () => { collect(); App.go("events"); };
     el.querySelector("#prev").onclick = () => { collect(); if (step>0) { step--; paint(); } };
@@ -6597,8 +6579,7 @@ const Wizard = (() => {
   const Q_TYPES = { text:"一行", textarea:"複数行", select:"選択肢", checkbox:"チェック" };
   function questionEditor() {
     return `<div class="qedit">
-      <div class="qh">申込フォームの追加質問（F-91）
-        <span class="hint" style="font-weight:400">氏名・カナ・メールは常に聞きます。その他をここで定義します。</span></div>
+      <div class="qh">申込フォームの追加質問</div>
       ${questions.length ? questions.map((q, i) => `
         <div class="qrow" data-qi="${i}">
           <input class="ql" data-qf="label" value="${Util.esc(q.label)}" placeholder="質問文（例: 所属部署）">
@@ -6724,9 +6705,9 @@ const Wizard = (() => {
             ${Object.entries(Domain.FORMAT).map(([k,v]) =>
               `<option value="${k}" ${f.eventFormat===k?"selected":""}>${v}</option>`).join("")}
           </select>
-          <div class="hint">オンライン・ハイブリッドの視聴URLは<b>申込者のマイ申込にだけ</b>表示されます（F-93）</div></div>
+          <div class="hint">オンライン・ハイブリッドの視聴URLは<b>申込者のマイ申込にだけ</b>表示されます</div></div>
         ${T("venueName","会場名",{ph:"本社 大会議室"})}
-        ${T("venueAddress","住所",{ph:"東京都千代田区1-1-1",hint:"入力すると公開ページに地図リンクを表示します（F-68）"})}
+        ${T("venueAddress","住所",{ph:"東京都千代田区1-1-1",hint:"入力すると公開ページに地図リンクを表示します"})}
         ${f.eventFormat && f.eventFormat !== "onsite" ? `
           ${T("onlineUrl","視聴URL",{ph:"https://teams.microsoft.com/...",hint:"申込者のみに表示されます"})}
           ${A("onlineNote","参加方法の補足",{ph:"開始10分前から入室できます"})}` : ""}`;
@@ -6735,13 +6716,13 @@ const Wizard = (() => {
         ${T("targetAudience","対象者",{ph:"社員全般"})}
         <div class="field"><label>カバー画像</label>
           <input type="file" accept="image/*" data-f="__cover">
-          <div class="hint">任意。未設定時はプレースホルダーを表示（F-03）。${
+          <div class="hint">任意。${
             coverFile ? `選択中: ${Util.esc(coverFile.name)}` : coverKeep ? "現在: 設定済み（変更しなければ保持されます）" : ""}</div></div>`;
       case "apply": return `
-        ${T("capacity","定員",{type:"number",hint:"1〜9999（F-55）。チケット制は廃止し、申込は「申込」に一本化"})}
+        ${T("capacity","定員",{type:"number",hint:"1〜9999"})}
         <div class="form-2col">
-          ${T("applyStartAt","受付開始",{type:"date",hint:"任意。当日00:00から受付（F-45b）。未設定なら公開と同時に受付開始"})}
-          ${T("applyDeadline","申込締切",{type:"date",hint:"当日23:59:59まで受付（F-45）"})}
+          ${T("applyStartAt","受付開始",{type:"date",hint:"任意。未設定なら公開と同時に受付開始"})}
+          ${T("applyDeadline","申込締切",{type:"date",hint:"締切日の23:59まで受付"})}
         </div>
         ${questionEditor()}`;
       case "setting": return `
@@ -6750,8 +6731,8 @@ const Wizard = (() => {
             <option value="public" ${f.visibility==="public"?"selected":""}>一般公開</option>
             <option value="limited" ${f.visibility==="limited"?"selected":""}>限定公開（URLを知る人のみ）</option>
           </select>
-          <div class="hint">限定公開→一般公開は可、逆は不可（F-66）</div></div>
-        ${A("contactInfo","問い合わせ先",{ph:"◯◯事務局 event@example.com（平日9:00〜17:00）",hint:"<b>必須</b>・200文字以内。社外の方の唯一の連絡手段になります（F-64 / F-98）"})}`;
+          <div class="hint">限定公開→一般公開は変更可（逆は不可）</div></div>
+        ${A("contactInfo","問い合わせ先",{ph:"◯◯事務局 event@example.com（平日9:00〜17:00）",hint:"<b>必須</b>・200文字以内"})}`;
     }
     return "";
   }
