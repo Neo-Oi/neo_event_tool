@@ -903,7 +903,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     catch (e) { threw = /受付前/.test(e.message); }
     if (!threw) throw new Error("受付前でも申込できてしまう");
   });
-  await step("C-2 カスタム質問の必須が未回答だと進めない（F-a）", async () => {
+  await step("C-2 カスタム質問の必須が未回答だと進めない（F-91）", async () => {
     await M.Participant.renderApply(content, "ev_soon"); await wait(30);
     if (!content.querySelector('[data-q="q_comp"]')) throw new Error("カスタム質問が描画されない");
     content.querySelector("#fName").value = "テスト 太郎";
@@ -935,8 +935,8 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if ((await M.Repo.applications.get(a.id)).status !== "cancelled") throw new Error("共通キャンセルが効かない");
   });
 
-  // ---- F-20 / F-07 ----
-  await step("F-20 確認URL(?ticket=)から申込詳細へ復帰", async () => {
+  // ---- F-97 / F-07 ----
+  await step("F-97 確認URL(?ticket=)から申込詳細へ復帰", async () => {
     const { token } = await savedTokenFor("ev_public");
     window.history.replaceState(null, "", "/index.html?ticket=" + token);
     const hit = await M.App.routeFromUrl(); await wait(60);
@@ -944,7 +944,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!content.innerHTML.includes("公開ページを開く")) throw new Error("申込詳細が出ない");
     if (window.location.search) throw new Error("URLが元に戻っていない");
   });
-  await step("F-20 ?event= で限定公開イベントを直接開ける（F-65）", async () => {
+  await step("F-97 ?event= で限定公開イベントを直接開ける（F-65）", async () => {
     window.history.replaceState(null, "", "/index.html?event=ev_limited");
     await M.App.routeFromUrl(); await wait(60);
     if (!content.innerHTML.includes("事業説明会")) throw new Error("限定公開ページが開かない");
@@ -979,7 +979,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (vpContent() !== "width=1024") throw new Error("主催者ビューへ戻しても device-width のまま");
   });
   /* 確認URLからの復帰は setView を通らない別経路。**ここが applyView を迂回していると、
-     参加者がメールのURLから開いたときだけ 1024px 幅の縮小表示になる**（F-20 / F-81b）。 */
+     参加者がメールのURLから開いたときだけ 1024px 幅の縮小表示になる**（F-97 / F-81b）。 */
   await step("F-81b 確認URLからの復帰でも viewport が切り替わる", async () => {
     const { token } = await savedTokenFor("ev_public");
     window.history.replaceState(null, "", "/index.html?ticket=" + token);
@@ -1035,7 +1035,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (parseFloat(m[1]) < 16) throw new Error("16px 未満では iOS が自動ズームする: " + m[1] + "px");
   });
 
-  // ---- F-b / F-c / F-d / F-f ----
+  // ---- F-92 / F-93 / F-94 / F-96 ----
   // 参加者名簿のロック（F-101）
   await step("F-101 名簿はパスワードで保護される", async () => {
     await M.Roster.render(content); await wait(30);
@@ -1068,20 +1068,20 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     content.querySelector("#lkGo").click(); await wait(60);
   });
 
-  await step("F-b 参加者名簿に参加履歴が出る", async () => {
+  await step("F-92 参加者名簿に参加履歴が出る", async () => {
     await M.Roster.render(content); await wait(30);
     if (!content.innerHTML.includes("田中 太郎")) throw new Error("名簿に出ない");
     const row = content.querySelector("tr[data-p]");
     row.click(); await wait(30);
     if (!content.querySelector(".hist")) throw new Error("参加履歴が展開されない");
   });
-  await step("F-b 名簿の絞り込み（正規化検索）", async () => {
+  await step("F-92 名簿の絞り込み（正規化検索）", async () => {
     const box = content.querySelector("#rSearch");
     box.value = "すずき"; box.dispatchEvent(new window.Event("input")); await wait(40);
     if (content.querySelectorAll("tr[data-p]").length !== 1) throw new Error("絞り込みが効かない");
     box.value = ""; box.dispatchEvent(new window.Event("input")); await wait(40);
   });
-  await step("F-c 視聴URLは公開ページに出さず、マイ申込に出す", async () => {
+  await step("F-93 視聴URLは公開ページに出さず、マイ申込に出す", async () => {
     await M.Participant.renderPublic(content, "ev_public"); await wait(30);
     if (content.innerHTML.includes("teams.microsoft.com")) throw new Error("公開ページに視聴URLが漏れている");
     if (!content.innerHTML.includes("ハイブリッド")) throw new Error("開催形式が出ない");
@@ -1092,7 +1092,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!content.innerHTML.includes("teams.microsoft.com")) throw new Error("申込者に視聴URLが出ない");
     M.Participant.resetMyTicket();
   });
-  await step("F-d 複製で下書きが作られ copiedFromId が残る", async () => {
+  await step("F-94 複製で下書きが作られ copiedFromId が残る", async () => {
     const before = (await M.Repo.events.all()).length;
     await M.EventDetail.render(content, "ev_limited"); await wait(30);
     content.querySelectorAll("#subtabs button")[8].click(); await wait(30);
@@ -1104,11 +1104,11 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!copy || copy.status !== "draft") throw new Error("下書きとして複製されていない");
     if (!copy.title.includes("コピー")) throw new Error("タイトルが区別できない");
   });
-  await step("F-f 申込推移が描画される", async () => {
+  await step("F-96 申込推移が描画される", async () => {
     await M.EventDetail.render(content, "ev_public"); await wait(30);
     if (!content.querySelector(".trend svg rect")) throw new Error("推移グラフが出ない");
   });
-  await step("F-a CSVにカスタム質問の列が入る", async () => {
+  await step("F-91 CSVにカスタム質問の列が入る", async () => {
     const ev = await M.Repo.events.get("ev_public");
     if (!(ev.questions || []).length) throw new Error("シードに質問がない");
     content.querySelector("#csvBtn").click(); await wait(40);

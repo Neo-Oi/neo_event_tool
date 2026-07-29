@@ -374,12 +374,12 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .lock .lk-form.col .btn{margin-top:2px}
 .lock .lk-err{color:var(--danger);font-size:13px;font-weight:700;margin-top:10px}
 
-/* 参加者名簿（横断 / F-b） */
+/* 参加者名簿（横断 / F-92） */
 .hist{display:flex;gap:10px;align-items:center;padding:5px 0;font-size:13px;flex-wrap:wrap}
 .hist a{cursor:pointer;font-weight:600}
 .hist .d{color:var(--muted);font-size:12px}
 
-/* QR受付（F-e） */
+/* QR受付（F-95） */
 .scan{border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;background:#fff;text-align:center}
 .scan .sh{font-size:12px;color:var(--muted);margin-bottom:10px}
 .scan video{width:100%;max-width:360px;border-radius:8px;background:#000}
@@ -387,7 +387,7 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .scan .sr{margin-top:10px;font-size:14px;font-weight:700;min-height:22px}
 .scan .sr .ok{color:var(--ok)} .scan .sr .ng{color:var(--danger)}
 
-/* 申込推移（F-f） */
+/* 申込推移（F-96） */
 .trend{margin-bottom:12px;overflow-x:auto}
 /* 見出しは申込推移とヒートマップで共用する（宣言は変更せず、セレクタだけ拡張） */
 .trend .th,.hm .th{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
@@ -414,7 +414,7 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 .trend svg{display:block}
 .trend .tl2{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
 
-/* 申込フォームのカスタム質問エディタ（F-a） */
+/* 申込フォームのカスタム質問エディタ（F-91） */
 .qedit{border:1px solid var(--line);border-radius:var(--radius);padding:14px;background:#fafbfe;margin-top:6px}
 .qedit .qh{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .qrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
@@ -3353,7 +3353,7 @@ const Repo = (() => {
 const Domain = (() => {
   // 明示状態（保存する）
   const STATUS = { draft:"下書き", published:"公開中", cancelled:"中止" };
-  // 開催形式（F-c）。オンライン／ハイブリッドの視聴URLは申込者にだけ見せる
+  // 開催形式（F-93）。オンライン／ハイブリッドの視聴URLは申込者にだけ見せる
   const FORMAT = { onsite:"現地開催", online:"オンライン", hybrid:"ハイブリッド" };
   /* 本システムが扱うのは**社外向けイベントのみ**（F-98）。取引先・同業他社・一般の方が
      申込む。対象範囲を選ばせる項目は持たない——選択肢が1つしかないものを聞かない。
@@ -3467,7 +3467,7 @@ const AppSvc = (() => {
     const app = {
       id:Util.uid(), eventId, personId:person.id, token:Util.newToken(),
       status:"applied", checkinAt:null, cancelledAt:null, appliedAt:now,
-      answers: input.answers || {},                      // カスタム質問の回答（F-a）
+      answers: input.answers || {},                      // カスタム質問の回答（F-91）
       searchText: searchTextOf(person),
     };
     // 確認トークンをこの端末に保存する（F-56）
@@ -3599,7 +3599,7 @@ const Seed = (() => {
     const base = { groupId:"g1", copiedFromId:null, coverImage:null, targetAudience:"どなたでもご参加いただけます（法人・学生・個人を問いません）",
       venueAddress:"東京都千代田区1-1-1", contactInfo:"運営事務局までお問い合わせください",
       applyStartAt:null, eventFormat:"onsite", onlineUrl:null, onlineNote:null, questions:[] };
-    // 申込フォームの追加質問（F-a）。社外向けなので所属会社を聞くのが基本になる
+    // 申込フォームの追加質問（F-91）。社外向けなので所属会社を聞くのが基本になる
     const qFood  = { id:"q_food",  label:"食事・アレルギーのご要望", type:"textarea", required:false, options:[] };
     const qParty = { id:"q_party", label:"交流会に参加する", type:"checkbox", required:false, options:[] };
     const qJoin  = { id:"q_join",  label:"参加方法",       type:"select",   required:true,
@@ -3717,7 +3717,7 @@ const Seed = (() => {
       if (p[3]) rec.password = p[3];        // ログインできるのはこれを持つ人だけ（F-107）
       return rec;
     });
-    // イベントごとのカスタム質問への回答（F-a）。参加者はすべて社外の方
+    // イベントごとのカスタム質問への回答（F-91）。参加者はすべて社外の方
     // 所属区分（F-91b）。会社勤めだけでなく、学生や個人での参加も混ぜる
     const AFFIL = ["会社","会社","会社","会社","会社","会社","会社","会社",
                    "会社","学校","会社","会社","なし","会社","学校","会社",
@@ -4529,7 +4529,7 @@ const EventDetail = (() => {
     pane.querySelector("#qrBtn").onclick = () => startScan(pane);
   }
 
-  /* QRでの受付（F-e）。カメラで参加者のトークンを読み、そのままチェックインする。
+  /* QRでの受付（F-95）。カメラで参加者のトークンを読み、そのままチェックインする。
      読み取りライブラリは CDN から必要時のみ取得する。1台での運用のみ——複数端末での
      同時受付は端末間でチェックイン状態を共有できないため不可能（4-1）。 */
   let scanStop = null;
@@ -4599,7 +4599,7 @@ const EventDetail = (() => {
     } catch (e) { out.innerHTML = `<span class="ng">${Util.esc(e.message)}</span>`; }
   }
 
-  /* 申込推移（F-f）。appliedAt を日別に積み上げる。サーバ無しでも描けるので、
+  /* 申込推移（F-96）。appliedAt を日別に積み上げる。サーバ無しでも描けるので、
      「閲覧数の計測（サーバが必要）」とは区別される。 */
   function trendHtml(apps) {
     const valid = apps.filter(a => a.appliedAt);
@@ -4695,7 +4695,7 @@ const EventDetail = (() => {
       b.onclick = (e) => { e.stopPropagation(); openApplicantEditor(b.dataset.edit); });
   }
 
-  // カスタム質問の回答（F-a）。イベントに質問が定義されているときだけ出す
+  // カスタム質問の回答（F-91）。イベントに質問が定義されているときだけ出す
   function answersHtml(a) {
     const qs = ctx.ev.questions || [];
     if (!qs.length) return "";
@@ -4749,7 +4749,7 @@ const EventDetail = (() => {
     const persons = ctx._persons || {};
     const qs = ev.questions || [];
     const header = ["申込番号","氏名","氏名（カナ）","メールアドレス","状態","申込日時","チェックイン時刻",
-      ...qs.map(q => q.label)];   // カスタム質問を列として出す（F-a / Peatix のフォーム取得相当）
+      ...qs.map(q => q.label)];   // カスタム質問を列として出す（F-91 / Peatix のフォーム取得相当）
     const body = apps.map(a => {
       const p = persons[a.personId] || {};
       return [a.id, p.name||"", p.nameKana||"", p.email||"",
@@ -4840,7 +4840,7 @@ ${url}`;
     pane.querySelector("#editBtn").onclick = () => App.openCreate(ev.id);
     // 下書きのままでも参加者ビューでの見え方を確認できる（F-07）
     pane.querySelector("#previewBtn").onclick = () => App.openPreview(ev.id);
-    // 複製（F-d）。申込は複製せず、下書きとして作る。copiedFromId で元を辿れる
+    // 複製（F-94）。申込は複製せず、下書きとして作る。copiedFromId で元を辿れる
     pane.querySelector("#dupBtn").onclick = () => FB.confirmModal({
       title:"このイベントを複製しますか？", okLabel:"複製する",
       body:"内容をコピーした<b>下書き</b>を作ります。申込・お知らせ・運営タスクは複製されません。",
@@ -5418,7 +5418,7 @@ const Tasks = (() => {
 })();
 
 
-// ===== [9d] 主催者：参加者名簿 S-10（横断 / F-b） =====
+// ===== [9d] 主催者：参加者名簿 S-10（横断 / F-92） =====
 /* 「データ蓄積が価値」の証明にあたる画面。persons を横断で一覧し、同一人物の参加履歴を
    まとめて見る。Peatix はイベント終了30日後にフォームデータを削除するため、ここが差になる。
    persons を後から足すと全 applications の付け替えが要る（4-5）ので当初から持っていた。 */
@@ -5818,16 +5818,16 @@ const Settings = (() => {
             ${implRow("イベント作成・編集（5ステップ）","C-1","done","実装済（下書き作成・都度保存・公開／中止／削除・カバー画像を永続）")}
             ${implRow("イベント詳細・申込管理・CSV","C-3","done","実装済（チェックイン／取消・キャンセル・内容修正を永続）")}
             ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","done","実装済（名寄せ・トークン発行・定員判定・キャンセルを永続）")}
-            ${implRow("確認URL／イベントURL／プレビュー","F-20","done","実装済（?ticket= / ?event= / ?preview= から復帰）")}
+            ${implRow("確認URL／イベントURL／プレビュー","F-97","done","実装済（?ticket= / ?event= / ?preview= から復帰）")}
             ${implRow("イベントマニュアル（Markdown）","F-99","done","実装済（編集／分割／プレビューの3ビュー。Markdownは自前描画でCDN非依存）")}
             ${implRow("社外向けイベント専用","F-98","done","扱うのは社外向けのみ。問い合わせ先を公開時の必須項目にしている")}
             ${implRow("お知らせ（主催者→参加者）","E-4","done","実装済（公開ページとマイ申込に表示。メール送信は不可のため掲示型）")}
-            ${implRow("申込フォームのカスタム質問","F-a","done","実装済（定義・回答保存・CSV列・一覧表示）")}
-            ${implRow("参加者名簿（横断・参加履歴）","F-b","done","実装済（名寄せ済みの蓄積を一覧・CSV出力）")}
-            ${implRow("開催形式と視聴URL","F-c","done","実装済（視聴URLは申込者のマイ申込にのみ表示）")}
-            ${implRow("イベントの複製","F-d","done","実装済（下書きとして複製・copiedFromIdを記録）")}
-            ${implRow("QRコードでの受付","F-e","done","実装済（1台のみ。複数端末の同時受付はサーバが必要）")}
-            ${implRow("申込推移の可視化","F-f","done","実装済（appliedAt から日次推移）")}
+            ${implRow("申込フォームのカスタム質問","F-91","done","実装済（定義・回答保存・CSV列・一覧表示）")}
+            ${implRow("参加者名簿（横断・参加履歴）","F-92","done","実装済（名寄せ済みの蓄積を一覧・CSV出力）")}
+            ${implRow("開催形式と視聴URL","F-93","done","実装済（視聴URLは申込者のマイ申込にのみ表示）")}
+            ${implRow("イベントの複製","F-94","done","実装済（下書きとして複製・copiedFromIdを記録）")}
+            ${implRow("QRコードでの受付","F-95","done","実装済（1台のみ。複数端末の同時受付はサーバが必要）")}
+            ${implRow("申込推移の可視化","F-96","done","実装済（appliedAt から日次推移）")}
             ${implRow("告知（URL・投稿文・SNS共有）","D-1","done","実装済（読み取りのみ）")}
             ${implRow("運営スレッド（社内チャット）","E-1","done","実装済（単一ブラウザ内で永続。別端末同期は不可）")}
             ${implRow("運営Q&A（疑問の登録・解消）","E-1","done","実装済（同上）")}
@@ -5844,11 +5844,14 @@ const Settings = (() => {
       try { await Seed.load(); FB.toast("デモデータを投入しました"); App.refresh(); }
       catch (e) { FB.error("シード投入に失敗: " + e.message); }
     };
-    el.querySelector("#reset").onclick = async () => {
-      if (!confirm("データベースを初期化します。すべてのデータが削除されます。よろしいですか？")) return;
-      try { await Repo.reset(); FB.toast("初期化しました"); App.refresh(); }
-      catch (e) { FB.error("初期化に失敗: " + e.message); }
-    };
+    // 取り消せない操作なので、公開・中止と同じ確認モーダルを使う（F-87）
+    el.querySelector("#reset").onclick = () => FB.confirmModal({
+      title:"データベースを初期化しますか？", okLabel:"初期化する", danger:true,
+      body:"すべてのデータが削除されます。この操作は取り消せません。",
+      onOk: async () => {
+        try { await Repo.reset(); FB.toast("初期化しました"); App.refresh(); }
+        catch (e) { FB.error("初期化に失敗: " + e.message); }
+      } });
   }
   const implRow = (area, task, cls, st) =>
     `<tr><td>${area}</td><td class="mono" style="color:var(--muted)">${task}</td>
@@ -5954,7 +5957,7 @@ const Participant = (() => {
       </div>`).join("")}
     </div>`;
 
-  /* 視聴情報（F-c）。オンライン／ハイブリッドのとき、申込者にだけ URL を見せる。
+  /* 視聴情報（F-93）。オンライン／ハイブリッドのとき、申込者にだけ URL を見せる。
      公開ページには出さない（4-3 の「自分の申込は確認URL経由でのみ見える」に揃える）。 */
   const onlineBlock = (ev, cancelled) => {
     const f = ev.eventFormat || "onsite";
@@ -5968,7 +5971,7 @@ const Participant = (() => {
     </div>`;
   };
 
-  /* 受付用QR（F-e）。トークンを符号化する。主催者はこれをカメラで読んでチェックインする。
+  /* 受付用QR（F-95）。トークンを符号化する。主催者はこれをカメラで読んでチェックインする。
      生成ライブラリは冒頭にインライン化してある。CDN から読まない理由は、
      この画面に参加者の個人情報があり、第三者スクリプトの改ざんリスクを負いたくないため
      （引き継ぎ書 7-12）。 */
@@ -6041,7 +6044,7 @@ const Participant = (() => {
       email:g("#fEmail").value, consent:g("#fConsent").checked, answers };
   }
 
-  // カスタム質問の入力欄（F-a）
+  // カスタム質問の入力欄（F-91）
   function questionFields(ev, data, err) {
     return (ev.questions || []).map(q => {
       const v = (data.answers || {})[q.id] ?? "";
@@ -6065,7 +6068,7 @@ const Participant = (() => {
   }
 
   // 検証は AppSvc と共通（主催者の修正欄でも同じ規則を使う / F-16, F-52〜F-54）。
-  // カスタム質問の必須チェックだけここで足す（F-a）
+  // カスタム質問の必須チェックだけここで足す（F-91）
   function validateApply(d, ev) {
     const e = AppSvc.validate(d);
     for (const q of (ev.questions || [])) {
@@ -6334,7 +6337,7 @@ const Participant = (() => {
   }
   function resetMyTicket() { selectedToken = null; }
 
-  const selectTicket = (token) => { selectedToken = token; };   // 確認URLからの復帰用（F-20）
+  const selectTicket = (token) => { selectedToken = token; };   // 確認URLからの復帰用（F-97）
 
   return { renderList, renderPublic, renderApply, renderComplete, renderMyTicket,
            resetMyTicket, selectTicket };
@@ -6410,7 +6413,7 @@ const Wizard = (() => {
   let coverFile = null;   // 新たに選択されたカバー画像（File は Blob なのでそのまま保存できる）
   let coverKeep = null;   // 編集時に保持する既存の Blob
   let wasPublic = false;  // 編集開始時点で一般公開だったか（F-66 の判定用）
-  let questions = [];     // 申込フォームのカスタム質問（F-a）
+  let questions = [];     // 申込フォームのカスタム質問（F-91）
 
   const isoToLocalInput = (iso) => {
     if (!iso) return "";
@@ -6476,7 +6479,7 @@ const Wizard = (() => {
       eventFormat: form.eventFormat || "onsite",
       onlineUrl: (form.onlineUrl || "").trim() || null,
       onlineNote: (form.onlineNote || "").trim() || null,
-      questions: questions.filter(q => q.label.trim()),   // ラベル未入力の行は捨てる（F-a）
+      questions: questions.filter(q => q.label.trim()),   // ラベル未入力の行は捨てる（F-91）
       status,
       visibility: form.visibility,
       groupId: prev?.groupId ?? null,
@@ -6525,7 +6528,7 @@ const Wizard = (() => {
     // ステップ見出しでの直接移動（編集時は任意、新規は完了済みのみ / F-73）
     el.querySelectorAll(".step.clickable").forEach(s =>
       s.onclick = () => { collect(); step = +s.dataset.step; paint(); });
-    // 開催形式を変えると視聴URL欄の出し入れが必要になるので、その場で描き直す（F-c）
+    // 開催形式を変えると視聴URL欄の出し入れが必要になるので、その場で描き直す（F-93）
     const fmt = el.querySelector('[data-f="eventFormat"]');
     if (fmt) fmt.onchange = () => { collect(); paint(); };
     wireQuestions();
@@ -6607,13 +6610,13 @@ const Wizard = (() => {
     return true;
   }
 
-  /* 申込フォームのカスタム質問（F-a）。氏名・カナ・メールは固定で、その先を主催者が定義する。
+  /* 申込フォームのカスタム質問（F-91）。氏名・カナ・メールは固定で、その先を主催者が定義する。
      所属区分・所属先の名称・参加方法・知ったきっかけなどを聞くことになる。
      所属は会社に限らないので、区分は「会社／学校／なし」で聞く（F-91b）。 */
   const Q_TYPES = { text:"一行", textarea:"複数行", select:"選択肢", checkbox:"チェック" };
   function questionEditor() {
     return `<div class="qedit">
-      <div class="qh">申込フォームの追加質問（F-a）
+      <div class="qh">申込フォームの追加質問（F-91）
         <span class="hint" style="font-weight:400">氏名・カナ・メールは常に聞きます。その他をここで定義します。</span></div>
       ${questions.length ? questions.map((q, i) => `
         <div class="qrow" data-qi="${i}">
@@ -6740,7 +6743,7 @@ const Wizard = (() => {
             ${Object.entries(Domain.FORMAT).map(([k,v]) =>
               `<option value="${k}" ${f.eventFormat===k?"selected":""}>${v}</option>`).join("")}
           </select>
-          <div class="hint">オンライン・ハイブリッドの視聴URLは<b>申込者のマイ申込にだけ</b>表示されます（F-c）</div></div>
+          <div class="hint">オンライン・ハイブリッドの視聴URLは<b>申込者のマイ申込にだけ</b>表示されます（F-93）</div></div>
         ${T("venueName","会場名",{ph:"本社 大会議室"})}
         ${T("venueAddress","住所",{ph:"東京都千代田区1-1-1",hint:"入力すると公開ページに地図リンクを表示します（F-68）"})}
         ${f.eventFormat && f.eventFormat !== "onsite" ? `
@@ -6901,7 +6904,7 @@ const App = (() => {
       b.onclick = () => setView(b.dataset.role));
   }
 
-  /* URL からの復帰（F-20 / F-65）。
+  /* URL からの復帰（F-97 / F-65）。
      ?ticket=<token> → その申込の詳細（別端末では復帰できないが、同じ端末なら開ける）
      ?event=<id>     → 公開ページ。限定公開はこの経路でのみ閲覧できる
      ?preview=<id>   → 下書きの参加者ビュー確認（F-07）
@@ -6945,7 +6948,7 @@ const App = (() => {
     await DB.open();
     // 初回はデータが無いので、空状態の案内が出る（F-35）。設定からシード投入できる。
     const events = await Repo.events.all();
-    // 確認URL・イベントURL・プレビューURLからの復帰を先に試す（F-20 / F-07）
+    // 確認URL・イベントURL・プレビューURLからの復帰を先に試す（F-97 / F-07）
     if (!await App.routeFromUrl()) App.render();
     if (!events.length) {
       // 起動直後に自動でシードは投入しない（初期化の確認をしやすくするため）。案内のみ。
