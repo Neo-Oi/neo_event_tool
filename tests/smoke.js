@@ -766,8 +766,9 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.Participant.renderMyTicket(content); await wait(30);
     if (!content.querySelector("#lgPw")) throw new Error("ログイン画面が出ない");
     if (content.querySelector(".ticket-item")) throw new Error("ログイン前なのに申込が見えている");
-    // 誤解を招かないよう限界を明記している（F-101 と同じ立場）
-    if (!content.innerHTML.includes("操作の抑止")) throw new Error("保護の限界が説明されていない");
+    // 説明文は画面に出さない（2026-07-29 決定）。出ていたら退行
+    if (content.innerHTML.includes("操作の抑止") || content.innerHTML.includes("デモ用のアカウント"))
+      throw new Error("画面に説明文が出ている（2026-07-29 の方針に反する）");
   });
   await step("F-107 誤ったパスワードでは入れず、入力したメールは残る", async () => {
     content.querySelector("#lgEmail").value = "abc@example.com";
@@ -1041,7 +1042,8 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     await M.Roster.render(content); await wait(30);
     if (!content.querySelector("#lkPw")) throw new Error("ロック画面が出ない");
     if (content.innerHTML.includes("田中 太郎")) throw new Error("ロック中なのに個人情報が見えている");
-    if (!content.innerHTML.includes("肩越しの覗き見")) throw new Error("保護の限界が説明されていない");
+    // 説明文は画面に出さない（2026-07-29 決定）。出ていたら退行
+    if (content.innerHTML.includes("肩越しの覗き見")) throw new Error("画面に説明文が出ている（2026-07-29 の方針に反する）");
   });
   await step("F-101 誤ったパスワードでは解除されない", async () => {
     content.querySelector("#lkPw").value = "password";

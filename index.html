@@ -4549,7 +4549,7 @@ const EventDetail = (() => {
       const jsQR = await Util.loadScript(QR_READ_LIB, "jsQR");
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       host.innerHTML = `<div class="scan">
-        <div class="sh">QRをかざしてください（1台での受付のみ。複数端末の同時受付はサーバが必要 / 4-1）</div>
+        <div class="sh">QRをかざしてください</div>
         <video id="scanVideo" playsinline muted></video>
         <div class="row-actions"><button class="btn sm" id="scanStop">停止</button></div>
         <div class="sr" id="scanResult"></div></div>`;
@@ -4941,7 +4941,7 @@ const Ops = (() => {
     await markRead(eventId, "thread");
     onRead && onRead();
     pane.innerHTML = `
-      <div class="ops-note">運営メンバー間のチャットです。この端末内に保存されます（別端末との同期はサーバ導入まで不可 / 4-1）。</div>
+      <div class="ops-note">運営メンバー間のチャットです。参加者には表示されません。</div>
       <div class="chat" id="chatList">
         ${msgs.length ? msgs.map(bubble).join("")
           : `<div class="empty">まだ投稿がありません。最初のメッセージを送ってみましょう。</div>`}
@@ -4977,7 +4977,7 @@ const Ops = (() => {
     const qas = all.filter(m => m.channel === "qa")
       .sort((a,b) => (a.resolved?1:0)-(b.resolved?1:0) || new Date(b.createdAt)-new Date(a.createdAt));
     pane.innerHTML = `
-      <div class="ops-note">運営内の疑問を登録して解消します。この端末内に保存されます（4-1）。</div>
+      <div class="ops-note">運営内の疑問を登録して解消します。参加者には表示されません。</div>
       <div class="card pad" style="margin-bottom:14px">
         <div class="field"><label>新しい疑問</label>
           <textarea id="qaBody" placeholder="例: 受付の荷物は地下と1階のどちらに運ぶ？"></textarea></div>
@@ -5032,8 +5032,7 @@ const Ops = (() => {
     const all = await Repo.messages.byEvent(eventId);
     const list = noticesOf(all);
     pane.innerHTML = `
-      <div class="ops-note">参加者向けのお知らせです。<b>公開ページと参加者のマイ申込に表示されます</b>。
-        メール送信はできないため（サーバが必要）、参加者が見に来たときに気づく形になります。</div>
+      <div class="ops-note">参加者向けのお知らせです。<b>公開ページと参加者のマイ申込に表示されます</b>。</div>
       <div class="card pad" style="margin-bottom:14px">
         <div class="field"><label>件名<span class="req">必須</span></label>
           <input id="ntTitle" placeholder="例: 開催場所を4階から6階に変更しました"></div>
@@ -5116,7 +5115,7 @@ const Tasks = (() => {
     const { pane, tasks } = ctx;
     const s = Domain.taskSummary(tasks);
     pane.innerHTML = `
-      <div class="ops-note">イベント運営のタスクを管理します。この端末内に保存されます（別端末との同期はサーバ導入まで不可 / 4-1）。</div>
+      <div class="ops-note">イベント運営のタスクを管理します。参加者には表示されません。</div>
       <div class="tk-head">
         <div class="tk-progress">
           <div class="tk-stat">進捗 <b>${s.done}/${s.total}</b>（${s.rate}%）${
@@ -5447,12 +5446,6 @@ const Roster = (() => {
           <button class="btn primary" id="lkGo">解除</button>
         </div>
         ${err ? `<div class="lk-err">${Util.esc(err)}</div>` : ""}
-        <div class="note" style="margin-top:18px;text-align:left">
-          <b>この保護の限界。</b>サーバが無いため、パスワードは HTML 内に書かれており、
-          開発者ツールから IndexedDB を直接開くこともできます。防げるのは
-          <b>肩越しの覗き見と誤操作まで</b>で、意図的な閲覧は防げません。
-          実効的な保護にはサーバ側の認証が必要です（引き継ぎ書 4-1）。
-        </div>
       </div>`;
   }
 
@@ -5497,8 +5490,6 @@ const Roster = (() => {
       <div class="page-head"><h2>参加者</h2>
         <span class="sub">${persons.length}人・のべ${apps.length}件の申込</span>
         <button class="btn sm" id="rLock" style="margin-left:auto">🔒 ロックする</button></div>
-      <div class="ops-note">申込のたびにメールアドレスで名寄せして蓄積しています（4-5）。
-        イベントをまたいだ参加履歴を、期限なく保持します。</div>
       <div style="display:flex;gap:10px;margin:12px 0">
         <input id="rSearch" value="${Util.esc(query)}" placeholder="氏名・カナ・メールで絞り込み"
           style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font:inherit">
@@ -5540,7 +5531,7 @@ const Roster = (() => {
           <span class="d">申込 ${Util.fmtDate(a.appliedAt)}</span></div>`;
       }).join("")}
       ${p.contactConsent ? `<div class="hint" style="margin-top:8px">案内の受け取りに同意済み（${
-        p.consentAt ? Util.fmtDate(p.consentAt) : "日時不明"}）。※メール送信機能は持ちません（4-7）</div>` : ""}
+        p.consentAt ? Util.fmtDate(p.consentAt) : "日時不明"}）</div>` : ""}
     </div></td></tr>`;
   }
 
@@ -5715,8 +5706,7 @@ const Files = (() => {
     const { pane, files } = ctx;
     const total = files.reduce((n, f) => n + (f.size || 0), 0);
     pane.innerHTML = `
-      <div class="ops-note">運営で共有するファイルです。この端末内に保存されます
-        （別端末との同期はサーバ導入まで不可 / 4-1）。参加者には表示されません。</div>
+      <div class="ops-note">運営で共有するファイルです。参加者には表示されません。</div>
       <div class="fl-bar">
         <label class="btn primary" for="flInput">＋ ファイルを追加</label>
         <input type="file" id="flInput" multiple style="display:none">
@@ -5800,7 +5790,7 @@ const Settings = (() => {
       <div class="card pad">
         <h3 style="font-size:15px;margin-bottom:8px">データ</h3>
         <p style="color:var(--muted);margin:0 0 12px">
-          全データはブラウザの IndexedDB に保存されます。デモ用のシードを投入するか、初期化できます。</p>
+          デモ用のシードデータを投入するか、データベースを初期化できます。</p>
         <div class="row-actions">
           <button class="btn primary" id="seed">デモデータを投入</button>
           <button class="btn" id="reset">データベースを初期化</button>
@@ -6179,8 +6169,7 @@ const Participant = (() => {
         <details class="reveal"><summary>別の端末で確認する</summary>
           <div class="copybox"><input readonly value="${Util.esc(url)}">
             <button class="btn" id="copyUrl">コピー</button></div>
-          <div class="hint" style="margin-top:6px">この確認URLからいつでも申込内容を確認できます。
-            トークンはこの端末に保存済みです。<b>別の端末から復帰する手段はありません</b>（サーバが無いため / 3-3）。</div>
+          <div class="hint" style="margin-top:6px">この確認URLからいつでも申込内容を確認できます。</div>
         </details>
       </div>`;
     el.querySelector("#toTicket").onclick = () => App.go("myticket");
@@ -6220,14 +6209,6 @@ const Participant = (() => {
           <button class="btn primary" id="lgGo">ログイン</button>
         </div>
         ${err ? `<div class="lk-err">${Util.esc(err)}</div>` : ""}
-        <div class="note" style="text-align:left;margin-top:20px">
-          <b>デモ用のアカウント</b>: <span class="mono">abc@example.com</span> /
-          <span class="mono">abc123</span>（田中 太郎）<br>
-          サーバが無いため、パスワードはこのブラウザの IndexedDB にあり、DevTools から読めます。
-          <b>これは秘匿ではなく操作の抑止です</b>——F-101 の参加者名簿と同じ限界で、
-          防げるのは肩越しの覗き見と誤操作までです。<br>
-          確認URL（<span class="mono">?ticket=</span>）から開いた1件は、ログイン無しで見られます。
-        </div>
       </div>`;
     const go = () => {
       const em = el.querySelector("#lgEmail").value;
