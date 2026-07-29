@@ -10,10 +10,12 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Node 20 を指定していたが、ランナー側で非推奨になり Node 24 に強制されて
+      # 警告が出ていた。将来エラーになるので LTS へ上げ、アクションも v5 にした
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 依存の取得（テスト専用。成果物には含めない）
         run: npm i jsdom fake-indexeddb
@@ -29,16 +31,23 @@ jobs:
 
       # CDN の URL が実在することを確認する。過去に 404 のパスを書いて
       # QR 生成が動かなかったため（引き継ぎ書 7-10）。
+      #
+      # **抽出は URL に使える文字だけで打ち切る。** 以前は `[^"]+` としていたため、
+      # HTMLコメント内の（引用符で囲まれていない）URL に続く日本語まで取り込み、
+      # 単語分割で「を取得し直すこと。」を URL として curl に渡していた。
+      # DNS 解決に失敗して curl が exit 6 を返し、`set -e` でここが落ちていた。
       - name: CDN の URL が実在するか
         run: |
           set -e
-          urls=$(grep -oE 'https://cdn\.jsdelivr\.net/npm/[^"]+' index.html | sort -u)
+          urls=$(grep -oE 'https://cdn\.jsdelivr\.net/npm/[A-Za-z0-9@._/+-]+' index.html | sort -u)
           if [ -z "$urls" ]; then echo "::error::CDN URL が見つかりません"; exit 1; fi
           for u in $urls; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$u")
+            # curl 自体の失敗（DNS・接続不能）も 200 以外として扱い、読める形で報告する。
+            # `|| true` が無いと exit コードだけが出て、どの URL で落ちたか分からない
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$u" || true)
             echo "$code  $u"
             if [ "$code" != "200" ]; then
-              echo "::error::$u が $code を返しました（存在しないパスの可能性）"
+              echo "::error::$u が $code を返しました（存在しないパス、または URL の抽出ミス）"
               exit 1
             fi
           done
