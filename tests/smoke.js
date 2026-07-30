@@ -1097,6 +1097,28 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     for (let i = 1; i < list.length; i++)
       if (list[i - 1].ts < list[i].ts) throw new Error("日付順に並んでいない");
   });
+  /* キャンセルしたイベントの動向は出さない（F-108c / 2026-07-30 の指摘で修正）。
+     以前は申込の状態を見ておらず、キャンセル後もお知らせが届いていた。 */
+  await step("F-108c キャンセル後はそのイベントの動向が出ない", async () => {
+    const me = await M.Repo.persons.byEmailKey("abc@example.com");
+    const apps = await M.Repo.applications.byPerson(me.id);
+    const target = apps.find(a => M.Domain.isValidApp(a));
+    if (!target) throw new Error("有効な申込が無い");
+    const evId = target.eventId;
+    // 同じイベントに他の有効な申込が残っていると条件が崩れるので、その人のぶんは全部キャンセルする
+    for (const a of apps.filter(x => x.eventId === evId && M.Domain.isValidApp(x)))
+      await M.AppSvc.cancel(a.id);
+    await M.Repo.messages.put({ id:M.Util.uid(), eventId:evId, channel:"notice", author:"運営",
+      title:"キャンセル後に出したお知らせ", body:"", createdAt:new Date().toISOString() });
+    const list = await M.Notify.forParticipant(me.id);
+    const mine = list.filter(n => n.eventId === evId);
+    if (mine.some(n => n.kind === "notice"))
+      throw new Error("キャンセル済みなのにお知らせが出ている");
+    if (mine.some(n => n.kind === "updated" || n.kind === "cancelled"))
+      throw new Error("キャンセル済みなのにイベントの動向が出ている");
+    // 自分の申込の記録（キャンセル・申込完了）は残る
+    if (!mine.some(n => n.kind === "cancel")) throw new Error("自分のキャンセルの記録が消えている");
+  });
   await step("F-108 参加者の通知はログインが必要", async () => {
     M.Auth.logout(); M.Participant.resetMyTicket();
     M.App.setView("participant"); await wait(60);

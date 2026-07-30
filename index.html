@@ -5976,6 +5976,12 @@ const Notify = (() => {
       Promise.all(ids.map(id => Repo.messages.byEvent(id))),
     ]);
     const evById = {}; evs.forEach(e => { if (e) evById[e.id] = e; });
+    /* **イベントの動向（お知らせ・中止・内容の変更）は、有効な申込があるイベントに限る**（F-108c）。
+       キャンセルしたイベントの動向はもう関係が無いため。判定は Domain.isValidApp に任せる
+       （申込済・受付済が有効。キャンセル済みは除く / F-18 と同じ扱い）。
+       **自分の申込の記録（申込完了・受付完了・キャンセル）は、キャンセル済みも残す**——
+       自分が何をしたかの記録なので、消すと履歴が追えなくなる。 */
+    const activeIds = new Set(apps.filter(Domain.isValidApp).map(a => a.eventId));
     const since = now - DAYS * 86400000;
     const out = [];
     const add = (kind, iso, eventId, text) => {
@@ -5984,11 +5990,12 @@ const Notify = (() => {
       out.push({ kind, at:iso, ts:t, eventId, title:evById[eventId].title, text });
     };
     msgLists.flat().forEach(m => {
-      if (m.channel === "notice") add("notice", m.createdAt, m.eventId, m.title || "");
+      if (m.channel === "notice" && activeIds.has(m.eventId))
+        add("notice", m.createdAt, m.eventId, m.title || "");
     });
     for (const id of ids) {
       const e = evById[id];
-      if (!e) continue;
+      if (!e || !activeIds.has(id)) continue;
       if (e.status === "cancelled") add("cancelled", e.updatedAt, id, "このイベントは中止になりました");
       else if (at(e.updatedAt) > at(e.createdAt)) add("updated", e.updatedAt, id, "イベントの内容が変更されました");
     }
