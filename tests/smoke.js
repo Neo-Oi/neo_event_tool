@@ -182,7 +182,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     // ヘッダーの左端にあること（ロゴ → アプリ名の順）
     const kids = [...window.document.querySelector("header.appbar").children];
     if (kids.indexOf(a) !== 0) throw new Error("ロゴがヘッダー左端にない");
-    // 社名部分が白いロゴなので、白い地に載せると文字が消える（引き継ぎ書 7-13）
+    // 社名部分が白いロゴなので、白い地に載せると文字が消える
     const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
     const rule = css.match(/header\.appbar \.logo\{[^}]*\}/);
     if (rule && /background:\s*#fff/.test(rule[0]))
