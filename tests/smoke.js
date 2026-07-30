@@ -37,7 +37,7 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
 (async () => {
   window.eval(vendorText);                    // 先にライブラリを読み込む
   window.eval(scriptText +
-    "\n;window.__M={QR_READ_LIB,App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,Auth,FB};");
+    "\n;window.__M={QR_READ_LIB,App,Repo,Seed,DB,Domain,Util,AppSvc,Dashboard,EventsList,EventDetail,Ops,Tasks,Manual,Files,Roster,Settings,Wizard,Participant,Auth,FB,Notify};");
   await wait(300);
 
   const M = window.__M;
@@ -1038,6 +1038,74 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     const a = (await M.Repo.applications.byEvent("ev_soon")).find(x => x.answers && x.answers.q_comp === "学校");
     await M.AppSvc.cancel(a.id);
     if ((await M.Repo.applications.get(a.id)).status !== "cancelled") throw new Error("共通キャンセルが効かない");
+  });
+
+  /* ---- 通知（S-11 / F-108）----
+     通知は保存せず、各ストアの時刻から都度組み立てる。既読位置だけ readStates に持つ。 */
+  await step("F-108 主催者の通知が9タブの変更から集まる", async () => {
+    const list = await M.Notify.forOrganizer();
+    if (!list.length) throw new Error("通知が空");
+    const kinds = new Set(list.map(n => n.kind));
+    for (const k of ["apply", "thread", "qa", "task", "manual", "file", "notice", "event"])
+      if (!kinds.has(k)) throw new Error("この種類の通知が出ない: " + k);
+    // 新しい順で、イベント名と本文を持つ
+    for (let i = 1; i < list.length; i++)
+      if (list[i - 1].ts < list[i].ts) throw new Error("日付順に並んでいない");
+    if (list.some(n => !n.title || !n.text)) throw new Error("イベント名か本文が欠けている");
+    if (list.length > 100) throw new Error("上限を超えている: " + list.length);
+  });
+  await step("F-108 通知の画面が描かれ、クリックで該当タブへ飛べる", async () => {
+    M.App.setView("organizer"); await wait(60);
+    M.App.go("notify"); await wait(200);
+    const rows = content.querySelectorAll(".nt-item");
+    if (!rows.length) throw new Error("通知一覧が出ない");
+    const thread = [...rows].find(r => r.dataset.tab === "thread");
+    if (!thread) throw new Error("運営スレッドの通知が無い");
+    thread.click(); await wait(250);
+    const on = content.querySelector("#subtabs .on");
+    if (!on || on.dataset.tab !== "thread")
+      throw new Error("運営スレッドのタブが開かない: " + (on && on.dataset.tab));
+  });
+  await step("F-108 タブに未読バッジが出て、開くと消える", async () => {
+    // 既読位置を消して全件未読にする
+    await M.Repo.readStates.put({ key:"__notify:organizer", eventId:"__notify",
+      channel:"notify", lastReadAt:new Date(0).toISOString() });
+    M.App.go("dashboard"); await wait(250);
+    const dot = window.document.querySelector('#tabs [data-page="notify"] .tabdot');
+    if (!dot) throw new Error("未読バッジが出ない");
+    M.App.go("notify"); await wait(300);
+    if (window.document.querySelector('#tabs [data-page="notify"] .tabdot'))
+      throw new Error("開いてもバッジが消えない");
+  });
+  await step("F-108 参加者の通知は自分の申込イベントに限られる", async () => {
+    const me = await M.Repo.persons.byEmailKey("abc@example.com");
+    const list = await M.Notify.forParticipant(me.id);
+    if (!list.length) throw new Error("参加者の通知が空");
+    const mine = new Set((await M.Repo.applications.byPerson(me.id)).map(a => a.eventId));
+    if (list.some(n => !mine.has(n.eventId))) throw new Error("申込んでいないイベントの通知が混ざっている");
+    // 運営向けの種類（スレッド・Q&A・タスク・マニュアル・ファイル）は出さない（4-3）
+    for (const k of ["thread", "qa", "task", "manual", "file"])
+      if (list.some(n => n.kind === k)) throw new Error("参加者に運営の通知が出ている: " + k);
+    for (let i = 1; i < list.length; i++)
+      if (list[i - 1].ts < list[i].ts) throw new Error("日付順に並んでいない");
+  });
+  await step("F-108 参加者の通知はログインが必要", async () => {
+    M.Auth.logout(); M.Participant.resetMyTicket();
+    M.App.setView("participant"); await wait(60);
+    M.App.go("notify"); await wait(250);
+    if (!content.querySelector("#ntLogin")) throw new Error("ログイン案内が出ない");
+    if (content.querySelector(".nt-item")) throw new Error("未ログインで通知が見えている");
+    if (await M.Notify.forParticipant(null).then(l => l.length)) throw new Error("personId 無しで通知が出る");
+    await M.Auth.login("abc@example.com", "abc123");
+    M.App.go("notify"); await wait(300);
+    if (!content.querySelectorAll(".nt-item").length) throw new Error("ログイン後も通知が出ない");
+    M.Auth.logout(); M.Participant.resetMyTicket(); M.App.setView("organizer"); await wait(60);
+  });
+  await step("F-108 通知そのものは保存しない（readStates に既読位置だけ）", async () => {
+    if (M.DB.db().objectStoreNames.contains("notifications"))
+      throw new Error("通知用のストアが作られている（都度算出の方針に反する）");
+    const rows = await M.Repo.readStates.all();
+    if (!rows.some(r => r.key === "__notify:organizer")) throw new Error("既読位置が保存されていない");
   });
 
   // ---- F-97 / F-07 ----

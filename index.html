@@ -185,6 +185,20 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:16px 0}
 .subtabs button{background:transparent;border:0;padding:10px 14px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
 .subtabs button.on{color:var(--blue);border-bottom-color:var(--blue)}
+/* 通知一覧（S-11 / F-108）。新しい順に並べ、未読は左に印を出す */
+.nt-list{display:flex;flex-direction:column;gap:8px}
+.nt-item{display:flex;gap:14px;align-items:flex-start;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:12px 14px;cursor:pointer;border-left:3px solid transparent}
+.nt-item:hover{box-shadow:0 4px 14px rgba(32,39,46,.10)}
+.nt-item.new{border-left-color:var(--blue);background:#f7faff}
+.nt-when{color:var(--muted);font-size:12px;min-width:112px;padding-top:2px}
+.nt-main{flex:1;min-width:0}
+.nt-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.nt-ev{font-weight:700;font-size:14px}
+.nt-text{color:var(--muted);font-size:13px;margin-top:4px;overflow-wrap:break-word}
+.nt-go{color:var(--blue);font-size:12px;white-space:nowrap;padding-top:2px}
+nav.tabs .tabdot{display:inline-block;margin-left:8px;background:var(--danger);color:#fff;
+  border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;vertical-align:middle}
 .subtabs .tabdot{display:inline-block;margin-left:6px;background:var(--blue);color:#fff;
   border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;line-height:1.5;vertical-align:middle}
 
@@ -587,6 +601,10 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 
   /* 公開ページ */
   body[data-view="participant"] .pub .cover{height:150px}
+  /* 通知はスマホでは日時を上に積む（横に3列並べると読めなくなる） */
+  body[data-view="participant"] .nt-item{flex-wrap:wrap;gap:6px}
+  body[data-view="participant"] .nt-when{min-width:0;width:100%;order:-1}
+  body[data-view="participant"] .nt-go{display:none}
   body[data-view="participant"] .pcard .ph{height:108px}
   body[data-view="participant"] .pcard .ph.sm{height:84px}
   body[data-view="participant"] .pub h1{font-size:20px;margin:14px 0 6px}
@@ -4480,6 +4498,8 @@ const EventDetail = (() => {
   const STATUS_LABEL = { applied:"申込済", checkedin:"チェックイン済", cancelled:"キャンセル" };
   const STATUS_CLASS = { applied:"phase", checkedin:"published", cancelled:"draft" };
   let ctx = null;      // { ev, apps, _persons, tasks, el }
+  // サブタブは9つ（F-75）。通知から特定のタブを指定して開けるように一覧を持つ
+  const TABS = ["apply","thread","qa","tasks","manual","files","notice","promo","edit"];
   let tab = "apply";   // 初期タブは申込（F-75）
   let expandedId = null;
   let query = "";      // 申込一覧の絞り込み語（操作後の再描画でも保持する）
@@ -4939,7 +4959,8 @@ ${url}`;
   }
 
   // persons をまとめて読んでおく（申込一覧の氏名・メール表示に必要）
-  async function render(el, eventId) {
+  // initialTab は通知から該当タブを開くときに渡る（F-108）。無指定なら申込タブ（F-75）
+  async function render(el, eventId, initialTab = null) {
     const [ev, apps, personsArr, tasks, msgs, readRows] = await Promise.all([
       Repo.events.get(eventId),
       Repo.applications.byEvent(eventId),
@@ -4952,7 +4973,8 @@ ${url}`;
     const unread = Ops.unreadOf(msgs, "thread", Ops.readMap(readRows), eventId);
     ctx = { ev, apps, _persons, tasks, unread, el };
     // 別のイベントを開いたら絞り込みは解除する（操作後の再描画では保持する）
-    expandedId = null; tab = "apply"; query = "";
+    expandedId = null; query = "";
+    tab = TABS.includes(initialTab) ? initialTab : "apply";
     paint();
   }
 
@@ -5854,6 +5876,198 @@ const Files = (() => {
   }
 
   return { render };
+})();
+
+
+// ===== [9g] 通知（S-11 / F-108。既存データの時刻から都度算出する） =====
+/* **通知そのものを保存しない。** 各ストアが既に「いつ起きたか」を持っているので、
+   それを集めて時刻で並べるだけで通知一覧になる（時期を保存しないのと同じ考え方 / 4-3）。
+   保存する方式にすると、書き込み箇所すべてに通知の追記が必要になり、
+   取りこぼしと二重登録が起きる。集約はここ1か所に閉じる。
+
+   既読位置は `readStates` を再利用する（**スキーマは v5 のまま**）。通知はイベント横断なので
+   キーは `__notify:organizer` / `__notify:participant:<personId>`。参加者ぶんに personId を
+   入れるのは、同じブラウザを別の人が使ったときに既読を共有しないため（F-107 と同じ理由）。 */
+const Notify = (() => {
+  const LIMIT = 100;                       // 一覧に出す上限（古いものは切る）
+  const DAYS = 90;                         // さかのぼる日数
+  const keyOf = (view, personId) =>
+    view === "organizer" ? "__notify:organizer" : `__notify:participant:${personId || "-"}`;
+
+  const at = (iso) => iso ? new Date(iso).getTime() : 0;
+  // 主催者：9つのタブのうち、変更が記録として残るものを集める。
+  // 「告知」タブは共有URLと投稿文を読むだけで保存を伴わないため、通知の対象にならない。
+  const ORG_KIND = {
+    apply:   { label:"申込",         tab:"apply",  cls:"phase" },
+    checkin: { label:"受付",         tab:"apply",  cls:"published" },
+    cancel:  { label:"キャンセル",   tab:"apply",  cls:"draft" },
+    thread:  { label:"運営スレッド", tab:"thread", cls:"phase" },
+    qa:      { label:"運営Q&A",      tab:"qa",     cls:"limited" },
+    task:    { label:"運営タスク",   tab:"tasks",  cls:"phase" },
+    manual:  { label:"マニュアル",   tab:"manual", cls:"phase" },
+    file:    { label:"ファイル",     tab:"files",  cls:"phase" },
+    notice:  { label:"お知らせ",     tab:"notice", cls:"published" },
+    event:   { label:"イベント",     tab:"edit",   cls:"phase" },
+  };
+
+  /* 主催者向けの通知を組み立てる。全ストアを読むが、件数が数百件規模なので
+     並列取得＋切り詰めで足りる（イベントが100を超えたら 10章の方針に従い絞り込みに変える）。 */
+  async function forOrganizer(now = Date.now()) {
+    const [events, apps, personsArr, msgs, tasks, manuals, files] = await Promise.all([
+      Repo.events.all(), Repo.applications.all(), Repo.persons.all(),
+      Repo.messages.all(), Repo.tasks.all(), DB.getAll("manuals"), DB.getAll("files")]);
+    const evById = {}; events.forEach(e => evById[e.id] = e);
+    const pById = {}; personsArr.forEach(p => pById[p.id] = p);
+    const since = now - DAYS * 86400000;
+    const out = [];
+    const add = (kind, iso, eventId, text) => {
+      const t = at(iso);
+      if (!t || t < since || t > now || !evById[eventId]) return;
+      out.push({ kind, at:iso, ts:t, eventId, title:evById[eventId].title, text });
+    };
+
+    for (const a of apps) {
+      const nm = (pById[a.personId] || {}).name || "参加者";
+      add("apply", a.appliedAt, a.eventId, `${nm} さんが申込みました`);
+      add("checkin", a.checkinAt, a.eventId, `${nm} さんを受付しました`);
+      add("cancel", a.cancelledAt, a.eventId, `${nm} さんの申込がキャンセルされました`);
+    }
+    for (const m of msgs) {
+      if (m.channel === "thread") add("thread", m.createdAt, m.eventId, `${m.author || "運営"}：${m.body || ""}`);
+      else if (m.channel === "qa") {
+        add("qa", m.createdAt, m.eventId, `疑問が登録されました：${m.body || ""}`);
+        add("qa", m.resolvedAt, m.eventId, `疑問が解決しました：${m.body || ""}`);
+      } else if (m.channel === "notice") add("notice", m.createdAt, m.eventId, `お知らせを掲示しました：${m.title || ""}`);
+    }
+    for (const t of tasks) {
+      add("task", t.createdAt, t.eventId, `タスクを追加しました：${t.title || ""}`);
+      // 追加と同時刻の更新は追加だけを出す（同じ操作で2件並ばないように）
+      if (at(t.updatedAt) > at(t.createdAt))
+        add("task", t.updatedAt, t.eventId,
+          `タスクを${t.status === "done" ? "完了に" : "更新"}しました：${t.title || ""}`);
+    }
+    for (const m of manuals) add("manual", m.updatedAt, m.eventId, "マニュアルを更新しました");
+    for (const f of files) add("file", f.uploadedAt, f.eventId, `ファイルを追加しました：${f.name || ""}`);
+    for (const e of events) {
+      if (at(e.updatedAt) > at(e.createdAt))
+        add("event", e.updatedAt, e.id,
+          e.status === "cancelled" ? "イベントを中止にしました"
+          : e.status === "published" ? "イベントの内容を更新しました（公開中）"
+          : "下書きを更新しました");
+      else add("event", e.createdAt, e.id, "イベントを作成しました");
+    }
+    return out.sort((a, b) => b.ts - a.ts).slice(0, LIMIT);
+  }
+
+  /* 参加者向け。**自分が申込んだイベントに関するものだけ**を出す。
+     運営スレッド・Q&A・タスク・マニュアル・ファイルは参加者に見せない（4-3）ので含めない。 */
+  const PART_KIND = {
+    notice:  { label:"お知らせ",   cls:"published" },
+    cancelled:{ label:"中止",      cls:"cancelled" },
+    updated: { label:"内容の変更", cls:"limited" },
+    checkin: { label:"受付完了",   cls:"published" },
+    cancel:  { label:"キャンセル", cls:"draft" },
+    applied: { label:"申込完了",   cls:"phase" },
+  };
+  async function forParticipant(personId, now = Date.now()) {
+    if (!personId) return [];
+    const apps = await Repo.applications.byPerson(personId);
+    if (!apps.length) return [];
+    const ids = [...new Set(apps.map(a => a.eventId))];
+    const [evs, msgLists] = await Promise.all([
+      Promise.all(ids.map(id => Repo.events.get(id))),
+      Promise.all(ids.map(id => Repo.messages.byEvent(id))),
+    ]);
+    const evById = {}; evs.forEach(e => { if (e) evById[e.id] = e; });
+    const since = now - DAYS * 86400000;
+    const out = [];
+    const add = (kind, iso, eventId, text) => {
+      const t = at(iso);
+      if (!t || t < since || t > now || !evById[eventId]) return;
+      out.push({ kind, at:iso, ts:t, eventId, title:evById[eventId].title, text });
+    };
+    msgLists.flat().forEach(m => {
+      if (m.channel === "notice") add("notice", m.createdAt, m.eventId, m.title || "");
+    });
+    for (const id of ids) {
+      const e = evById[id];
+      if (!e) continue;
+      if (e.status === "cancelled") add("cancelled", e.updatedAt, id, "このイベントは中止になりました");
+      else if (at(e.updatedAt) > at(e.createdAt)) add("updated", e.updatedAt, id, "イベントの内容が変更されました");
+    }
+    for (const a of apps) {
+      add("applied", a.appliedAt, a.eventId, "申込を受け付けました");
+      add("checkin", a.checkinAt, a.eventId, "当日の受付が完了しました");
+      add("cancel", a.cancelledAt, a.eventId, "申込がキャンセルされました");
+    }
+    return out.sort((a, b) => b.ts - a.ts).slice(0, LIMIT);
+  }
+
+  const listFor = (view, personId) =>
+    view === "organizer" ? forOrganizer() : forParticipant(personId);
+
+  // 未読件数（タブのバッジ用）。最終閲覧時刻より後のものを数える——保存しないのは未読と同じ
+  async function unreadCount(view, personId) {
+    const [list, rec] = await Promise.all([
+      listFor(view, personId), Repo.readStates.get(keyOf(view, personId))]);
+    const since = rec ? at(rec.lastReadAt) : 0;
+    return list.filter(n => n.ts > since).length;
+  }
+  async function markRead(view, personId) {
+    await Repo.readStates.put({ key:keyOf(view, personId), eventId:"__notify",
+      channel:"notify", lastReadAt:new Date().toISOString() });
+  }
+
+  // ---- 画面（S-11）----
+  async function render(el) {
+    const view = App.currentView();
+    const me = view === "organizer" ? null : Auth.person();
+    if (view !== "organizer" && !me) {           // 参加者はログインが要る（F-107 と同じ扱い）
+      el.innerHTML = `
+        <div class="page-head"><h2>通知</h2></div>
+        <div class="lock">
+          <div class="lk-icon">🔔</div>
+          <h3>ログインしてください</h3>
+          <div class="lk-form col"><button class="btn primary" id="ntLogin">マイ申込からログイン</button></div>
+        </div>`;
+      el.querySelector("#ntLogin").onclick = () => App.go("myticket");
+      return;
+    }
+    const rec = await Repo.readStates.get(keyOf(view, me && me.id));
+    const since = rec ? at(rec.lastReadAt) : 0;
+    const list = await listFor(view, me && me.id);
+    const KIND = view === "organizer" ? ORG_KIND : PART_KIND;
+
+    el.innerHTML = `
+      <div class="page-head"><h2>通知</h2>
+        <span class="sub">${list.length ? `直近${DAYS}日・${list.length}件` : ""}</span></div>
+      ${list.length ? `<div class="nt-list">${list.map(n => {
+        const k = KIND[n.kind] || { label:n.kind, cls:"phase" };
+        return `<div class="nt-item ${n.ts > since ? "new" : ""}" data-ev="${n.eventId}"
+          ${view === "organizer" ? `data-tab="${k.tab}"` : ""}>
+          <div class="nt-when">${Util.fmtDateTime(n.at)}</div>
+          <div class="nt-main">
+            <div class="nt-top"><span class="badge ${k.cls}">${Util.esc(k.label)}</span>
+              <span class="nt-ev">${Util.esc(n.title)}</span></div>
+            <div class="nt-text">${Util.esc(n.text)}</div>
+          </div>
+          <div class="nt-go">開く →</div>
+        </div>`;
+      }).join("")}</div>`
+      : `<div class="card"><div class="empty"><div class="big">通知はありません</div>
+         ${view === "organizer" ? "イベントの更新や申込があると、ここに新しい順で並びます。"
+           : "申込んだイベントに更新があると、ここに並びます。"}</div></div>`}`;
+
+    el.querySelectorAll("[data-ev]").forEach(row => row.onclick = () => {
+      if (view === "organizer") App.openEvent(row.dataset.ev, row.dataset.tab);
+      else App.openPublic(row.dataset.ev);
+    });
+    // 開いた時点で既読にする（バッジは次の描画で消える）
+    await markRead(view, me && me.id);
+    App.refreshBadge();
+  }
+
+  return { render, unreadCount, markRead, forOrganizer, forParticipant };
 })();
 
 
@@ -6849,10 +7063,11 @@ const App = (() => {
   let route = { view:"organizer", page:"dashboard", param:null };
   let completeData = null; // S-8 へ渡す申込内容（トランジェント）
 
-  // タブは4つ。参加者名簿はイベント横断なので、イベントタブ配下には置けない（4-1 を改訂）
-  const ORG_TABS  = [["dashboard","ダッシュボード"],["events","イベント"],
+  /* 主催者は5タブ、参加者は3タブ（通知 S-11 を追加 / F-108。4-1 を改訂）。
+     参加者名簿はイベント横断なので、イベントタブ配下には置けない。 */
+  const ORG_TABS  = [["dashboard","ダッシュボード"],["events","イベント"],["notify","通知"],
                      ["roster","参加者"],["settings","設定"]];
-  const PART_TABS = [["list","イベントを探す"],["myticket","マイ申込"]];
+  const PART_TABS = [["list","イベントを探す"],["myticket","マイ申込"],["notify","通知"]];
 
   function renderTabs() {
     const host = document.getElementById("tabs");
@@ -6865,12 +7080,29 @@ const App = (() => {
       if (b.dataset.page === "myticket") Participant.resetMyTicket();
       go(b.dataset.page);
     });
+    refreshBadge();
+  }
+
+  /* 通知タブの未読バッジ（F-108）。件数の算出は非同期なので、タブを描いた後から差し込む
+     （S-4 の未読バッジと同じやり方 / 9-2）。**バッジ要素だけを入れ替え、タブは描き直さない。** */
+  async function refreshBadge() {
+    const host = document.getElementById("tabs");
+    const btn = host && host.querySelector('[data-page="notify"]');
+    if (!btn) return;
+    let n = 0;
+    try {
+      const me = route.view === "organizer" ? null : Auth.person();
+      if (route.view === "organizer" || me) n = await Notify.unreadCount(route.view, me && me.id);
+    } catch { n = 0; }
+    const old = btn.querySelector(".tabdot");
+    if (old) old.remove();
+    if (n) btn.insertAdjacentHTML("beforeend", `<span class="tabdot">${n > 99 ? "99+" : n}</span>`);
   }
   const orgActive = (k) =>
     route.page === k ||
     (k==="events" && (route.page==="eventDetail" || route.page==="create"));
-  const partActive = (k) => k==="myticket"
-    ? route.page==="myticket"
+  const partActive = (k) => k==="myticket" ? route.page==="myticket"
+    : k==="notify" ? route.page==="notify"
     : ["list","public","apply","complete"].includes(route.page);
 
   /* 描画の直列化と世代管理。
@@ -6901,12 +7133,14 @@ const App = (() => {
       if (route.view === "organizer") {
         if (route.page === "dashboard") await Dashboard.render(el);
         else if (route.page === "events") await EventsList.render(el);
-        else if (route.page === "eventDetail") await EventDetail.render(el, route.param);
+        else if (route.page === "eventDetail") await EventDetail.render(el, route.param, route.tab);
+        else if (route.page === "notify") await Notify.render(el);
         else if (route.page === "roster") await Roster.render(el);
         else if (route.page === "settings") await Settings.render(el);
         else if (route.page === "create") await Wizard.render(el, route.param);
       } else {
-        if (route.page === "public") await Participant.renderPublic(el, route.param);
+        if (route.page === "notify") await Notify.render(el);
+        else if (route.page === "public") await Participant.renderPublic(el, route.param);
         else if (route.page === "apply") await Participant.renderApply(el, route.param);
         else if (route.page === "complete") await Participant.renderComplete(el, route.param, completeData);
         else if (route.page === "myticket") await Participant.renderMyTicket(el);
@@ -6920,8 +7154,9 @@ const App = (() => {
   }
 
   // 公開API（各モジュールから遷移に使う）
-  function go(page, param=null) { route = { ...route, page, param }; render(); }
-  function openEvent(id) { route = { view:"organizer", page:"eventDetail", param:id }; render(); }
+  function go(page, param=null) { route = { ...route, page, param, tab:null }; render(); }
+  // tab を渡すと詳細のサブタブを指定して開ける（通知から該当タブへ飛ぶため / F-108）
+  function openEvent(id, tab=null) { route = { view:"organizer", page:"eventDetail", param:id, tab }; render(); }
   function openCreate(id=null) { route = { view:"organizer", page:"create", param:id }; render(); }
   function openPublic(id) { route = { view:"participant", page:"public", param:id }; render(); }
   function openApply(id) { route = { view:"participant", page:"apply", param:id }; render(); }
@@ -6950,7 +7185,9 @@ const App = (() => {
     document.querySelectorAll("#roleSwitch button").forEach(b =>
       b.classList.toggle("on", b.dataset.role === view));
   }
-  function refresh() { renderContent(); } // データ変更後に現在ページを再描画
+  // データ変更後に現在ページを再描画する。**通知の未読バッジも数え直す**——
+  // シード投入や初期化のあとバッジが古い件数のまま残るため（F-108）
+  function refresh() { renderContent(); refreshBadge(); }
   function setView(view) {
     // 参加者ビューへ切り替えたら名簿は再ロックする（主催者席を離れる想定 / F-101）
     if (view !== "organizer") Roster.lock();
@@ -7001,7 +7238,9 @@ const App = (() => {
   const isPreview = (id) => previewId === id;   // 下書きプレビュー中か（F-07）
   function openPreview(id) { previewId = id; openPublic(id); }
 
+  const currentView = () => route.view;
   return { go, openEvent, openCreate, openPublic, openApply, openComplete, openTicket,
+           currentView, refreshBadge,
            openPreview, isPreview, routeFromUrl, refresh, setView, wire, render };
 })();
 
