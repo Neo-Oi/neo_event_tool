@@ -957,6 +957,85 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (!content.innerHTML.includes("下書きのプレビュー")) throw new Error("プレビュー表示にならない");
   });
 
+  /* ---- 手動で確認できなかった項目の自動化（2026-07-29 / 結合試験項目一覧の履歴より）----
+     QRのカメラ実機読み取りと「20MBちょうどの保存」は自動化できないため手動のまま。 */
+  await step("AB-08 不正なトークンの確認URLはエラーで通常画面へ（F-97）", async () => {
+    window.history.replaceState(null, "", "/index.html?ticket=deadbeef00000000");
+    const hit = await M.App.routeFromUrl(); await wait(60);
+    if (hit) throw new Error("不正トークンでルーティングされた");
+    if (window.location.search) throw new Error("URLが元に戻っていない");
+    const banner = window.document.getElementById("bannerHost").textContent;
+    if (!banner.includes("見つかりません")) throw new Error("エラーが提示されない: " + banner);
+    window.document.getElementById("bannerHost").innerHTML = "";
+  });
+  await step("AB-09 ?event= の下書き・存在しないIDは表示できない（F-65）", async () => {
+    // F-07 のテストが最初の下書きをプレビュー登録済みのため、専用の下書きを別に作る
+    const now = new Date().toISOString();
+    await M.Repo.events.put({ id:"ev_ab09_draft", title:"AB09確認用の下書き", status:"draft",
+      visibility:"public", capacity:10, questions:[], createdAt:now, updatedAt:now });
+    window.history.replaceState(null, "", "/index.html?event=ev_ab09_draft");
+    await M.App.routeFromUrl(); await wait(60);
+    if (!content.innerHTML.includes("表示できません")) throw new Error("下書きが参加者に見えている");
+    window.history.replaceState(null, "", "/index.html?event=no_such_event");
+    const hit = await M.App.routeFromUrl(); await wait(60);
+    if (hit) throw new Error("存在しないIDでルーティングされた");
+    if (!window.document.getElementById("bannerHost").textContent.includes("見つかりません"))
+      throw new Error("エラーが提示されない");
+    window.document.getElementById("bannerHost").innerHTML = "";
+  });
+  await step("AB-09 ?event= の中止イベントは状態を表示（F-39）", async () => {
+    const cancelled = (await M.Repo.events.all()).find(e => e.status === "cancelled");
+    window.history.replaceState(null, "", "/index.html?event=" + cancelled.id);
+    await M.App.routeFromUrl(); await wait(60);
+    if (!content.innerHTML.includes("このイベントは中止されました")) throw new Error("中止の状態が出ない");
+  });
+  await step("AB-10 キャンセル済みの確認URLは状態を表示し操作に進めない（F-43）", async () => {
+    // 既存の控えを消費しないよう、専用の申込を作ってからキャンセルする
+    let ev = null;
+    for (const e of await M.Repo.events.all()) {
+      if (e.status !== "published" || M.Domain.timing(e).phase !== "open") continue;
+      if (M.Domain.remaining(e, await M.Repo.applications.byEvent(e.id)) > 0) { ev = e; break; }
+    }
+    if (!ev) throw new Error("受付中で残席のあるイベントが無い");
+    const { app } = await M.AppSvc.apply(ev.id,
+      { name:"取消 試験", kana:"トリケシ シケン", email:"ab10-cancel@example.com", consent:false, answers:{} });
+    await M.AppSvc.cancel(app.id);
+    window.history.replaceState(null, "", "/index.html?ticket=" + app.token);
+    const hit = await M.App.routeFromUrl(); await wait(60);
+    if (!hit) throw new Error("ルーティングされない");
+    if (!content.innerHTML.includes("キャンセルされました")) throw new Error("キャンセル状態が出ない");
+    if (content.querySelector("#qrShow")) throw new Error("キャンセル済みなのに受付用QRが出る");
+    if (content.querySelector("#cancelBtn")) throw new Error("キャンセル済みなのにキャンセルボタンが出る");
+  });
+  await step("AB-08 URLで開いた直後の再読み込みで二重処理しない（F-97）", async () => {
+    const { token } = await savedTokenFor("ev_public");
+    window.history.replaceState(null, "", "/index.html?ticket=" + token);
+    await M.App.routeFromUrl(); await wait(60);
+    if (window.location.search) throw new Error("URLが元に戻っていない");
+    const again = await M.App.routeFromUrl(); await wait(30);   // 再読み込み相当（素のURL）
+    if (again) throw new Error("パラメータ無しで再ルーティングされた");
+  });
+  await step("AB-05 コピーに失敗したら失敗を伝える（F-85）", async () => {
+    await M.EventDetail.render(content, "ev_public"); await wait(30);
+    clickTab(7); await wait(30);                                 // 告知タブ
+    const orig = window.navigator.clipboard.writeText;
+    window.navigator.clipboard.writeText = async () => { throw new Error("denied"); };
+    content.querySelector("#copyUrl").click(); await wait(30);
+    window.navigator.clipboard.writeText = orig;
+    const toast = window.document.getElementById("toastHost").textContent;
+    if (!toast.includes("コピーできませんでした")) throw new Error("失敗が利用者に伝わらない: " + toast);
+  });
+  await step("AB-20 20MBを超えるファイルは拒否され保存されない（F-102）", async () => {
+    await M.Files.render(content, "ev_public"); await wait(30);
+    const before = (await M.Repo.files.byEvent("ev_public")).length;
+    content.querySelector("#flInput").onchange({ target: { files: [{ name:"big.bin", size: 21 * 1024 * 1024 }] } });
+    await wait(30);
+    const banner = window.document.getElementById("bannerHost").textContent;
+    if (!banner.includes("20MBを超えるファイルは追加できません")) throw new Error("拒否メッセージが出ない: " + banner);
+    if ((await M.Repo.files.byEvent("ev_public")).length !== before) throw new Error("20MB超が保存された");
+    window.document.getElementById("bannerHost").innerHTML = "";
+  });
+
   /* ---- 参加者ビューのスマホ表示（F-81b） ----
      主催者側は PC幅のみのまま（F-81）。切り替わるのは参加者側だけ。 */
   const cssText = html.match(/<style>([\s\S]*?)<\/style>/)[1];
