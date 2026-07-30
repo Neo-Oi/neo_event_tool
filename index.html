@@ -144,6 +144,17 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 /* 参加者：公開ページ */
 .pub .cover{height:200px;border-radius:var(--radius);background:linear-gradient(120deg,#2a4b86,#4f74c0);display:grid;place-items:center;color:#dbe6ff;font-weight:600}
 .pub img.cover{width:100%;object-fit:cover;display:block}
+/* 参加者側の一覧カード（F-03b）。カバー画像を帯で見せる。文字だけの一覧は寂しく、
+   どのイベントかを見分けるのにも画像が効く。高さを固定して並びが崩れないようにする */
+.pcard{overflow:hidden;margin-bottom:12px;cursor:pointer;transition:box-shadow .15s,transform .15s}
+.pcard:hover{box-shadow:0 6px 18px rgba(32,39,46,.12);transform:translateY(-1px)}
+.pcard .ph{display:block;width:100%;height:132px;object-fit:cover;background:#e9eef7}
+.pcard .ph.none{background:linear-gradient(120deg,#2a4b86,#4f74c0)}
+.pcard .ph.sm{height:96px}
+.pcard .pb{padding:12px 14px}
+.pcard .pt{font-weight:700;font-size:16px;line-height:1.4}
+.pcard .pm{color:var(--muted);margin-top:4px;font-size:13px}
+.pcard .pr{margin-top:6px;font-size:13px}
 .pub h1{font-size:24px;margin:18px 0 6px}
 .pub .kv{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}
 .pub .kv .row{display:flex;gap:10px;padding:5px 0}
@@ -576,6 +587,8 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
 
   /* 公開ページ */
   body[data-view="participant"] .pub .cover{height:150px}
+  body[data-view="participant"] .pcard .ph{height:108px}
+  body[data-view="participant"] .pcard .ph.sm{height:84px}
   body[data-view="participant"] .pub h1{font-size:20px;margin:14px 0 6px}
   body[data-view="participant"] .pub .kv{padding:12px}
   body[data-view="participant"] .pub .apply{padding:16px;font-size:16px}
@@ -3148,6 +3161,39 @@ const Util = (() => {
     return out.join("\n");
   }
 
+  /* カバー画像の SVG を組み立てる（F-03b）。**画像ファイルは同梱しない**——単一HTMLが肥大するため、
+     実行時に組み立てて Blob にする（データURIも使わない）。呼び出し側で Blob 化して保存する。
+     乱数は使わず ID から決定的に色を決める（`Math.random()` は禁止。同じイベントは常に同じ絵になる）。
+     配色は会社サイト由来（アクセント #194bf4）。**文字は入れない**——`img` で描くため書体が
+     環境依存になり、日本語が表示できない環境がある。開催形式で図柄を変える。 */
+  const coverSvg = (id, fmt) => {
+    let h = 0;
+    for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    const hue = 200 + h % 130 - (h % 2 ? 0 : 30);          // 青緑〜青紫〜赤紫の範囲（170〜330）
+    const c1 = `hsl(${hue},52%,26%)`, c2 = `hsl(${(hue + 24) % 360},62%,46%)`;
+    const seats = (y) => Array.from({ length: 14 }, (_, i) =>
+      `<circle cx="${232 + i * 52}" cy="${y}" r="9" fill="#fff" opacity=".26"/>`).join("");
+    const screen = `<rect x="360" y="72" width="480" height="132" rx="10" fill="#fff" opacity=".2"/>` +
+      `<rect x="384" y="96" width="330" height="12" rx="6" fill="#fff" opacity=".33"/>` +
+      `<rect x="384" y="124" width="220" height="12" rx="6" fill="#fff" opacity=".26"/>`;
+    const screenDim = screen.replace(/opacity="\.\d+"/g, 'opacity=".14"');
+    const player = (op) => `<rect x="470" y="96" width="260" height="170" rx="14" fill="#fff" opacity="${op}"/>` +
+      `<circle cx="600" cy="181" r="38" fill="#fff" opacity="${op}"/>` +
+      `<path d="M588 163 L624 181 L588 199 Z" fill="${c1}" opacity=".85"/>`;
+    const motif = fmt === "online" ? player(".22")
+      : fmt === "hybrid" ? screenDim + seats(300) + player(".2")
+      : screen + seats(258) + seats(316);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400">` +
+      `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+      `<stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>` +
+      `<rect width="1200" height="400" fill="url(#g)"/>` +
+      `<circle cx="90" cy="70" r="150" fill="#fff" opacity=".07"/>` +
+      `<circle cx="1130" cy="350" r="190" fill="#fff" opacity=".06"/>` +
+      `<path d="M0 400 L1200 250 L1200 400 Z" fill="#fff" opacity=".05"/>` +
+      motif +
+      `<rect y="386" width="1200" height="14" fill="#194bf4" opacity=".9"/></svg>`;
+  };
+
   /* CDN スクリプトの遅延読み込み（QRの生成・読取でのみ使う）。起動時には読まないので、
      起動時には読まないので、使わない機能のために待たされない。
      globalName が既にあれば何もしない。 */
@@ -3168,7 +3214,7 @@ const Util = (() => {
 
   return { esc, randHex, uid, newToken, normalize, toKatakana,
            fmtDateTime, fmtDate, fmtRange, deadlineEnd, dayStart, weekStartMonday, daysBetween,
-           csvCell, buildCsv, downloadText, copy, loadScript, markdown };
+           csvCell, buildCsv, downloadText, copy, loadScript, markdown, coverSvg };
 })();
 
 
@@ -3973,6 +4019,12 @@ const Seed = (() => {
 社外の登壇者が2名います。**入館手続きが必要**なので、当日朝までに警備室へ連絡すること。
 ` },
     ];
+
+    /* カバー画像（F-03 / F-03b）。生成は Util.coverSvg（純関数）に置き、ここでは Blob にするだけ。
+       **下書きは未設定のまま残す**——未設定時のプレースホルダー表示も確認できるように。 */
+    for (const e of events)
+      if (e.status !== "draft")
+        e.coverImage = new Blob([Util.coverSvg(e.id, e.eventFormat)], { type: "image/svg+xml" });
 
     /* 共有ファイル（E-3）。デモ用に小さなテキストを Blob として作る。
        実運用では PDF や画像が入るが、シードに実バイナリを埋め込むと単一HTMLが肥大するため。 */
@@ -5897,11 +5949,13 @@ const Participant = (() => {
       ${visible.length ? visible.map(e => {
         const ap = appsByEv[e.id]||[];
         const rem = Domain.remaining(e, ap);
-        return `<div class="card pad clickable" data-ev="${e.id}" style="cursor:pointer;margin-bottom:12px">
-          <div style="font-weight:700;font-size:16px">${Util.esc(e.title)}</div>
-          <div style="color:var(--muted);margin-top:4px">
-            ${Util.fmtRange(e.startAt, e.endAt)}${e.venueName?" ／ "+Util.esc(e.venueName):""}</div>
-          <div style="margin-top:6px">残席 ${rem>0?rem:"満席"}</div>
+        return `<div class="card pcard" data-ev="${e.id}">
+          ${coverBand(e)}
+          <div class="pb">
+            <div class="pt">${Util.esc(e.title)}</div>
+            <div class="pm">${Util.fmtRange(e.startAt, e.endAt)}${e.venueName?" ／ "+Util.esc(e.venueName):""}</div>
+            <div class="pr">残席 ${rem>0?rem:"満席"}</div>
+          </div>
         </div>`;
       }).join("")
       : `<div class="empty"><div class="big">申込を受け付けているイベントはありません</div></div>`}`;
@@ -6270,10 +6324,13 @@ const Participant = (() => {
     const cls = { applied:"phase", checkedin:"published", cancelled:"draft" };
     el.innerHTML = head +
       items.map(it => `
-        <div class="card pad ticket-item" data-token="${it.token}" style="margin-bottom:12px">
-          <div style="font-weight:700;font-size:15px">${Util.esc(it.ev.title)}</div>
-          <div style="color:var(--muted);margin-top:4px">${Util.fmtRange(it.ev.startAt, it.ev.endAt)}</div>
-          <div style="margin-top:6px"><span class="badge ${cls[it.app.status]}">${label[it.app.status]}</span></div>
+        <div class="card pcard ticket-item" data-token="${it.token}">
+          ${coverBand(it.ev, "sm")}
+          <div class="pb">
+            <div class="pt">${Util.esc(it.ev.title)}</div>
+            <div class="pm">${Util.fmtRange(it.ev.startAt, it.ev.endAt)}</div>
+            <div class="pr"><span class="badge ${cls[it.app.status]}">${label[it.app.status]}</span></div>
+          </div>
         </div>`).join("");
     wire();
     el.querySelectorAll(".ticket-item").forEach(c =>
@@ -6386,14 +6443,27 @@ function groupBy(arr, key) {
 /* カバー画像（F-03）。IndexedDB から取り出した Blob を objectURL にして表示する。
    URL は画面が差し替わるまで保持する必要があるため、直後には revoke しない。 */
 const _coverUrls = [];
-function coverHtml(ev) {
-  if (!ev.coverImage) return `<div class="cover">カバー画像（未設定）</div>`;
+function coverUrl(ev) {
+  if (!ev.coverImage) return null;
   try {
     const url = URL.createObjectURL(ev.coverImage);
     _coverUrls.push(url);
-    if (_coverUrls.length > 20) URL.revokeObjectURL(_coverUrls.shift()); // 上限を設けて解放
-    return `<img class="cover" src="${url}" alt="${Util.esc(ev.title)}">`;
-  } catch { return `<div class="cover">カバー画像（表示できません）</div>`; }
+    // 一覧では1画面に何枚も出るので、上限は多めに取る（超えたぶんから解放する）
+    if (_coverUrls.length > 60) URL.revokeObjectURL(_coverUrls.shift());
+    return url;
+  } catch { return null; }
+}
+function coverHtml(ev) {
+  const url = coverUrl(ev);
+  if (!ev.coverImage) return `<div class="cover">カバー画像（未設定）</div>`;
+  if (!url) return `<div class="cover">カバー画像（表示できません）</div>`;
+  return `<img class="cover" src="${url}" alt="${Util.esc(ev.title)}">`;
+}
+/* 一覧に出す帯状のカバー（F-03b）。参加者側の一覧が文字だけで寂しかったため。
+   未設定・取り出せない場合は同じ大きさの下地を出す（高さが変わって並びが崩れないように）。 */
+function coverBand(ev, cls = "") {
+  const url = coverUrl(ev);
+  return url ? `<img class="ph ${cls}" src="${url}" alt="">` : `<div class="ph none ${cls}"></div>`;
 }
 
 
