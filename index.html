@@ -16,7 +16,7 @@
    条文はアイコンや画像をCDNで解決することを許可しており、フォント実体も同じアセット扱い。
 
    日本語の Zen Kaku Gothic New は入れていない。サブセットが約470件・449KB あり、
-   インライン化すると成果物が倍以上になるため（引き継ぎ書 7-15）。日本語はシステムフォント。
+   インライン化すると成果物が倍以上になるため（要件定義書 3-1）。日本語はシステムフォント。
 
    URL にはバージョン（v20 など）が入っており、将来失効しうる。
    その場合も font-display:swap によりフォールバックが使われ、表示は壊れない。 */
@@ -61,7 +61,7 @@ header.appbar{background:var(--navy);color:#fff;display:flex;align-items:center;
   padding:0 20px;height:56px;position:sticky;top:0;z-index:20}
 /* 会社ロゴ（データURIで埋め込み）。
    **このロゴは社名部分が白なので、濃色の地に直接置く。**
-   白地チップに載せると社名が消えて「NCT」だけになる（実際に一度そうなった / 引き継ぎ書 7-13）。 */
+   白地チップに載せると社名が消えて「NCT」だけになる（実際に一度そうなった）。 */
 header.appbar .logo{display:flex;align-items:center;flex:none;line-height:0;
   padding:4px 6px;border-radius:6px;transition:background-color .12s}
 header.appbar .logo:hover{background:rgba(255,255,255,.12)}
@@ -681,7 +681,7 @@ details.reveal summary{cursor:pointer;color:var(--blue);font-weight:600;margin-t
      QR生成に qrcode-generator v1.4.4 を使う。**CDN から読まずに埋め込んでいる。**
      理由は、この機能が参加者の個人情報がある画面で動くため、第三者スクリプトの
      改ざんリスクを負いたくないこと。埋め込めば改ざん検知（SRI）も不要になる。
-     あわせて、テストで本物のライブラリを検証できる（引き継ぎ書 7-12）。
+     あわせて、テストで本物のライブラリを検証できる。
 
      ライセンス表記は下の原文ヘッダをそのまま残している（MIT）。
      このブロックは自前のコードではないので、技術方針の検査対象から外している
@@ -2993,11 +2993,11 @@ var qrcode = function() {
 
 // ===== [1] ユーティリティ =====
 /* CDN の URL はここに集約する。**必ず実在を確認してから書くこと。**
-   過去に存在しないパスを書いて QR 生成が動かなかったことがある（引き継ぎ書 7-10）。
+   過去に存在しないパスを書いて QR 生成が動かなかったことがある。
    CI がこの行を読み取って到達確認するので、書式（QR_READ_LIB = "…"）を変えない。
 
    QR **生成**の側は CDN を使わない。ライブラリを冒頭にインライン化してあるので、
-   グローバルの `qrcode` をそのまま呼ぶ（引き継ぎ書 7-12）。 */
+   グローバルの `qrcode` をそのまま呼ぶ。 */
 const QR_READ_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
 
 const Util = (() => {
@@ -3348,7 +3348,7 @@ const DB = (() => {
 
 
 // ===== [3] Repository 層（業務ロジックからは常に Promise を返す） =====
-/* 将来サーバ API へ差し替えられるよう、IndexedDB をここに閉じ込める（引き継ぎ書 4-2）。 */
+/* 将来サーバ API へ差し替えられるよう、IndexedDB をここに閉じ込める（詳細設計書 1-2）。 */
 const Repo = (() => {
   return {
     events: {
@@ -4981,7 +4981,7 @@ ${url}`;
 
 // ===== [9b] 主催者：運営スレッド／運営Q&A（社内・実データで永続 / messages ストア） =====
 /* 設計は複数人での共有管理を想定するが、サーバなし＝単一ブラウザのため実態は一人（同一
-   ブラウザ）で管理する。別端末との同期はサーバ導入時まで不可（引き継ぎ書 4-1）。 */
+   ブラウザ）で管理する。別端末との同期はサーバ導入時まで不可。 */
 const Ops = (() => {
   let lastAuthor = "運営"; // 直近の投稿者名を保持（セッション内）
 
@@ -5493,7 +5493,7 @@ const Roster = (() => {
      **これは秘匿ではなく操作の抑止である。** 単一HTML・サーバなしという構成上、
      パスワードはソースに書かれており、DevTools から IndexedDB を直接見ることもできる。
      したがって守れるのは「肩越しの覗き見」と「誤って開く」ところまで。
-     実効的な保護にはサーバ側の認証が要る（引き継ぎ書 4-1 / F-101）。
+     実効的な保護にはサーバ側の認証が要る（F-101）。
      解除はセッション内のみ保持する。再読込で再びロックされる。 */
   const PASSWORD = "admin";
   let unlocked = false;
@@ -6212,7 +6212,7 @@ const Participant = (() => {
   /* 受付用QR（F-95）。トークンを符号化する。主催者はこれをカメラで読んでチェックインする。
      生成ライブラリは冒頭にインライン化してある。CDN から読まない理由は、
      この画面に参加者の個人情報があり、第三者スクリプトの改ざんリスクを負いたくないため
-     （引き継ぎ書 7-12）。 */
+     。 */
   const qrBlock = (app) => `<div class="qr-box">
     <div class="qh">受付用QRコード</div>
     <div id="qrHost" data-token="${app.token}"><button class="btn sm" id="qrShow">QRを表示</button></div>

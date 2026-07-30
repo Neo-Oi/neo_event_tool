@@ -83,7 +83,7 @@ for (const v of refs("link", "href"))
 if (/<img[^>]+src\s*=\s*["'](?!data:)[^"']*\.(png|jpe?g|gif|svg|webp)/i.test(body))
   fail("画像ファイルを参照しています。インラインSVGかデータURIにしてください");
 
-// --- Repository 層の迂回（引き継ぎ書 4-2） ---
+// --- Repository 層の迂回（詳細設計書 1-2） ---
 const repoStart = code.indexOf("const Repo");
 const repoEnd = code.indexOf("const Domain");
 if (repoStart < 0 || repoEnd < 0) fail("Repo / Domain の定義位置を特定できませんでした");
@@ -105,7 +105,7 @@ if (viewAssign.length !== 1)
 if (!/name="viewport"/.test(body))
   fail("viewport の meta がありません（参加者ビューのスマホ表示に必要です / F-81b）");
 
-// --- 区画マーカーの並び（引き継ぎ書 7-3） ---
+// --- 区画マーカーの並び ---
 const markers = [...html.matchAll(/^\/\/ ===== \[([0-9]+[a-z]?)\]/gm)].map(x => x[1]);
 const key = (s) => {
   const num = parseInt(s, 10);
