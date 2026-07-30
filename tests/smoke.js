@@ -796,6 +796,56 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
   // 参加者（最後仕上げ。表示のみ確認）
   await step("Participant.renderPublic(ev_public)", async () => { await M.Participant.renderPublic(content, "ev_public"); nonEmpty("public"); });
   /* イベントを探す（F-83b）。開いても「受付終了」しか押せないイベントを並べない。 */
+  /* カバー画像（F-03 / F-03b）。シードは SVG を Blob で持ち、参加者側の一覧に帯で出す。
+     一覧が文字だけで寂しかったため追加した。**下書きは未設定のままにしてある**——
+     未設定時のプレースホルダー表示も確認できるように。 */
+  /* カバー画像（F-03 / F-03b）。生成は Util.coverSvg（純関数）。参加者側の一覧に帯で出す。
+     **保存後の Blob はこの環境では検証できない**——fake-indexeddb が Blob の構造化複製に
+     対応せず、空オブジェクトになる（リスク R-02）。実体の往復はブラウザでの手動確認に委ねる。 */
+  await step("F-03b カバー画像の SVG が組み立てられる", async () => {
+    const svg = M.Util.coverSvg("ev_public", "hybrid");
+    if (!/^<svg[\s\S]*<\/svg>$/.test(svg.trim())) throw new Error("SVG の形になっていない");
+    if (/<text|font-family|<image|href=|url\(http/.test(svg))
+      throw new Error("文字や外部参照を含む（環境依存になる）");
+    if (!svg.includes("#194bf4")) throw new Error("アクセント色が入っていない");
+    for (const fmt of ["onsite", "online", "hybrid"]) {
+      const v = M.Util.coverSvg("ev_x", fmt);
+      if (!/^<svg/.test(v)) throw new Error(fmt + " で組み立てられない");
+    }
+    // 現地とオンラインで図柄が変わる（座席の丸か、再生の三角か）
+    if (M.Util.coverSvg("ev_x", "onsite") === M.Util.coverSvg("ev_x", "online"))
+      throw new Error("開催形式で図柄が変わっていない");
+  });
+  await step("F-03b カバー画像は乱数を使わず決定的に生成される", async () => {
+    if (M.Util.coverSvg("ev_public", "onsite") !== M.Util.coverSvg("ev_public", "onsite"))
+      throw new Error("同じイベントで絵が変わる（乱数を使っている）");
+    const a = M.Util.coverSvg("ev_public", "onsite"), b = M.Util.coverSvg("ev_seminar", "onsite");
+    const hue = (s) => (s.match(/hsl\((\d+)/) || [])[1];
+    if (hue(a) === hue(b)) throw new Error("イベントごとに色が変わらない");
+  });
+  await step("F-03 シードのカバー画像が設定されている（下書きは未設定）", async () => {
+    const evs = await M.Repo.events.all();
+    const withCover = evs.filter(e => e.coverImage);
+    if (withCover.length < 35) throw new Error("カバー画像を持つイベントが少ない: " + withCover.length);
+    if (evs.some(e => e.status === "draft" && e.coverImage)) throw new Error("下書きにカバーが入っている");
+  });
+  await step("F-03b イベントを探す一覧にカバー画像の枠が出る", async () => {
+    await M.Participant.renderList(content); await wait(40);
+    const cards = content.querySelectorAll(".pcard");
+    if (!cards.length) throw new Error("一覧にカードが無い");
+    for (const c of cards)
+      if (!c.querySelector(".ph")) throw new Error("カバーの枠が無いカードがある");
+  });
+  await step("F-03b マイ申込の一覧にもカバー画像の枠が出る", async () => {
+    M.Auth.logout(); M.Participant.resetMyTicket();
+    await M.Auth.login("abc@example.com", "abc123");
+    await M.Participant.renderMyTicket(content); await wait(60);
+    const items = content.querySelectorAll(".ticket-item");
+    if (!items.length) throw new Error("マイ申込に項目が無い");
+    for (const it of items)
+      if (!it.querySelector(".ph")) throw new Error("カバーの枠が無い項目がある");
+    M.Auth.logout(); M.Participant.resetMyTicket();
+  });
   await step("F-83b イベントを探すに締切切れ・終了・中止を出さない", async () => {
     await M.Participant.renderList(content); await wait(40);
     const shown = [...content.querySelectorAll("[data-ev]")].map(c => c.dataset.ev);
