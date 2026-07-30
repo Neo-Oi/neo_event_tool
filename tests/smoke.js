@@ -506,6 +506,60 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     if (/<img/i.test(html)) throw new Error("HTMLが素通りしている: " + html);
     if (/javascript:/i.test(html) && /<a /i.test(html)) throw new Error("javascript: リンクが作られている");
   });
+  /* リストの自動継続（2026-07-29）。`- ` の行で Enter を押したら次の行にも記号が入る。
+     textarea を作り直さずに値と選択位置を動かすので、カーソルの飛びも起きない。 */
+  await step("マニュアル リストが自動で継続する（箇条書き・チェック・番号）", async () => {
+    await M.Manual.render(content, "ev_public"); await wait(30);
+    content.querySelectorAll(".mn-bar [data-mode]")[0].click(); await wait(20);   // 編集ビュー
+    const ta = content.querySelector("#mnEdit");
+    const enterAfter = (text) => {
+      ta.value = text; ta.selectionStart = ta.selectionEnd = text.length;
+      ta.onkeydown({ key:"Enter", shiftKey:false, ctrlKey:false, metaKey:false,
+                     altKey:false, isComposing:false, preventDefault(){} });
+      return ta.value;
+    };
+    const cases = [
+      ["- 名札を用意する", "- 名札を用意する\n- "],
+      ["* 会場の鍵を借りる", "* 会場の鍵を借りる\n* "],
+      ["  - 延長コード", "  - 延長コード\n  - "],            // インデントを引き継ぐ
+      ["- [ ] 名簿を印刷", "- [ ] 名簿を印刷\n- [ ] "],       // チェックボックス
+      ["- [x] 済んだこと", "- [x] 済んだこと\n- [ ] "],        // 次はチェック無しで始める
+      ["1. 受付に立つ", "1. 受付に立つ\n2. "],                // 番号は1つ増える
+      ["3) 番号は括弧でも", "3) 番号は括弧でも\n4) "],
+    ];
+    for (const [before, after] of cases) {
+      const got = enterAfter(before);
+      if (got !== after) throw new Error(`「${before}」→ 期待:${JSON.stringify(after)} 実際:${JSON.stringify(got)}`);
+    }
+    // カーソルは挿入した記号の直後にある（続けて書ける）
+    if (ta.selectionStart !== ta.value.length) throw new Error("カーソルが行末に無い");
+  });
+  await step("マニュアル 空の項目で Enter を押すとリストを抜ける", async () => {
+    const ta = content.querySelector("#mnEdit");
+    const enterAfter = (text) => {
+      ta.value = text; ta.selectionStart = ta.selectionEnd = text.length;
+      ta.onkeydown({ key:"Enter", shiftKey:false, ctrlKey:false, metaKey:false,
+                     altKey:false, isComposing:false, preventDefault(){} });
+      return ta.value;
+    };
+    if (enterAfter("- 一つ目\n- ") !== "- 一つ目\n") throw new Error("空の項目で記号が消えない");
+    if (enterAfter("  - ") !== "  ") throw new Error("インデント付きの空項目で記号が消えない");
+    if (enterAfter("1. ") !== "") throw new Error("番号付きの空項目で記号が消えない");
+  });
+  await step("マニュアル リストでない行では自動継続しない", async () => {
+    const ta = content.querySelector("#mnEdit");
+    ta.value = "# 当日マニュアル"; ta.selectionStart = ta.selectionEnd = ta.value.length;
+    let prevented = false;
+    ta.onkeydown({ key:"Enter", shiftKey:false, ctrlKey:false, metaKey:false, altKey:false,
+                   isComposing:false, preventDefault(){ prevented = true; } });
+    if (prevented || ta.value !== "# 当日マニュアル") throw new Error("見出し行で改行を奪っている");
+    // Shift+Enter と変換確定中（isComposing）も通常の改行のまま
+    ta.value = "- 箇条書き"; ta.selectionStart = ta.selectionEnd = ta.value.length;
+    ta.onkeydown({ key:"Enter", shiftKey:true, ctrlKey:false, metaKey:false, altKey:false,
+                   isComposing:false, preventDefault(){ throw new Error("Shift+Enter を奪っている"); } });
+    ta.onkeydown({ key:"Enter", shiftKey:false, ctrlKey:false, metaKey:false, altKey:false,
+                   isComposing:true, preventDefault(){ throw new Error("変換確定の Enter を奪っている"); } });
+  });
   await step("マニュアル 3ビューを切り替えられる", async () => {
     const modes = content.querySelectorAll(".mn-bar [data-mode]");
     if (modes.length !== 3) throw new Error("ビューが3つない");
