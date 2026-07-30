@@ -173,9 +173,6 @@ table.list tbody tr.clickable:hover{background:#f7f9ff;cursor:pointer}
 .banner{background:#fbe9e9;color:var(--danger);border-bottom:1px solid #f0c9c9;padding:10px 20px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:600}
 .banner button{margin-left:auto;background:transparent;border:0;color:var(--danger);font-weight:700}
 
-/* 実装区分（設定） */
-.impl td .st{font-weight:700}
-.impl .done{color:var(--ok)} .impl .partial{color:var(--warn)} .impl .out{color:var(--muted)}
 
 .note{background:#fffbea;border:1px solid #f0e3a8;border-radius:var(--radius);padding:14px 16px;font-size:13px;color:#6a5a12}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -6071,7 +6068,7 @@ const Notify = (() => {
 })();
 
 
-// ===== [10] 主催者：設定（S-5 / F-32, F-33, F-36） =====
+// ===== [10] 主催者：設定（S-5 / F-32, F-33） =====
 const Settings = (() => {
   async function render(el) {
     el.innerHTML = `
@@ -6083,40 +6080,7 @@ const Settings = (() => {
           <button class="btn" id="reset">データベースを初期化</button>
         </div>
       </div>
-      <div class="card pad" style="margin-top:16px">
-        <h3 style="font-size:15px;margin-bottom:10px">実装区分（F-36）</h3>
-        <table class="list impl">
-          <thead><tr><th>領域</th><th>区分</th><th>状態</th></tr></thead>
-          <tbody>
-            ${implRow("DB基盤・Repository・シード/初期化","B-1","done","実装済")}
-            ${implRow("アプリシェル・役割切替・タブ","B-2","done","実装済（タブ4つ・役割切替・URL復帰・フィードバック4分類）")}
-            ${implRow("ダッシュボード（指標・要対応）","D-2","done","実装済")}
-            ${implRow("イベント一覧（時期トグル）","C-1","done","実装済")}
-            ${implRow("イベント作成・編集（5ステップ）","C-1","done","実装済（下書き作成・都度保存・公開／中止／削除・カバー画像を永続）")}
-            ${implRow("イベント詳細・申込管理・CSV","C-3","done","実装済（チェックイン／取消・キャンセル・内容修正を永続）")}
-            ${implRow("公開ページ・申込フロー・マイ申込 ★","C-2","done","実装済（名寄せ・トークン発行・定員判定・キャンセルを永続）")}
-            ${implRow("確認URL／イベントURL／プレビュー","F-97","done","実装済（?ticket= / ?event= / ?preview= から復帰）")}
-            ${implRow("イベントマニュアル（Markdown）","F-99","done","実装済（編集／分割／プレビューの3ビュー。Markdownは自前描画でCDN非依存）")}
-            ${implRow("社外向けイベント専用","F-98","done","扱うのは社外向けのみ。問い合わせ先を公開時の必須項目にしている")}
-            ${implRow("お知らせ（主催者→参加者）","E-4","done","実装済（公開ページとマイ申込に表示。メール送信は不可のため掲示型）")}
-            ${implRow("申込フォームのカスタム質問","F-91","done","実装済（定義・回答保存・CSV列・一覧表示）")}
-            ${implRow("参加者名簿（横断・参加履歴）","F-92","done","実装済（名寄せ済みの蓄積を一覧・CSV出力）")}
-            ${implRow("開催形式と視聴URL","F-93","done","実装済（視聴URLは申込者のマイ申込にのみ表示）")}
-            ${implRow("イベントの複製","F-94","done","実装済（下書きとして複製・copiedFromIdを記録）")}
-            ${implRow("QRコードでの受付","F-95","done","実装済（1台のみ。複数端末の同時受付はサーバが必要）")}
-            ${implRow("申込推移の可視化","F-96","done","実装済（appliedAt から日次推移）")}
-            ${implRow("告知（URL・投稿文・SNS共有）","D-1","done","実装済（読み取りのみ）")}
-            ${implRow("運営スレッド（社内チャット）","E-1","done","実装済（単一ブラウザ内で永続。別端末同期は不可）")}
-            ${implRow("運営Q&A（疑問の登録・解消）","E-1","done","実装済（同上）")}
-            ${implRow("運営タスク（ボード／タイムライン）","E-2","done","実装済（ドラッグでの状態変更・並べ替えを永続）")}
-            ${implRow("ファイル共有（イベント単位）","E-3","done","実装済（Blobをそのまま保存。1ファイル20MBまで）")}
-            ${implRow("メール送信・SNS自動投稿・SEO/OGP","—","out","対象外（サーバが必要）")}
-            ${implRow("複数端末での同時受付・別端末からの申込確認","—","out","対象外（端末間でデータを共有できないため）")}
-            ${implRow("決済・キャンセル待ち・抽選・レスポンシブ","—","out","対象外（意図的に除外）")}
-            ${implRow("チケット制","—","out","廃止（申込に一本化・定員はイベントが保持）")}
-          </tbody>
-        </table>
-      </div>`;
+      `;
     el.querySelector("#seed").onclick = async () => {
       try { await Seed.load(); FB.toast("デモデータを投入しました"); App.refresh(); }
       catch (e) { FB.error("シード投入に失敗: " + e.message); }
@@ -6130,9 +6094,6 @@ const Settings = (() => {
         catch (e) { FB.error("初期化に失敗: " + e.message); }
       } });
   }
-  const implRow = (area, task, cls, st) =>
-    `<tr><td>${area}</td><td class="mono" style="color:var(--muted)">${task}</td>
-      <td class="st ${cls}">${st}</td></tr>`;
   return { render };
 })();
 

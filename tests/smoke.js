@@ -748,7 +748,15 @@ const wait = (ms) => new Promise(r => window.setTimeout(r, ms));
     const after = (await M.Repo.applications.byEvent("ev_public")).map(a => a.status).join(",");
     if (before !== after) throw new Error("中止で申込が変わった");
   });
-  await step("Settings.render（実装区分に運営行）", async () => { await M.Settings.render(content); if (!content.innerHTML.includes("運営スレッド")) throw new Error("実装区分に運営行なし"); if (!content.innerHTML.includes("運営タスク")) throw new Error("実装区分に運営タスク行なし"); if (!content.innerHTML.includes("チケット制")) throw new Error("チケット制廃止行なし"); });
+  /* 設定は「デモデータの投入」と「初期化」だけ。**実装区分の一覧は画面に出さない**
+     （2026-07-30 指示で削除。F-36 は廃止）。復活したら落ちるように不在を検査する。 */
+  await step("Settings.render（データの2ボタンのみ）", async () => {
+    await M.Settings.render(content); await wait(20);
+    if (!content.querySelector("#seed") || !content.querySelector("#reset"))
+      throw new Error("シード投入・初期化のボタンが無い");
+    if (content.querySelector("table.impl") || content.innerHTML.includes("実装区分"))
+      throw new Error("実装区分の一覧が画面に出ている（F-36 は廃止）");
+  });
 
   // ウィザード（申込枠→定員のみ）
   await step("Wizard.render(新規)", async () => { await M.Wizard.render(content, null); nonEmpty("wizard"); });
