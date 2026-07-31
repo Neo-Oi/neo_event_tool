@@ -15,9 +15,10 @@ for f in sorted(os.listdir(EV)):
     if m:
         files[m.group(1)].append(f)
 
+OUT_OF_SCOPE = {'5-2-3'}
 targets = items
 done = [i for i in targets if files.get(i['no'])]
-missing = [i for i in targets if not files.get(i['no'])]
+missing = [i for i in targets if not files.get(i['no']) and i['no'] not in OUT_OF_SCOPE]
 
 png = sum(1 for fs in files.values() for f in fs if f.endswith('.png'))
 other = sum(1 for fs in files.values() for f in fs if not f.endswith('.png'))
@@ -34,7 +35,7 @@ out.append('デモデータは各項目の前に「初期化→投入」で入�
 out.append(f'## 集計\n')
 out.append(f'| 区分 | 件数 |')
 out.append(f'|---|---|')
-out.append(f'| 撮影できた項目 | {len(done)} / {len(targets)} |')
+out.append(f'| 撮影できた項目 | {len(done)} / {len(targets) - len(OUT_OF_SCOPE)}（対象外 {len(OUT_OF_SCOPE)} 件を除く） |')
 out.append(f'| スクリーンショット | {png} 枚 |')
 out.append(f'| 出力ファイル（CSV等） | {other} 件 |\n')
 if missing:
@@ -54,7 +55,7 @@ out.append('| 項目番号 | 大項目 | 中項目 | 小項目 | エビデンス
 out.append('|---|---|---|---|---|')
 for i in targets:
     fs = files.get(i['no'], [])
-    cell = '<br>'.join(f'`{f}`' for f in fs) if fs else '—'
+    cell = '<br>'.join(f'`{f}`' for f in fs) if fs else ('**対象外**' if i['no'] in OUT_OF_SCOPE else '—')
     out.append(f'| {i["no"]} | {i["大"]} | {i["中"]} | {i["小"]} | {cell} |')
 
 open(os.path.join(EV, 'README.md'), 'w', encoding='utf-8').write('\n'.join(out) + '\n')

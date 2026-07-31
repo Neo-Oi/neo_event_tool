@@ -61,6 +61,8 @@ dd{margin:0}
 .shots{display:flex;gap:10px;overflow-x:auto;margin-top:12px;padding-bottom:6px}
 .shot{flex:0 0 auto;width:260px}
 .shot img{width:100%;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:zoom-in;display:block}
+.shot.vid{width:360px}
+.shot video{width:100%;border:1px solid var(--line);border-radius:6px;background:#000;display:block}
 .shot .cap{font-size:11px;color:#5b6572;margin-top:4px;word-break:break-all}
 .file{display:inline-block;font-size:12px;background:#eef2f8;border-radius:6px;padding:6px 10px;
   margin-top:10px;text-decoration:none;color:var(--ink)}
@@ -84,13 +86,14 @@ for k, its in groups.items():
     for i in its:
         fs = files.get(i['no'], [])
         pngs = [f for f in fs if f.endswith('.png')]
-        others = [f for f in fs if not f.endswith('.png')]
+        vids = [f for f in fs if f.endswith(('.mp4', '.webm', '.mov'))]
+        others = [f for f in fs if f not in pngs and f not in vids]
         out.append(f'<section class="item{"" if fs else " none"}" id="{e(i["no"])}" data-no="{e(i["no"])}">')
         out.append(f'<div class="hd"><span class="no"><a href="#{e(i["no"])}">{e(i["no"])}</a></span>'
                    f'<span class="ttl">{e(i["大"])}／{e(i["中"])}／{e(i["小"])}</span>'
                    f'<span class="tag k-{"a" if i["区分"]=="自動" else "m" if i["区分"]=="手動" else "am"}">{e(i["区分"])}</span>'
                    f'<span class="tag">{e(i["観点"])}</span><span class="tag">{e(i["IF"])}</span>'
-                   f'<span class="tag">{str(len(pngs)) + "枚" if pngs else "エビデンス未取得"}</span></div>')
+                   f'<span class="tag">{("、".join(filter(None, [f"{len(pngs)}枚" if pngs else "", f"動画{len(vids)}本" if vids else ""])) or "エビデンス未取得")}</span></div>')
         out.append('<dl>'
                    f'<dt>手順</dt><dd>{e(i["手順"])}</dd>'
                    + (f'<dt>条件</dt><dd>{e(i["条件"])}</dd>' if i['条件'] not in ('', '—') else '')
@@ -100,6 +103,12 @@ for k, its in groups.items():
             for n, f in enumerate(pngs, 1):
                 out.append(f'<figure class="shot"><img loading="lazy" src="{e(f)}" alt="{e(i["no"])} の{n}枚目" '
                            f'data-cap="{e(f)}"><figcaption class="cap">{n}. {e(f)}</figcaption></figure>')
+            out.append('</div>')
+        if vids:
+            out.append('<div class="shots">')
+            for f in vids:
+                out.append(f'<figure class="shot vid"><video src="{e(f)}" controls preload="metadata"></video>'
+                           f'<figcaption class="cap">▶ {e(f)}</figcaption></figure>')
             out.append('</div>')
         for f in others:
             out.append(f'<a class="file" href="{e(f)}" download>⤓ {e(f)}</a> ')

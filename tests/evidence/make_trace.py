@@ -20,8 +20,14 @@ SECTION = {'1': 'ダッシュボード', '2': 'イベント一覧・作成', '3'
            '4': '参加者ビュー', '5': '名簿・設定', '6': '共通', '7': '通シナリオ'}
 
 
+# 5-2-3 は確認するものが無い（実装区分の一覧は画面から削除済み / F-36 廃止）
+OUT_OF_SCOPE = {'5-2-3': '**対象外**（画面から削除済みで確認するものが無い。削除されたことは `smoke.js` が検査）'}
+
+
 def evidence_cell(i):
     no = i['no']
+    if no in OUT_OF_SCOPE:
+        return OUT_OF_SCOPE[no]
     ps, os_ = shots.get(no, []), other.get(no, [])
     if ps or os_:
         bits = []
