@@ -23,6 +23,7 @@
 | `make_index.py` | `evidence/README.md` を作る |
 | `make_trace.py` | `docs/トレーサビリティ一覧.md` を作る |
 | `patch_history.py` | Excel の履歴欄にエビデンスのファイル名を書き込む |
+| `audit.mjs` | 撮れた画像を走査し、**sticky ヘッダーの焼き込みずれ**を検出する |
 
 ## 準備
 
@@ -88,6 +89,7 @@ python3 tests/evidence/make_viewer.py  tests/evidence/items.json   # evidence/in
 python3 tests/evidence/make_index.py   tests/evidence/items.json   # evidence/README.md
 python3 tests/evidence/make_trace.py   tests/evidence/items.json   # docs/トレーサビリティ一覧.md
 python3 tests/evidence/patch_history.py tests/evidence/items.json --apply   # Excel の履歴欄
+node   tests/evidence/audit.mjs                                    # 画像のずれを走査
 python3 tests/trace_check.py                                       # 突き合わせ
 ```
 
@@ -103,6 +105,12 @@ python3 tests/trace_check.py                                       # 突き合�
 - **遮断・低速・権限拒否・例外注入を使う項目は `isolate: true`** を付け、別のコンテキストで走らせる。
   `addInitScript` は取り消せず、`route` も残るため、後続の項目を汚す
 - **F12 の Offline は localhost も落ちる。** 読み込んでから切り替えること（7-11-1）
+- **ヘッダーとタブは `position:sticky`**（`index.html:60`・`:79`）。スクリーンショットは
+  「撮った時のスクロール位置」でヘッダーを焼き込むので、**撮る直前に必ず先頭へ戻す**。
+  戻さないと `fullPage` ではページの途中にヘッダーが現れ、`z-index:20` で背後を覆う。
+  要素クリップでは本文の先頭に重なり、さらに**全幅のヘッダーが要素の幅で左右に切れる**
+  （実際に 1-1-1 で会社名が欠け、4-5-7・4-5-8 でヘッダーがずれた）。
+  撮ったあとは **`node tests/evidence/audit.mjs`** で全画像を走査して確認する
 - **公開済みイベントの編集は最終ステップのボタンが `#saveOnly` になる**（下書きは `#check`/`#saveDraft`/`#publish`）
 - **複数枚のときは履歴欄に `*` で書く**（`evidence/1-4-2_20260731_*.png（4枚）`）。
   「〜」で範囲を書くとファイル名として解決できず、トレーサビリティの役に立たない

@@ -18,15 +18,25 @@ const ctx = {
   page,
   n: 0,
   no: '',
-  /** 1項目に複数枚あるときは連番が増える */
+  /** 1項目に複数枚あるときは連番が増える。
+      ヘッダー（`position:sticky`）は「撮った時のスクロール位置」に貼り付いたまま
+      焼き込まれる。fullPage だとページの途中にヘッダーが現れて背後を覆い、
+      要素クリップだと本文の先頭に重なる。**撮る直前に必ず先頭へ戻す。** */
   async shot(opts = {}) {
     this.n += 1;
     const pg = this.page;
     const file = path.join(OUT, `${this.no}_${DATE}_${String(this.n).padStart(2, '0')}.png`);
     await pg.waitForTimeout(opts.wait ?? 200);
+    await pg.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+    await pg.waitForTimeout(120);
     if (opts.sel) {
       const loc = pg.locator(opts.sel).first();
-      await loc.scrollIntoViewIfNeeded().catch(() => {});
+      // scrollIntoViewIfNeeded を使うと sticky が動くので、収まるときはスクロールしない
+      const fits = await loc.evaluate(el => {
+        const r = el.getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= innerHeight;
+      }).catch(() => false);
+      if (!fits) { await loc.scrollIntoViewIfNeeded().catch(() => {}); await pg.waitForTimeout(120); }
       await loc.screenshot({ path: file });
     } else {
       await pg.screenshot({ path: file, fullPage: opts.full !== false });

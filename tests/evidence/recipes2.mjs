@@ -45,8 +45,10 @@ const tmpFile = (name, size) => {
 
 export const RECIPES2 = [
   // ============ 1. ダッシュボード ============
+  // 要素クリップにすると、全幅のヘッダーが #content の幅で左右に切れる（会社名が欠ける）。
+  // この項目が見たいのは「4つの件数」なので、素直に全画面で撮る。
   { no: '1-1-1', ...RO, title: '指標カード／4つの数字',
-    run: async (p, c, H) => { await H.orgTab(p, 'dashboard'); await c.shot({ sel: '#content' }); } },
+    run: async (p, c, H) => { await H.orgTab(p, 'dashboard'); await c.shot(); } },
 
   { no: '1-2-1', ...RO, title: '要対応リスト／一覧',
     run: async (p, c, H) => { await H.orgTab(p, 'dashboard'); await c.shot(); } },
