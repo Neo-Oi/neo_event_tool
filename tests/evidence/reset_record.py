@@ -8,10 +8,15 @@
 **履歴（O列）と備考（P列）は消さない。** 履歴にはエビデンスのファイル名、
 備考には区分が入っていて、どちらも「これから確認する材料」だから。
 
+**`--keep` を指定した項目は触らない。** 実機でしか確かめられない項目（QR の 3-4-1〜3-4-4 など）は
+撮り直しが利かないので、実施済みの記録をそのまま残すために使う。
+残す行の結果欄は、表記ゆれの「〇」(U+3007) を「○」(U+25CB) に揃えるだけ行う。
+
 使い方（リポジトリ直下で）:
   python3 tests/evidence/reset_record.py                 # ドライラン
   python3 tests/evidence/reset_record.py --apply
   python3 tests/evidence/reset_record.py --apply --name "山田 花子"
+  python3 tests/evidence/reset_record.py --apply --keep 3-4-1,3-4-2,3-4-3,3-4-4
 """
 import re, shutil, sys, zipfile
 
@@ -20,6 +25,10 @@ DRY = '--apply' not in sys.argv
 NAME = '大井 音和'
 if '--name' in sys.argv:
     NAME = sys.argv[sys.argv.index('--name') + 1]
+KEEP = set()
+if '--keep' in sys.argv:
+    KEEP = {s.strip() for s in sys.argv[sys.argv.index('--keep') + 1].split(',') if s.strip()}
+MARU, MARU_NG = '○', '〇'   # U+25CB / U+3007
 
 zin = zipfile.ZipFile(XLSX)
 sst_xml = zin.read('xl/sharedStrings.xml').decode('utf-8')
@@ -27,11 +36,18 @@ strings = [''.join(re.findall(r'<t[^>]*>(.*?)</t>', si, re.S))
            for si in re.findall(r'<si>(.*?)</si>', sst_xml, re.S)]
 
 added = []
-if NAME in strings:
-    name_id = strings.index(NAME)
-else:
-    name_id = len(strings)
-    added.append(NAME)
+
+
+def sid(text):
+    if text in strings:
+        return strings.index(text)
+    if text in added:
+        return len(strings) + added.index(text)
+    added.append(text)
+    return len(strings) + len(added) - 1
+
+
+name_id = sid(NAME)
 
 CELL = re.compile(r'<c ([^>]*?)/>|<c ([^>]*?)>(.*?)</c>', re.S)
 
@@ -50,7 +66,8 @@ def keep_style(attrs):
 
 
 sheets_out = {}
-n_name, n_date, n_res, refs_delta = 0, 0, 0, 0
+n_name, n_date, n_res, n_fix, refs_delta = 0, 0, 0, 0, 0
+kept = []
 for n in range(1, 9):
     sheet = f'xl/worksheets/sheet{n}.xml'
     if sheet not in zin.namelist():
@@ -67,6 +84,16 @@ for n in range(1, 9):
         no = '-'.join(value(a, b) for (_, a, b) in
                       (cells.get(k, (None, '', '')) for k in 'BCD'))
         if not re.fullmatch(r'\d+-\d+-\d+', no) or not value(*cells.get('E', (None, '', ''))[1:]):
+            continue
+        if no in KEEP:
+            # 記録はそのまま。結果欄の丸の表記ゆれだけ揃える
+            kept.append(no)
+            if 'N' in cells:
+                m, attrs, body = cells['N']
+                if value(attrs, body) == MARU_NG:
+                    edits.append((row.start(1) + m.start(), row.start(1) + m.end(),
+                                  f'<c {keep_style(attrs)} t="s"><v>{sid(MARU)}</v></c>'))
+                    n_fix += 1
             continue
         for col in 'LMN':
             if col not in cells:
@@ -98,6 +125,9 @@ for n in range(1, 9):
 print(f'担当者を「{NAME}」に揃える : {n_name} 行')
 print(f'日付を空にする             : {n_date} 行')
 print(f'結果を空にする             : {n_res} 行')
+if KEEP:
+    print(f'記録をそのまま残す         : {len(kept)} 行 {sorted(kept)}')
+    print(f'  うち結果欄の「〇」を「○」に揃える : {n_fix} 行')
 print('履歴（エビデンス）と備考（区分）は残す')
 if DRY:
     print('\n(ドライラン。--apply で書き込み)')

@@ -99,10 +99,11 @@ def main():
     mismatch = [n for n in spec if n in xl and xl[n][0] != spec[n]]
     check('区分が Excel と仕様書で一致', not mismatch, str(mismatch[:5]))
 
-    # 区分とエビデンスの有無は対応しない（1-4 の注記）。撮れないのは実機が要る4件と対象外1件だけ。
-    NO_EVIDENCE = {'3-4-1', '3-4-2', '3-4-3', '3-4-4', '5-2-3'}
+    # 区分とエビデンスの有無は対応しない（1-4 の注記）。
+    # 5-2-3 は対象外（画面から削除済みで確認するものが無い）ので、そこだけエビデンスが無い。
+    NO_EVIDENCE = {'5-2-3'}
     want = set(spec) - NO_EVIDENCE
-    check('実機が要る4件と対象外1件を除く全項目にエビデンスがある', set(ev) == want,
+    check('対象外の 5-2-3 を除く全項目にエビデンスがある', set(ev) == want,
           f'余分 {sorted(set(ev) - want)[:3]} / 不足 {sorted(want - set(ev))[:5]}')
 
     missing, wrong_no = [], []
