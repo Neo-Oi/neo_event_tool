@@ -12,6 +12,13 @@ h1{font-size:18px;margin:0}
 nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 nav a{font-size:13px;text-decoration:none;color:var(--accent);border:1px solid var(--line);
   border-radius:999px;padding:3px 11px;background:#fff}
+.find{display:flex;gap:8px;align-items:center;margin-top:10px}
+.find input{font:inherit;font-size:14px;padding:6px 11px;border:1px solid var(--line);
+  border-radius:6px;width:280px}
+.find .hit{font-size:12px;color:#5b6572}
+.item:target{outline:2px solid var(--accent);outline-offset:3px}
+.no a{color:inherit;text-decoration:none}
+.no a:hover{text-decoration:underline}
 main{padding:24px;max-width:1400px;margin:0 auto}
 h2{font-size:16px;margin:34px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--accent)}
 .item{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
@@ -37,24 +44,28 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
   <h1>結合試験エビデンス</h1>
   <div class="sub">2026年7月31日取得　／　区分「自動＋手動」97項目　／　画像をクリックすると拡大します</div>
   <nav><a href="#s1">1. ダッシュボード</a><a href="#s2">2. イベント一覧・作成</a><a href="#s3">3. イベント詳細</a><a href="#s4">4. 参加者ビュー</a><a href="#s5">5. 名簿・設定</a><a href="#s6">6. 共通</a><a href="#s7">7. 通しシナリオ</a></nav>
+  <div class="find">
+    <input id="q" type="search" placeholder="項目番号で絞り込み（例: 3-3 / 4-5-2）" autocomplete="off">
+    <span class="hit" id="hit"></span>
+  </div>
 </header><main>
 <h2 id="s1">1. ダッシュボード（4項目）</h2>
-<section class="item">
-<div class="hd"><span class="no">1-3-1</span><span class="ttl">ダッシュボード／申込ヒートマップ／マス目</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="1-3-1" data-no="1-3-1">
+<div class="hd"><span class="no"><a href="#1-3-1">1-3-1</a></span><span class="ttl">ダッシュボード／申込ヒートマップ／マス目</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>画面を開く</dd><dt>期待動作</dt><dd>直近26週の日ごとの申込数が色の濃さで表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="1-3-1_20260731_01.png" alt="1-3-1 の1枚目" data-cap="1-3-1_20260731_01.png"><figcaption class="cap">1. 1-3-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">1-4-1</span><span class="ttl">ダッシュボード／開催カレンダー／イベントの帯</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="1-4-1" data-no="1-4-1">
+<div class="hd"><span class="no"><a href="#1-4-1">1-4-1</a></span><span class="ttl">ダッシュボード／開催カレンダー／イベントの帯</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>画面を開く</dd><dt>期待動作</dt><dd>開催日のマスにイベントの帯が出る。複数日の開催は各日に出る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="1-4-1_20260731_01.png" alt="1-4-1 の1枚目" data-cap="1-4-1_20260731_01.png"><figcaption class="cap">1. 1-4-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">1-4-2</span><span class="ttl">ダッシュボード／開催カレンダー／月の移動</span><span class="tag">操作</span><span class="tag">I09</span></div>
+<section class="item" id="1-4-2" data-no="1-4-2">
+<div class="hd"><span class="no"><a href="#1-4-2">1-4-2</a></span><span class="ttl">ダッシュボード／開催カレンダー／月の移動</span><span class="tag">操作</span><span class="tag">I09</span><span class="tag">4枚</span></div>
 <dl><dt>手順</dt><dd>「前の月」「次の月」「今月」を押す</dd><dt>期待動作</dt><dd>表示する月が切り替わり、「今月」で今の月に戻る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="1-4-2_20260731_01.png" alt="1-4-2 の1枚目" data-cap="1-4-2_20260731_01.png"><figcaption class="cap">1. 1-4-2_20260731_01.png</figcaption></figure>
@@ -63,66 +74,66 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="1-4-2_20260731_04.png" alt="1-4-2 の4枚目" data-cap="1-4-2_20260731_04.png"><figcaption class="cap">4. 1-4-2_20260731_04.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">1-4-4</span><span class="ttl">ダッシュボード／開催カレンダー／日程未定</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="1-4-4" data-no="1-4-4">
+<div class="hd"><span class="no"><a href="#1-4-4">1-4-4</a></span><span class="ttl">ダッシュボード／開催カレンダー／日程未定</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>開催日未設定のイベントがある状態で見る</dd><dt>期待動作</dt><dd>カレンダーの下に「日程未定 N件」と名前が表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="1-4-4_20260731_01.png" alt="1-4-4 の1枚目" data-cap="1-4-4_20260731_01.png"><figcaption class="cap">1. 1-4-4_20260731_01.png</figcaption></figure>
 </div>
 </section>
 <h2 id="s2">2. イベント一覧・作成（9項目）</h2>
-<section class="item">
-<div class="hd"><span class="no">2-1-1</span><span class="ttl">イベント一覧／カード表示／カードの内容</span><span class="tag">表示</span><span class="tag">I01,I05</span></div>
+<section class="item" id="2-1-1" data-no="2-1-1">
+<div class="hd"><span class="no"><a href="#2-1-1">2-1-1</a></span><span class="ttl">イベント一覧／カード表示／カードの内容</span><span class="tag">表示</span><span class="tag">I01,I05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>一覧を開く</dd><dt>期待動作</dt><dd>状態・時期のバッジ、日時・会場、申込のバー、準備の進捗バーが表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-1-1_20260731_01.png" alt="2-1-1 の1枚目" data-cap="2-1-1_20260731_01.png"><figcaption class="cap">1. 2-1-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-1-2</span><span class="ttl">イベント一覧／カード表示／要対応の見出し</span><span class="tag">表示</span><span class="tag">I05</span></div>
+<section class="item" id="2-1-2" data-no="2-1-2">
+<div class="hd"><span class="no"><a href="#2-1-2">2-1-2</a></span><span class="ttl">イベント一覧／カード表示／要対応の見出し</span><span class="tag">表示</span><span class="tag">I05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>一覧を開く</dd><dt>条件</dt><dd>未読・期限超過・未対応タスク・未解決Q&amp;Aがある</dd><dt>期待動作</dt><dd>カードに件数つきの見出しが出る（終了・中止イベントには未読以外出ない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-1-2_20260731_01.png" alt="2-1-2 の1枚目" data-cap="2-1-2_20260731_01.png"><figcaption class="cap">1. 2-1-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-3-1</span><span class="ttl">イベント作成／ステップ操作／保存して次へ</span><span class="tag">操作</span><span class="tag">I09</span></div>
+<section class="item" id="2-3-1" data-no="2-3-1">
+<div class="hd"><span class="no"><a href="#2-3-1">2-3-1</a></span><span class="ttl">イベント作成／ステップ操作／保存して次へ</span><span class="tag">操作</span><span class="tag">I09</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>イベント名を空のまま押す</dd><dt>期待動作</dt><dd>イベント名の欄の下にエラーが出て、先に進めない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-3-1_20260731_01.png" alt="2-3-1 の1枚目" data-cap="2-3-1_20260731_01.png"><figcaption class="cap">1. 2-3-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-3-2</span><span class="ttl">イベント作成／ステップ操作／保存して次へ</span><span class="tag">操作</span><span class="tag">I01</span></div>
+<section class="item" id="2-3-2" data-no="2-3-2">
+<div class="hd"><span class="no"><a href="#2-3-2">2-3-2</a></span><span class="ttl">イベント作成／ステップ操作／保存して次へ</span><span class="tag">操作</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>イベント名を入れて押す</dd><dt>期待動作</dt><dd>下書きが作られて次のステップへ進む。右下に完了メッセージ</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-3-2_20260731_01.png" alt="2-3-2 の1枚目" data-cap="2-3-2_20260731_01.png"><figcaption class="cap">1. 2-3-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-3-3</span><span class="ttl">イベント作成／ステップ操作／途中離脱</span><span class="tag">操作</span><span class="tag">I01</span></div>
+<section class="item" id="2-3-3" data-no="2-3-3">
+<div class="hd"><span class="no"><a href="#2-3-3">2-3-3</a></span><span class="ttl">イベント作成／ステップ操作／途中離脱</span><span class="tag">操作</span><span class="tag">I01</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>途中で一覧に戻り、もう一度開く</dd><dt>条件</dt><dd>途中まで保存済み</dd><dt>期待動作</dt><dd>保存したところまで残っていて、続きから再開できる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-3-3_20260731_01.png" alt="2-3-3 の1枚目" data-cap="2-3-3_20260731_01.png"><figcaption class="cap">1. 2-3-3_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="2-3-3_20260731_02.png" alt="2-3-3 の2枚目" data-cap="2-3-3_20260731_02.png"><figcaption class="cap">2. 2-3-3_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-4-1</span><span class="ttl">イベント作成／公開前チェック／チェックボタン</span><span class="tag">操作</span><span class="tag">I05</span></div>
+<section class="item" id="2-4-1" data-no="2-4-1">
+<div class="hd"><span class="no"><a href="#2-4-1">2-4-1</a></span><span class="ttl">イベント作成／公開前チェック／チェックボタン</span><span class="tag">操作</span><span class="tag">I05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>締切を開催日より後にして押す</dd><dt>期待動作</dt><dd>「申込締切が開催日より後です」と矛盾が指摘される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-4-1_20260731_01.png" alt="2-4-1 の1枚目" data-cap="2-4-1_20260731_01.png"><figcaption class="cap">1. 2-4-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-4-2</span><span class="ttl">イベント作成／公開前チェック／問い合わせ先</span><span class="tag">操作</span><span class="tag">I05</span></div>
+<section class="item" id="2-4-2" data-no="2-4-2">
+<div class="hd"><span class="no"><a href="#2-4-2">2-4-2</a></span><span class="ttl">イベント作成／公開前チェック／問い合わせ先</span><span class="tag">操作</span><span class="tag">I05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>問い合わせ先を空にして「公開する」</dd><dt>期待動作</dt><dd>公開できず、不備の一覧に「問い合わせ先が未入力です」と出る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-4-2_20260731_01.png" alt="2-4-2 の1枚目" data-cap="2-4-2_20260731_01.png"><figcaption class="cap">1. 2-4-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-4-3</span><span class="ttl">イベント作成／公開前チェック／公開する</span><span class="tag">操作</span><span class="tag">I01,I07</span></div>
+<section class="item" id="2-4-3" data-no="2-4-3">
+<div class="hd"><span class="no"><a href="#2-4-3">2-4-3</a></span><span class="ttl">イベント作成／公開前チェック／公開する</span><span class="tag">操作</span><span class="tag">I01,I07</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>不備をなくして「公開する」</dd><dt>期待動作</dt><dd>確認画面が出て、公開すると一覧のバッジが「公開中」になる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-4-3_20260731_01.png" alt="2-4-3 の1枚目" data-cap="2-4-3_20260731_01.png"><figcaption class="cap">1. 2-4-3_20260731_01.png</figcaption></figure>
@@ -130,189 +141,189 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="2-4-3_20260731_03.png" alt="2-4-3 の3枚目" data-cap="2-4-3_20260731_03.png"><figcaption class="cap">3. 2-4-3_20260731_03.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">2-5-1</span><span class="ttl">イベント作成／定員／定員欄</span><span class="tag">境界</span><span class="tag">I01,I05</span></div>
+<section class="item" id="2-5-1" data-no="2-5-1">
+<div class="hd"><span class="no"><a href="#2-5-1">2-5-1</a></span><span class="ttl">イベント作成／定員／定員欄</span><span class="tag">境界</span><span class="tag">I01,I05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>申込が5件あるイベントの定員を4にして保存</dd><dt>期待動作</dt><dd>「定員を4人にはできません」とエラーが出て保存されない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="2-5-1_20260731_01.png" alt="2-5-1 の1枚目" data-cap="2-5-1_20260731_01.png"><figcaption class="cap">1. 2-5-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
 <h2 id="s3">3. イベント詳細（35項目）</h2>
-<section class="item">
-<div class="hd"><span class="no">3-1-1</span><span class="ttl">固定表示／上部の状況／表示内容</span><span class="tag">表示</span><span class="tag">I01,I05</span></div>
+<section class="item" id="3-1-1" data-no="3-1-1">
+<div class="hd"><span class="no"><a href="#3-1-1">3-1-1</a></span><span class="ttl">固定表示／上部の状況／表示内容</span><span class="tag">表示</span><span class="tag">I01,I05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>イベント詳細を開く</dd><dt>期待動作</dt><dd>イベント名・状態・時期・日時・会場・申込数／定員・残席・タスク進捗が表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-1-1_20260731_01.png" alt="3-1-1 の1枚目" data-cap="3-1-1_20260731_01.png"><figcaption class="cap">1. 3-1-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-1-2</span><span class="ttl">固定表示／上部の状況／数字の連動</span><span class="tag">表示</span><span class="tag">I09</span></div>
+<section class="item" id="3-1-2" data-no="3-1-2">
+<div class="hd"><span class="no"><a href="#3-1-2">3-1-2</a></span><span class="ttl">固定表示／上部の状況／数字の連動</span><span class="tag">表示</span><span class="tag">I09</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>チェックインを1件行う</dd><dt>期待動作</dt><dd>固定表示の受付数・残席が追いかけて変わる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-1-2_20260731_01.png" alt="3-1-2 の1枚目" data-cap="3-1-2_20260731_01.png"><figcaption class="cap">1. 3-1-2_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-1-2_20260731_02.png" alt="3-1-2 の2枚目" data-cap="3-1-2_20260731_02.png"><figcaption class="cap">2. 3-1-2_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-2-1</span><span class="ttl">申込タブ／申込一覧／一覧の列</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="3-2-1" data-no="3-2-1">
+<div class="hd"><span class="no"><a href="#3-2-1">3-2-1</a></span><span class="ttl">申込タブ／申込一覧／一覧の列</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>申込タブを開く</dd><dt>期待動作</dt><dd>氏名・カナ・状態・操作の4列で並ぶ</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-2-1_20260731_01.png" alt="3-2-1 の1枚目" data-cap="3-2-1_20260731_01.png"><figcaption class="cap">1. 3-2-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-2-2</span><span class="ttl">申込タブ／検索／検索欄</span><span class="tag">操作</span><span class="tag">I06</span></div>
+<section class="item" id="3-2-2" data-no="3-2-2">
+<div class="hd"><span class="no"><a href="#3-2-2">3-2-2</a></span><span class="ttl">申込タブ／検索／検索欄</span><span class="tag">操作</span><span class="tag">I06</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>氏名の一部を入力</dd><dt>期待動作</dt><dd>入力するそばから一覧が絞り込まれる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-2-2_20260731_01.png" alt="3-2-2 の1枚目" data-cap="3-2-2_20260731_01.png"><figcaption class="cap">1. 3-2-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-2-3</span><span class="ttl">申込タブ／検索／表記ゆれ</span><span class="tag">操作</span><span class="tag">I06</span></div>
+<section class="item" id="3-2-3" data-no="3-2-3">
+<div class="hd"><span class="no"><a href="#3-2-3">3-2-3</a></span><span class="ttl">申込タブ／検索／表記ゆれ</span><span class="tag">操作</span><span class="tag">I06</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>ひらがなで入力</dd><dt>条件</dt><dd>登録はカタカナ</dd><dt>期待動作</dt><dd>ひらがなでもヒットする（全角半角・かなカナの違いを吸収）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-2-3_20260731_01.png" alt="3-2-3 の1枚目" data-cap="3-2-3_20260731_01.png"><figcaption class="cap">1. 3-2-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-3-1</span><span class="ttl">申込タブ／チェックイン／チェックインボタン</span><span class="tag">操作</span><span class="tag">I03</span></div>
+<section class="item" id="3-3-1" data-no="3-3-1">
+<div class="hd"><span class="no"><a href="#3-3-1">3-3-1</a></span><span class="ttl">申込タブ／チェックイン／チェックインボタン</span><span class="tag">操作</span><span class="tag">I03</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>ボタン押下</dd><dt>期待動作</dt><dd>状態が「チェックイン済」になり、右下に完了メッセージが出る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-3-1_20260731_01.png" alt="3-3-1 の1枚目" data-cap="3-3-1_20260731_01.png"><figcaption class="cap">1. 3-3-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-3-2</span><span class="ttl">申込タブ／チェックイン／受付取消ボタン</span><span class="tag">操作</span><span class="tag">I03</span></div>
+<section class="item" id="3-3-2" data-no="3-3-2">
+<div class="hd"><span class="no"><a href="#3-3-2">3-3-2</a></span><span class="ttl">申込タブ／チェックイン／受付取消ボタン</span><span class="tag">操作</span><span class="tag">I03</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>ボタン押下</dd><dt>条件</dt><dd>チェックイン済の行</dd><dt>期待動作</dt><dd>状態が「申込済」に戻る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-3-2_20260731_01.png" alt="3-3-2 の1枚目" data-cap="3-3-2_20260731_01.png"><figcaption class="cap">1. 3-3-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-5-1</span><span class="ttl">申込タブ／内容の修正／修正モーダル</span><span class="tag">操作</span><span class="tag">I03,I02</span></div>
+<section class="item" id="3-5-1" data-no="3-5-1">
+<div class="hd"><span class="no"><a href="#3-5-1">3-5-1</a></span><span class="ttl">申込タブ／内容の修正／修正モーダル</span><span class="tag">操作</span><span class="tag">I03,I02</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>「内容を修正」で氏名・メールを変えて保存</dd><dt>期待動作</dt><dd>保存され、同じ人の別イベントの申込にも新しい氏名が反映される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-5-1_20260731_01.png" alt="3-5-1 の1枚目" data-cap="3-5-1_20260731_01.png"><figcaption class="cap">1. 3-5-1_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-5-1_20260731_02.png" alt="3-5-1 の2枚目" data-cap="3-5-1_20260731_02.png"><figcaption class="cap">2. 3-5-1_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-5-2</span><span class="ttl">申込タブ／内容の修正／メールの重複</span><span class="tag">異常</span><span class="tag">I03</span></div>
+<section class="item" id="3-5-2" data-no="3-5-2">
+<div class="hd"><span class="no"><a href="#3-5-2">3-5-2</a></span><span class="ttl">申込タブ／内容の修正／メールの重複</span><span class="tag">異常</span><span class="tag">I03</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>別の人が使用中のメールに変更</dd><dt>条件</dt><dd>不正データ</dd><dt>期待動作</dt><dd>「別の参加者に登録されています」と拒否され、何も変わらない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-5-2_20260731_01.png" alt="3-5-2 の1枚目" data-cap="3-5-2_20260731_01.png"><figcaption class="cap">1. 3-5-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-5-3</span><span class="ttl">申込タブ／キャンセル／キャンセルボタン</span><span class="tag">操作</span><span class="tag">I03</span></div>
+<section class="item" id="3-5-3" data-no="3-5-3">
+<div class="hd"><span class="no"><a href="#3-5-3">3-5-3</a></span><span class="ttl">申込タブ／キャンセル／キャンセルボタン</span><span class="tag">操作</span><span class="tag">I03</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>「申込をキャンセル」→確認</dd><dt>期待動作</dt><dd>キャンセルになり残席が1増える。記録は一覧に残る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-5-3_20260731_01.png" alt="3-5-3 の1枚目" data-cap="3-5-3_20260731_01.png"><figcaption class="cap">1. 3-5-3_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-5-3_20260731_02.png" alt="3-5-3 の2枚目" data-cap="3-5-3_20260731_02.png"><figcaption class="cap">2. 3-5-3_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-6-1</span><span class="ttl">申込タブ／CSV出力／出力ボタン</span><span class="tag">操作</span><span class="tag">E05</span></div>
+<section class="item" id="3-6-1" data-no="3-6-1">
+<div class="hd"><span class="no"><a href="#3-6-1">3-6-1</a></span><span class="ttl">申込タブ／CSV出力／出力ボタン</span><span class="tag">操作</span><span class="tag">E05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>「CSV出力」を押しExcelで開く</dd><dt>期待動作</dt><dd>文字化けせず開ける。質問への回答も列に入っている</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-6-1_20260731_01.png" alt="3-6-1 の1枚目" data-cap="3-6-1_20260731_01.png"><figcaption class="cap">1. 3-6-1_20260731_01.png</figcaption></figure>
 </div>
 <a class="file" href="3-6-1_20260731_applications_ev_public.csv" download>⤓ 3-6-1_20260731_applications_ev_public.csv</a> 
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-6-2</span><span class="ttl">申込タブ／CSV出力／数式の無害化</span><span class="tag">異常</span><span class="tag">E05,I06</span></div>
+<section class="item" id="3-6-2" data-no="3-6-2">
+<div class="hd"><span class="no"><a href="#3-6-2">3-6-2</a></span><span class="ttl">申込タブ／CSV出力／数式の無害化</span><span class="tag">異常</span><span class="tag">E05,I06</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>氏名が「=1+1」の申込を含めて出力しExcelで開く</dd><dt>条件</dt><dd>不正データ</dd><dt>期待動作</dt><dd>セルが計算されず文字のまま表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-6-2_20260731_01.png" alt="3-6-2 の1枚目" data-cap="3-6-2_20260731_01.png"><figcaption class="cap">1. 3-6-2_20260731_01.png</figcaption></figure>
 </div>
 <a class="file" href="3-6-2_20260731_applications_ev_public.csv" download>⤓ 3-6-2_20260731_applications_ev_public.csv</a> 
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-7-1</span><span class="ttl">申込タブ／申込の推移／グラフ</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="3-7-1" data-no="3-7-1">
+<div class="hd"><span class="no"><a href="#3-7-1">3-7-1</a></span><span class="ttl">申込タブ／申込の推移／グラフ</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>申込が2件以上ある状態で申込タブを見る</dd><dt>期待動作</dt><dd>日ごとの申込数の棒グラフが表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-7-1_20260731_01.png" alt="3-7-1 の1枚目" data-cap="3-7-1_20260731_01.png"><figcaption class="cap">1. 3-7-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-8-1</span><span class="ttl">運営スレッド／投稿／送信ボタン</span><span class="tag">操作</span><span class="tag">I10</span></div>
+<section class="item" id="3-8-1" data-no="3-8-1">
+<div class="hd"><span class="no"><a href="#3-8-1">3-8-1</a></span><span class="ttl">運営スレッド／投稿／送信ボタン</span><span class="tag">操作</span><span class="tag">I10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>名前とメッセージを入れて送信</dd><dt>期待動作</dt><dd>発言が並ぶ。参加者ビューからは見えない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-8-1_20260731_01.png" alt="3-8-1 の1枚目" data-cap="3-8-1_20260731_01.png"><figcaption class="cap">1. 3-8-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-8-2</span><span class="ttl">運営スレッド／未読／未読バッジ</span><span class="tag">表示</span><span class="tag">I10,I01</span></div>
+<section class="item" id="3-8-2" data-no="3-8-2">
+<div class="hd"><span class="no"><a href="#3-8-2">3-8-2</a></span><span class="ttl">運営スレッド／未読／未読バッジ</span><span class="tag">表示</span><span class="tag">I10,I01</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>開いていない間に投稿された状態で一覧を見る</dd><dt>期待動作</dt><dd>スレッドタブと一覧カードに未読の件数が付く。別イベントには付かない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-8-2_20260731_01.png" alt="3-8-2 の1枚目" data-cap="3-8-2_20260731_01.png"><figcaption class="cap">1. 3-8-2_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-8-2_20260731_02.png" alt="3-8-2 の2枚目" data-cap="3-8-2_20260731_02.png"><figcaption class="cap">2. 3-8-2_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-8-3</span><span class="ttl">運営スレッド／未読／既読化</span><span class="tag">操作</span><span class="tag">I10</span></div>
+<section class="item" id="3-8-3" data-no="3-8-3">
+<div class="hd"><span class="no"><a href="#3-8-3">3-8-3</a></span><span class="ttl">運営スレッド／未読／既読化</span><span class="tag">操作</span><span class="tag">I10</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>スレッドタブを開く</dd><dt>期待動作</dt><dd>未読の件数が消える。以降の新しい投稿だけがまた未読になる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-8-3_20260731_01.png" alt="3-8-3 の1枚目" data-cap="3-8-3_20260731_01.png"><figcaption class="cap">1. 3-8-3_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-8-3_20260731_02.png" alt="3-8-3 の2枚目" data-cap="3-8-3_20260731_02.png"><figcaption class="cap">2. 3-8-3_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-9-1</span><span class="ttl">運営Q&amp;A／登録／登録ボタン</span><span class="tag">操作</span><span class="tag">I10</span></div>
+<section class="item" id="3-9-1" data-no="3-9-1">
+<div class="hd"><span class="no"><a href="#3-9-1">3-9-1</a></span><span class="ttl">運営Q&amp;A／登録／登録ボタン</span><span class="tag">操作</span><span class="tag">I10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>疑問を入力して登録</dd><dt>期待動作</dt><dd>「未解決」として一覧の上に並ぶ</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-9-1_20260731_01.png" alt="3-9-1 の1枚目" data-cap="3-9-1_20260731_01.png"><figcaption class="cap">1. 3-9-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-9-2</span><span class="ttl">運営Q&amp;A／解消／解決にする</span><span class="tag">操作</span><span class="tag">I10,I01</span></div>
+<section class="item" id="3-9-2" data-no="3-9-2">
+<div class="hd"><span class="no"><a href="#3-9-2">3-9-2</a></span><span class="ttl">運営Q&amp;A／解消／解決にする</span><span class="tag">操作</span><span class="tag">I10,I01</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>回答を書いて「解決にする」</dd><dt>期待動作</dt><dd>「解決済み」になり、一覧カードの未解決Q&amp;Aの数が減る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-9-2_20260731_01.png" alt="3-9-2 の1枚目" data-cap="3-9-2_20260731_01.png"><figcaption class="cap">1. 3-9-2_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-9-2_20260731_02.png" alt="3-9-2 の2枚目" data-cap="3-9-2_20260731_02.png"><figcaption class="cap">2. 3-9-2_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-10-1</span><span class="ttl">運営タスク／追加／タスクを追加</span><span class="tag">操作</span><span class="tag">I10</span></div>
+<section class="item" id="3-10-1" data-no="3-10-1">
+<div class="hd"><span class="no"><a href="#3-10-1">3-10-1</a></span><span class="ttl">運営タスク／追加／タスクを追加</span><span class="tag">操作</span><span class="tag">I10</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>タイトルを入れて保存</dd><dt>期待動作</dt><dd>ボードの「未対応」列にカードが追加される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-10-1_20260731_01.png" alt="3-10-1 の1枚目" data-cap="3-10-1_20260731_01.png"><figcaption class="cap">1. 3-10-1_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-10-1_20260731_02.png" alt="3-10-1 の2枚目" data-cap="3-10-1_20260731_02.png"><figcaption class="cap">2. 3-10-1_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-10-2</span><span class="ttl">運営タスク／ボード／ドラッグ</span><span class="tag">操作</span><span class="tag">I10,I02</span></div>
+<section class="item" id="3-10-2" data-no="3-10-2">
+<div class="hd"><span class="no"><a href="#3-10-2">3-10-2</a></span><span class="ttl">運営タスク／ボード／ドラッグ</span><span class="tag">操作</span><span class="tag">I10,I02</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>カードを別の列へドラッグ</dd><dt>期待動作</dt><dd>状態が変わり、そのまま保存される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-10-2_20260731_01.png" alt="3-10-2 の1枚目" data-cap="3-10-2_20260731_01.png"><figcaption class="cap">1. 3-10-2_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-10-2_20260731_02.png" alt="3-10-2 の2枚目" data-cap="3-10-2_20260731_02.png"><figcaption class="cap">2. 3-10-2_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-10-3</span><span class="ttl">運営タスク／ボード／再読み込み</span><span class="tag">表示</span><span class="tag">I02</span></div>
+<section class="item" id="3-10-3" data-no="3-10-3">
+<div class="hd"><span class="no"><a href="#3-10-3">3-10-3</a></span><span class="ttl">運営タスク／ボード／再読み込み</span><span class="tag">表示</span><span class="tag">I02</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>ドラッグ後にページを再読み込み</dd><dt>期待動作</dt><dd>並び順と状態が保たれている（一部だけ元に戻らない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-10-3_20260731_01.png" alt="3-10-3 の1枚目" data-cap="3-10-3_20260731_01.png"><figcaption class="cap">1. 3-10-3_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-10-3_20260731_02.png" alt="3-10-3 の2枚目" data-cap="3-10-3_20260731_02.png"><figcaption class="cap">2. 3-10-3_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-10-4</span><span class="ttl">運営タスク／タイムライン／切替</span><span class="tag">表示</span><span class="tag">I10</span></div>
+<section class="item" id="3-10-4" data-no="3-10-4">
+<div class="hd"><span class="no"><a href="#3-10-4">3-10-4</a></span><span class="ttl">運営タスク／タイムライン／切替</span><span class="tag">表示</span><span class="tag">I10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>「タイムライン」に切り替える</dd><dt>期待動作</dt><dd>期間の横棒・今日の縦線・週末の色分けが表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-10-4_20260731_01.png" alt="3-10-4 の1枚目" data-cap="3-10-4_20260731_01.png"><figcaption class="cap">1. 3-10-4_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-10-5</span><span class="ttl">運営タスク／期限超過／期限の表示</span><span class="tag">表示</span><span class="tag">I05</span></div>
+<section class="item" id="3-10-5" data-no="3-10-5">
+<div class="hd"><span class="no"><a href="#3-10-5">3-10-5</a></span><span class="ttl">運営タスク／期限超過／期限の表示</span><span class="tag">表示</span><span class="tag">I05</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>期限を昨日にする</dd><dt>条件</dt><dd>状態が未対応・処理中</dd><dt>期待動作</dt><dd>「期限超過」の表示が付く。処理済・完了のタスクは超過に数えない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-10-5_20260731_01.png" alt="3-10-5 の1枚目" data-cap="3-10-5_20260731_01.png"><figcaption class="cap">1. 3-10-5_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-10-5_20260731_02.png" alt="3-10-5 の2枚目" data-cap="3-10-5_20260731_02.png"><figcaption class="cap">2. 3-10-5_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-11-1</span><span class="ttl">マニュアル／表示切替／編集/分割/プレビュー</span><span class="tag">表示</span><span class="tag">I10</span></div>
+<section class="item" id="3-11-1" data-no="3-11-1">
+<div class="hd"><span class="no"><a href="#3-11-1">3-11-1</a></span><span class="ttl">マニュアル／表示切替／編集/分割/プレビュー</span><span class="tag">表示</span><span class="tag">I10</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>3つのボタンを切り替える</dd><dt>期待動作</dt><dd>表示が切り替わる。本文があるときは次からプレビューで開く</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-11-1_20260731_01.png" alt="3-11-1 の1枚目" data-cap="3-11-1_20260731_01.png"><figcaption class="cap">1. 3-11-1_20260731_01.png</figcaption></figure>
@@ -320,82 +331,82 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="3-11-1_20260731_03.png" alt="3-11-1 の3枚目" data-cap="3-11-1_20260731_03.png"><figcaption class="cap">3. 3-11-1_20260731_03.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-11-3</span><span class="ttl">マニュアル／整形／Markdown</span><span class="tag">表示</span><span class="tag">I06</span></div>
+<section class="item" id="3-11-3" data-no="3-11-3">
+<div class="hd"><span class="no"><a href="#3-11-3">3-11-3</a></span><span class="ttl">マニュアル／整形／Markdown</span><span class="tag">表示</span><span class="tag">I06</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>見出し・表・箇条書きを書いて保存</dd><dt>期待動作</dt><dd>整形されて読みやすく表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-11-3_20260731_01.png" alt="3-11-3 の1枚目" data-cap="3-11-3_20260731_01.png"><figcaption class="cap">1. 3-11-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-11-4</span><span class="ttl">マニュアル／リンクの安全／javascript:</span><span class="tag">異常</span><span class="tag">I06</span></div>
+<section class="item" id="3-11-4" data-no="3-11-4">
+<div class="hd"><span class="no"><a href="#3-11-4">3-11-4</a></span><span class="ttl">マニュアル／リンクの安全／javascript:</span><span class="tag">異常</span><span class="tag">I06</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>「[リンク](javascript:...)」と書く</dd><dt>条件</dt><dd>不正データ</dd><dt>期待動作</dt><dd>リンクにならない（httpとhttpsだけがリンクになる）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-11-4_20260731_01.png" alt="3-11-4 の1枚目" data-cap="3-11-4_20260731_01.png"><figcaption class="cap">1. 3-11-4_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-11-5</span><span class="ttl">マニュアル／リストの自動継続／箇条書き・番号</span><span class="tag">操作</span><span class="tag">I10</span></div>
+<section class="item" id="3-11-5" data-no="3-11-5">
+<div class="hd"><span class="no"><a href="#3-11-5">3-11-5</a></span><span class="ttl">マニュアル／リストの自動継続／箇条書き・番号</span><span class="tag">操作</span><span class="tag">I10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>「- 名札を用意する」と書いて Enter を押す。「1. 受付に立つ」「- [ ] 名簿を印刷」「  - 延長コード」でも試す</dd><dt>期待動作</dt><dd>次の行の行頭に同じ記号が入る（番号は1つ増え、インデントは引き継ぎ、チェックは未チェックで始まる）。カーソルは記号の直後にある</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-11-5_20260731_01.png" alt="3-11-5 の1枚目" data-cap="3-11-5_20260731_01.png"><figcaption class="cap">1. 3-11-5_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-11-7</span><span class="ttl">マニュアル／リストの自動継続／変換中の改行</span><span class="tag">操作</span><span class="tag">I10</span></div>
+<section class="item" id="3-11-7" data-no="3-11-7">
+<div class="hd"><span class="no"><a href="#3-11-7">3-11-7</a></span><span class="ttl">マニュアル／リストの自動継続／変換中の改行</span><span class="tag">操作</span><span class="tag">I10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>日本語変換の確定で Enter を押す／Shift+Enter を押す</dd><dt>条件</dt><dd>日本語入力（IME）を使用</dd><dt>期待動作</dt><dd>通常の改行になる（項目が勝手に増えない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-11-7_20260731_01.png" alt="3-11-7 の1枚目" data-cap="3-11-7_20260731_01.png"><figcaption class="cap">1. 3-11-7_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-12-1</span><span class="ttl">ファイル／追加／ファイルを追加</span><span class="tag">操作</span><span class="tag">E10</span></div>
+<section class="item" id="3-12-1" data-no="3-12-1">
+<div class="hd"><span class="no"><a href="#3-12-1">3-12-1</a></span><span class="ttl">ファイル／追加／ファイルを追加</span><span class="tag">操作</span><span class="tag">E10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>ファイルを1つ追加</dd><dt>期待動作</dt><dd>名前・サイズつきで一覧に出る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-12-1_20260731_01.png" alt="3-12-1 の1枚目" data-cap="3-12-1_20260731_01.png"><figcaption class="cap">1. 3-12-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-12-5</span><span class="ttl">ファイル／削除／削除ボタン</span><span class="tag">操作</span><span class="tag">E10,I07</span></div>
+<section class="item" id="3-12-5" data-no="3-12-5">
+<div class="hd"><span class="no"><a href="#3-12-5">3-12-5</a></span><span class="ttl">ファイル／削除／削除ボタン</span><span class="tag">操作</span><span class="tag">E10,I07</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>ボタン押下</dd><dt>期待動作</dt><dd>確認画面のうえで一覧から消える</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-12-5_20260731_01.png" alt="3-12-5 の1枚目" data-cap="3-12-5_20260731_01.png"><figcaption class="cap">1. 3-12-5_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-12-5_20260731_02.png" alt="3-12-5 の2枚目" data-cap="3-12-5_20260731_02.png"><figcaption class="cap">2. 3-12-5_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-13-1</span><span class="ttl">お知らせ／掲示／お知らせを出す</span><span class="tag">操作</span><span class="tag">I10,I01</span></div>
+<section class="item" id="3-13-1" data-no="3-13-1">
+<div class="hd"><span class="no"><a href="#3-13-1">3-13-1</a></span><span class="ttl">お知らせ／掲示／お知らせを出す</span><span class="tag">操作</span><span class="tag">I10,I01</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>件名を入れて「お知らせを出す」</dd><dt>期待動作</dt><dd>参加者の公開ページとマイ申込に掲示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-13-1_20260731_01.png" alt="3-13-1 の1枚目" data-cap="3-13-1_20260731_01.png"><figcaption class="cap">1. 3-13-1_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-13-1_20260731_02.png" alt="3-13-1 の2枚目" data-cap="3-13-1_20260731_02.png"><figcaption class="cap">2. 3-13-1_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-14-3</span><span class="ttl">告知／共有／X・LINEボタン</span><span class="tag">操作</span><span class="tag">E08</span></div>
+<section class="item" id="3-14-3" data-no="3-14-3">
+<div class="hd"><span class="no"><a href="#3-14-3">3-14-3</a></span><span class="ttl">告知／共有／X・LINEボタン</span><span class="tag">操作</span><span class="tag">E08</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>ボタン押下</dd><dt>期待動作</dt><dd>新しいタブで投稿画面が開く（Xは文とURL入り、LINEはURLのみ）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-14-3_20260731_01.png" alt="3-14-3 の1枚目" data-cap="3-14-3_20260731_01.png"><figcaption class="cap">1. 3-14-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-15-1</span><span class="ttl">概要・編集／複製／複製ボタン</span><span class="tag">操作</span><span class="tag">I01</span></div>
+<section class="item" id="3-15-1" data-no="3-15-1">
+<div class="hd"><span class="no"><a href="#3-15-1">3-15-1</a></span><span class="ttl">概要・編集／複製／複製ボタン</span><span class="tag">操作</span><span class="tag">I01</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>「複製」→確認</dd><dt>期待動作</dt><dd>「（コピー）」付きの下書きが作られる。申込・お知らせ・タスクは複製されない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-15-1_20260731_01.png" alt="3-15-1 の1枚目" data-cap="3-15-1_20260731_01.png"><figcaption class="cap">1. 3-15-1_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-15-1_20260731_02.png" alt="3-15-1 の2枚目" data-cap="3-15-1_20260731_02.png"><figcaption class="cap">2. 3-15-1_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-15-2</span><span class="ttl">概要・編集／状態変更／公開する</span><span class="tag">操作</span><span class="tag">I01,I07</span></div>
+<section class="item" id="3-15-2" data-no="3-15-2">
+<div class="hd"><span class="no"><a href="#3-15-2">3-15-2</a></span><span class="ttl">概要・編集／状態変更／公開する</span><span class="tag">操作</span><span class="tag">I01,I07</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>ボタン押下</dd><dt>条件</dt><dd>下書き</dd><dt>期待動作</dt><dd>確認画面のうえ公開される。公開後に下書きへは戻せない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-15-2_20260731_01.png" alt="3-15-2 の1枚目" data-cap="3-15-2_20260731_01.png"><figcaption class="cap">1. 3-15-2_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="3-15-2_20260731_02.png" alt="3-15-2 の2枚目" data-cap="3-15-2_20260731_02.png"><figcaption class="cap">2. 3-15-2_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">3-15-3</span><span class="ttl">概要・編集／状態変更／中止する</span><span class="tag">操作</span><span class="tag">I01,I07</span></div>
+<section class="item" id="3-15-3" data-no="3-15-3">
+<div class="hd"><span class="no"><a href="#3-15-3">3-15-3</a></span><span class="ttl">概要・編集／状態変更／中止する</span><span class="tag">操作</span><span class="tag">I01,I07</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>ボタン押下</dd><dt>条件</dt><dd>公開中</dd><dt>期待動作</dt><dd>確認画面のうえ中止される。取り消せない。既存の申込は変わらない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="3-15-3_20260731_01.png" alt="3-15-3 の1枚目" data-cap="3-15-3_20260731_01.png"><figcaption class="cap">1. 3-15-3_20260731_01.png</figcaption></figure>
@@ -403,22 +414,22 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 </div>
 </section>
 <h2 id="s4">4. 参加者ビュー（20項目）</h2>
-<section class="item">
-<div class="hd"><span class="no">4-1-1</span><span class="ttl">イベントを探す／一覧／出るイベント</span><span class="tag">表示</span><span class="tag">I05,I01</span></div>
+<section class="item" id="4-1-1" data-no="4-1-1">
+<div class="hd"><span class="no"><a href="#4-1-1">4-1-1</a></span><span class="ttl">イベントを探す／一覧／出るイベント</span><span class="tag">表示</span><span class="tag">I05,I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>参加者ビューで一覧を見る</dd><dt>条件</dt><dd>6状態のイベントを用意</dd><dt>期待動作</dt><dd>出るのは受付中・受付前・満席だけ。締切済み・開催済み・中止・下書き・限定公開は出ない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-1-1_20260731_01.png" alt="4-1-1 の1枚目" data-cap="4-1-1_20260731_01.png"><figcaption class="cap">1. 4-1-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-1-3</span><span class="ttl">イベントを探す／カバー画像／カードの帯</span><span class="tag">表示</span><span class="tag">I01,E10</span></div>
+<section class="item" id="4-1-3" data-no="4-1-3">
+<div class="hd"><span class="no"><a href="#4-1-3">4-1-3</a></span><span class="ttl">イベントを探す／カバー画像／カードの帯</span><span class="tag">表示</span><span class="tag">I01,E10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>一覧のカードを見る</dd><dt>条件</dt><dd>デモデータ投入済み</dd><dt>期待動作</dt><dd>各カードの上部にカバー画像が帯で表示される（イベントごとに色や図柄が異なる）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-1-3_20260731_01.png" alt="4-1-3 の1枚目" data-cap="4-1-3_20260731_01.png"><figcaption class="cap">1. 4-1-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-2-2</span><span class="ttl">公開ページ／申込ボタン／文言の切替</span><span class="tag">表示</span><span class="tag">I05</span></div>
+<section class="item" id="4-2-2" data-no="4-2-2">
+<div class="hd"><span class="no"><a href="#4-2-2">4-2-2</a></span><span class="ttl">公開ページ／申込ボタン／文言の切替</span><span class="tag">表示</span><span class="tag">I05</span><span class="tag">4枚</span></div>
 <dl><dt>手順</dt><dd>5状態のイベントで見る</dd><dt>条件</dt><dd>中止・開催済・受付終了・受付前・受付中</dd><dt>期待動作</dt><dd>「中止されました」「終了しました」「受付終了」「〇/〇 から受付開始」「申込む」と切り替わり、押せるのは受付中だけ</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-2-2_20260731_01.png" alt="4-2-2 の1枚目" data-cap="4-2-2_20260731_01.png"><figcaption class="cap">1. 4-2-2_20260731_01.png</figcaption></figure>
@@ -427,22 +438,22 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="4-2-2_20260731_04.png" alt="4-2-2 の4枚目" data-cap="4-2-2_20260731_04.png"><figcaption class="cap">4. 4-2-2_20260731_04.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-2-4</span><span class="ttl">公開ページ／視聴URL／非表示</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="4-2-4" data-no="4-2-4">
+<div class="hd"><span class="no"><a href="#4-2-4">4-2-4</a></span><span class="ttl">公開ページ／視聴URL／非表示</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>オンライン開催の公開ページを見る</dd><dt>期待動作</dt><dd>視聴URLは出ない（「申込後にマイ申込で確認できます」の案内だけ出る）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-2-4_20260731_01.png" alt="4-2-4 の1枚目" data-cap="4-2-4_20260731_01.png"><figcaption class="cap">1. 4-2-4_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-3-3</span><span class="ttl">申込フォーム／入力チェック／追加の質問</span><span class="tag">操作</span><span class="tag">I03</span></div>
+<section class="item" id="4-3-3" data-no="4-3-3">
+<div class="hd"><span class="no"><a href="#4-3-3">4-3-3</a></span><span class="ttl">申込フォーム／入力チェック／追加の質問</span><span class="tag">操作</span><span class="tag">I03</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>必須の質問を空のまま進む</dd><dt>期待動作</dt><dd>「回答してください」と出る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-3-3_20260731_01.png" alt="4-3-3 の1枚目" data-cap="4-3-3_20260731_01.png"><figcaption class="cap">1. 4-3-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-3-4</span><span class="ttl">申込フォーム／申込む／確認→申込</span><span class="tag">操作</span><span class="tag">I03,I02</span></div>
+<section class="item" id="4-3-4" data-no="4-3-4">
+<div class="hd"><span class="no"><a href="#4-3-4">4-3-4</a></span><span class="ttl">申込フォーム／申込む／確認→申込</span><span class="tag">操作</span><span class="tag">I03,I02</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>正しく入力→確認画面→「申込む」</dd><dt>条件</dt><dd>受付中で残席あり</dd><dt>期待動作</dt><dd>完了画面になり確認用URLが出る。主催者側の一覧にも増えている</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-3-4_20260731_01.png" alt="4-3-4 の1枚目" data-cap="4-3-4_20260731_01.png"><figcaption class="cap">1. 4-3-4_20260731_01.png</figcaption></figure>
@@ -450,23 +461,23 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="4-3-4_20260731_03.png" alt="4-3-4 の3枚目" data-cap="4-3-4_20260731_03.png"><figcaption class="cap">3. 4-3-4_20260731_03.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-3-5</span><span class="ttl">申込フォーム／申込む／満席ちょうど</span><span class="tag">境界</span><span class="tag">I04</span></div>
+<section class="item" id="4-3-5" data-no="4-3-5">
+<div class="hd"><span class="no"><a href="#4-3-5">4-3-5</a></span><span class="ttl">申込フォーム／申込む／満席ちょうど</span><span class="tag">境界</span><span class="tag">I04</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>残席1で1人→続けてもう1人</dd><dt>条件</dt><dd>不正データ</dd><dt>期待動作</dt><dd>1人目は成功。2人目は「定員に達したため申込できません」。キャンセルが出るとまた申込める</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-3-5_20260731_01.png" alt="4-3-5 の1枚目" data-cap="4-3-5_20260731_01.png"><figcaption class="cap">1. 4-3-5_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="4-3-5_20260731_02.png" alt="4-3-5 の2枚目" data-cap="4-3-5_20260731_02.png"><figcaption class="cap">2. 4-3-5_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-3-6</span><span class="ttl">申込フォーム／申込む／二重申込</span><span class="tag">異常</span><span class="tag">I03</span></div>
+<section class="item" id="4-3-6" data-no="4-3-6">
+<div class="hd"><span class="no"><a href="#4-3-6">4-3-6</a></span><span class="ttl">申込フォーム／申込む／二重申込</span><span class="tag">異常</span><span class="tag">I03</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>申込済みの人がもう一度申込む</dd><dt>条件</dt><dd>不正データ</dd><dt>期待動作</dt><dd>「このイベントには既に申込済みです」と拒否される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-3-6_20260731_01.png" alt="4-3-6 の1枚目" data-cap="4-3-6_20260731_01.png"><figcaption class="cap">1. 4-3-6_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-3-8</span><span class="ttl">申込フォーム／申込む／メールの表記ゆれ</span><span class="tag">異常</span><span class="tag">I03</span></div>
+<section class="item" id="4-3-8" data-no="4-3-8">
+<div class="hd"><span class="no"><a href="#4-3-8">4-3-8</a></span><span class="ttl">申込フォーム／申込む／メールの表記ゆれ</span><span class="tag">異常</span><span class="tag">I03</span><span class="tag">4枚</span></div>
 <dl><dt>手順</dt><dd>大文字・前後スペース入りのメールで申込む</dd><dt>条件</dt><dd>不正データ</dd><dt>期待動作</dt><dd>既存の同じアドレスの人として名簿に1人にまとまる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-3-8_20260731_01.png" alt="4-3-8 の1枚目" data-cap="4-3-8_20260731_01.png"><figcaption class="cap">1. 4-3-8_20260731_01.png</figcaption></figure>
@@ -475,8 +486,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="4-3-8_20260731_04.png" alt="4-3-8 の4枚目" data-cap="4-3-8_20260731_04.png"><figcaption class="cap">4. 4-3-8_20260731_04.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-3-9</span><span class="ttl">申込フォーム／申込む／拒否時の残り方</span><span class="tag">整合</span><span class="tag">I02</span></div>
+<section class="item" id="4-3-9" data-no="4-3-9">
+<div class="hd"><span class="no"><a href="#4-3-9">4-3-9</a></span><span class="ttl">申込フォーム／申込む／拒否時の残り方</span><span class="tag">整合</span><span class="tag">I02</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>拒否された後に各画面を見て再読み込み</dd><dt>期待動作</dt><dd>どの画面にも増えておらず、再読み込みしても現れない（中途半端に残らない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-3-9_20260731_01.png" alt="4-3-9 の1枚目" data-cap="4-3-9_20260731_01.png"><figcaption class="cap">1. 4-3-9_20260731_01.png</figcaption></figure>
@@ -484,37 +495,37 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="4-3-9_20260731_03.png" alt="4-3-9 の3枚目" data-cap="4-3-9_20260731_03.png"><figcaption class="cap">3. 4-3-9_20260731_03.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-4-1</span><span class="ttl">申込完了／完了画面／表示内容</span><span class="tag">表示</span><span class="tag">I09</span></div>
+<section class="item" id="4-4-1" data-no="4-4-1">
+<div class="hd"><span class="no"><a href="#4-4-1">4-4-1</a></span><span class="ttl">申込完了／完了画面／表示内容</span><span class="tag">表示</span><span class="tag">I09</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>申込を完了する</dd><dt>期待動作</dt><dd>完了メッセージ・内容の要約・「マイ申込を見る」が出る。確認URLは折りたたみを開くとコピーできる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-4-1_20260731_01.png" alt="4-4-1 の1枚目" data-cap="4-4-1_20260731_01.png"><figcaption class="cap">1. 4-4-1_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="4-4-1_20260731_02.png" alt="4-4-1 の2枚目" data-cap="4-4-1_20260731_02.png"><figcaption class="cap">2. 4-4-1_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-1</span><span class="ttl">マイ申込／ログイン／未ログイン</span><span class="tag">表示</span><span class="tag">I08</span></div>
+<section class="item" id="4-5-1" data-no="4-5-1">
+<div class="hd"><span class="no"><a href="#4-5-1">4-5-1</a></span><span class="ttl">マイ申込／ログイン／未ログイン</span><span class="tag">表示</span><span class="tag">I08</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>ログインせずマイ申込を開く</dd><dt>期待動作</dt><dd>ログイン画面になる（説明文は表示されない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-1_20260731_01.png" alt="4-5-1 の1枚目" data-cap="4-5-1_20260731_01.png"><figcaption class="cap">1. 4-5-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-2</span><span class="ttl">マイ申込／ログイン／正しい情報</span><span class="tag">操作</span><span class="tag">I08,I01</span></div>
+<section class="item" id="4-5-2" data-no="4-5-2">
+<div class="hd"><span class="no"><a href="#4-5-2">4-5-2</a></span><span class="ttl">マイ申込／ログイン／正しい情報</span><span class="tag">操作</span><span class="tag">I08,I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>abc@example.com／abc123 でログイン</dd><dt>期待動作</dt><dd>本人（田中 太郎）の申込だけが、これから→終了→キャンセルの順に並ぶ</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-2_20260731_01.png" alt="4-5-2 の1枚目" data-cap="4-5-2_20260731_01.png"><figcaption class="cap">1. 4-5-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-3</span><span class="ttl">マイ申込／ログイン／誤った情報</span><span class="tag">操作</span><span class="tag">I08</span></div>
+<section class="item" id="4-5-3" data-no="4-5-3">
+<div class="hd"><span class="no"><a href="#4-5-3">4-5-3</a></span><span class="ttl">マイ申込／ログイン／誤った情報</span><span class="tag">操作</span><span class="tag">I08</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>間違ったパスワードでログイン</dd><dt>期待動作</dt><dd>「メールアドレスまたはパスワードが違います」と出る（どちらが違うかは言わない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-3_20260731_01.png" alt="4-5-3 の1枚目" data-cap="4-5-3_20260731_01.png"><figcaption class="cap">1. 4-5-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-4</span><span class="ttl">マイ申込／ログイン／解除</span><span class="tag">操作</span><span class="tag">I08</span></div>
+<section class="item" id="4-5-4" data-no="4-5-4">
+<div class="hd"><span class="no"><a href="#4-5-4">4-5-4</a></span><span class="ttl">マイ申込／ログイン／解除</span><span class="tag">操作</span><span class="tag">I08</span><span class="tag">4枚</span></div>
 <dl><dt>手順</dt><dd>ログアウト／再読み込み／主催者ビューへ切替</dd><dt>期待動作</dt><dd>どの操作でもログインが解除される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-4_20260731_01.png" alt="4-5-4 の1枚目" data-cap="4-5-4_20260731_01.png"><figcaption class="cap">1. 4-5-4_20260731_01.png</figcaption></figure>
@@ -523,97 +534,97 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="4-5-4_20260731_04.png" alt="4-5-4 の4枚目" data-cap="4-5-4_20260731_04.png"><figcaption class="cap">4. 4-5-4_20260731_04.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-5</span><span class="ttl">マイ申込／詳細／表示内容</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="4-5-5" data-no="4-5-5">
+<div class="hd"><span class="no"><a href="#4-5-5">4-5-5</a></span><span class="ttl">マイ申込／詳細／表示内容</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>一覧から申込を開く</dd><dt>期待動作</dt><dd>日時・会場・問い合わせ先・申込状態・回答が出る。イベントの説明文は出ない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-5_20260731_01.png" alt="4-5-5 の1枚目" data-cap="4-5-5_20260731_01.png"><figcaption class="cap">1. 4-5-5_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-6</span><span class="ttl">マイ申込／詳細／視聴URL</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="4-5-6" data-no="4-5-6">
+<div class="hd"><span class="no"><a href="#4-5-6">4-5-6</a></span><span class="ttl">マイ申込／詳細／視聴URL</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>オンライン開催の申込を開く</dd><dt>期待動作</dt><dd>視聴URLが表示される（キャンセル済みには出ない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-6_20260731_01.png" alt="4-5-6 の1枚目" data-cap="4-5-6_20260731_01.png"><figcaption class="cap">1. 4-5-6_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-7</span><span class="ttl">マイ申込／詳細／受付用QR</span><span class="tag">操作</span><span class="tag">E09</span></div>
+<section class="item" id="4-5-7" data-no="4-5-7">
+<div class="hd"><span class="no"><a href="#4-5-7">4-5-7</a></span><span class="ttl">マイ申込／詳細／受付用QR</span><span class="tag">操作</span><span class="tag">E09</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>「QRを表示」を押す</dd><dt>条件</dt><dd>キャンセルしていない申込</dd><dt>期待動作</dt><dd>受付用のQRコードが表示される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-7_20260731_01.png" alt="4-5-7 の1枚目" data-cap="4-5-7_20260731_01.png"><figcaption class="cap">1. 4-5-7_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-8</span><span class="ttl">マイ申込／詳細／キャンセル</span><span class="tag">操作</span><span class="tag">I03</span></div>
+<section class="item" id="4-5-8" data-no="4-5-8">
+<div class="hd"><span class="no"><a href="#4-5-8">4-5-8</a></span><span class="ttl">マイ申込／詳細／キャンセル</span><span class="tag">操作</span><span class="tag">I03</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>「申込をキャンセル」→確認</dd><dt>期待動作</dt><dd>キャンセル済みの表示になり、残席が戻る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-8_20260731_01.png" alt="4-5-8 の1枚目" data-cap="4-5-8_20260731_01.png"><figcaption class="cap">1. 4-5-8_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="4-5-8_20260731_02.png" alt="4-5-8 の2枚目" data-cap="4-5-8_20260731_02.png"><figcaption class="cap">2. 4-5-8_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">4-5-9</span><span class="ttl">マイ申込／カバー画像／一覧の帯</span><span class="tag">表示</span><span class="tag">I01,E10</span></div>
+<section class="item" id="4-5-9" data-no="4-5-9">
+<div class="hd"><span class="no"><a href="#4-5-9">4-5-9</a></span><span class="ttl">マイ申込／カバー画像／一覧の帯</span><span class="tag">表示</span><span class="tag">I01,E10</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>ログインして一覧を見る</dd><dt>期待動作</dt><dd>各申込の上部にカバー画像が帯で表示される（一覧より少し低い帯）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="4-5-9_20260731_01.png" alt="4-5-9 の1枚目" data-cap="4-5-9_20260731_01.png"><figcaption class="cap">1. 4-5-9_20260731_01.png</figcaption></figure>
 </div>
 </section>
 <h2 id="s5">5. 名簿・設定（9項目）</h2>
-<section class="item">
-<div class="hd"><span class="no">5-1-1</span><span class="ttl">参加者名簿／保護／開く</span><span class="tag">表示</span><span class="tag">I01</span></div>
+<section class="item" id="5-1-1" data-no="5-1-1">
+<div class="hd"><span class="no"><a href="#5-1-1">5-1-1</a></span><span class="ttl">参加者名簿／保護／開く</span><span class="tag">表示</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>「参加者」タブを開く</dd><dt>期待動作</dt><dd>パスワード入力画面になる（保護の限界などの説明文は表示されない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-1-1_20260731_01.png" alt="5-1-1 の1枚目" data-cap="5-1-1_20260731_01.png"><figcaption class="cap">1. 5-1-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-1-2</span><span class="ttl">参加者名簿／保護／誤ったパスワード</span><span class="tag">操作</span><span class="tag">I01</span></div>
+<section class="item" id="5-1-2" data-no="5-1-2">
+<div class="hd"><span class="no"><a href="#5-1-2">5-1-2</a></span><span class="ttl">参加者名簿／保護／誤ったパスワード</span><span class="tag">操作</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>違う文字列で解除</dd><dt>期待動作</dt><dd>「パスワードが違います」と出て開かない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-1-2_20260731_01.png" alt="5-1-2 の1枚目" data-cap="5-1-2_20260731_01.png"><figcaption class="cap">1. 5-1-2_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-1-3</span><span class="ttl">参加者名簿／保護／正しいパスワード</span><span class="tag">操作</span><span class="tag">I01</span></div>
+<section class="item" id="5-1-3" data-no="5-1-3">
+<div class="hd"><span class="no"><a href="#5-1-3">5-1-3</a></span><span class="ttl">参加者名簿／保護／正しいパスワード</span><span class="tag">操作</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>admin で解除</dd><dt>期待動作</dt><dd>名簿が開き、参加回数・来場回数・最終申込日が実際の申込と合っている</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-1-3_20260731_01.png" alt="5-1-3 の1枚目" data-cap="5-1-3_20260731_01.png"><figcaption class="cap">1. 5-1-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-1-4</span><span class="ttl">参加者名簿／一覧／行の展開</span><span class="tag">操作</span><span class="tag">I01</span></div>
+<section class="item" id="5-1-4" data-no="5-1-4">
+<div class="hd"><span class="no"><a href="#5-1-4">5-1-4</a></span><span class="ttl">参加者名簿／一覧／行の展開</span><span class="tag">操作</span><span class="tag">I01</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>行をクリック</dd><dt>期待動作</dt><dd>その人の参加履歴（イベント名・状態・申込日）が展開される</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-1-4_20260731_01.png" alt="5-1-4 の1枚目" data-cap="5-1-4_20260731_01.png"><figcaption class="cap">1. 5-1-4_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-1-5</span><span class="ttl">参加者名簿／検索／検索欄</span><span class="tag">操作</span><span class="tag">I06</span></div>
+<section class="item" id="5-1-5" data-no="5-1-5">
+<div class="hd"><span class="no"><a href="#5-1-5">5-1-5</a></span><span class="ttl">参加者名簿／検索／検索欄</span><span class="tag">操作</span><span class="tag">I06</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>ひらがな・カタカナ両方で検索</dd><dt>期待動作</dt><dd>どちらでも同じ人がヒットする</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-1-5_20260731_01.png" alt="5-1-5 の1枚目" data-cap="5-1-5_20260731_01.png"><figcaption class="cap">1. 5-1-5_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="5-1-5_20260731_02.png" alt="5-1-5 の2枚目" data-cap="5-1-5_20260731_02.png"><figcaption class="cap">2. 5-1-5_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-1-6</span><span class="ttl">参加者名簿／CSV出力／出力ボタン</span><span class="tag">操作</span><span class="tag">E05</span></div>
+<section class="item" id="5-1-6" data-no="5-1-6">
+<div class="hd"><span class="no"><a href="#5-1-6">5-1-6</a></span><span class="ttl">参加者名簿／CSV出力／出力ボタン</span><span class="tag">操作</span><span class="tag">E05</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>CSVを出力してExcelで開く</dd><dt>期待動作</dt><dd>文字化けせず開ける。「=」等で始まる値も数式にならない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-1-6_20260731_01.png" alt="5-1-6 の1枚目" data-cap="5-1-6_20260731_01.png"><figcaption class="cap">1. 5-1-6_20260731_01.png</figcaption></figure>
 </div>
 <a class="file" href="5-1-6_20260731_participants.csv" download>⤓ 5-1-6_20260731_participants.csv</a> 
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-1-7</span><span class="ttl">参加者名簿／保護／ロックの復帰</span><span class="tag">表示</span><span class="tag">I09</span></div>
+<section class="item" id="5-1-7" data-no="5-1-7">
+<div class="hd"><span class="no"><a href="#5-1-7">5-1-7</a></span><span class="ttl">参加者名簿／保護／ロックの復帰</span><span class="tag">表示</span><span class="tag">I09</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>参加者ビューへ切替→主催者ビューに戻る</dd><dt>期待動作</dt><dd>名簿は再びロックされている</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-1-7_20260731_01.png" alt="5-1-7 の1枚目" data-cap="5-1-7_20260731_01.png"><figcaption class="cap">1. 5-1-7_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="5-1-7_20260731_02.png" alt="5-1-7 の2枚目" data-cap="5-1-7_20260731_02.png"><figcaption class="cap">2. 5-1-7_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-2-1</span><span class="ttl">設定／初期化／初期化ボタン</span><span class="tag">操作</span><span class="tag">I11,I07</span></div>
+<section class="item" id="5-2-1" data-no="5-2-1">
+<div class="hd"><span class="no"><a href="#5-2-1">5-2-1</a></span><span class="ttl">設定／初期化／初期化ボタン</span><span class="tag">操作</span><span class="tag">I11,I07</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>「データベースを初期化」を押す</dd><dt>期待動作</dt><dd>確認画面が出る。実行すると全データが消え、各画面が空の案内になる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-2-1_20260731_01.png" alt="5-2-1 の1枚目" data-cap="5-2-1_20260731_01.png"><figcaption class="cap">1. 5-2-1_20260731_01.png</figcaption></figure>
@@ -621,8 +632,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="5-2-1_20260731_03.png" alt="5-2-1 の3枚目" data-cap="5-2-1_20260731_03.png"><figcaption class="cap">3. 5-2-1_20260731_03.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">5-2-2</span><span class="ttl">設定／デモデータ／投入ボタン</span><span class="tag">操作</span><span class="tag">I11,I02</span></div>
+<section class="item" id="5-2-2" data-no="5-2-2">
+<div class="hd"><span class="no"><a href="#5-2-2">5-2-2</a></span><span class="ttl">設定／デモデータ／投入ボタン</span><span class="tag">操作</span><span class="tag">I11,I02</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>初期化のあと「デモデータを投入」</dd><dt>期待動作</dt><dd>イベント40件・参加者24人・申込約220件が入り、すぐ使える状態になる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="5-2-2_20260731_01.png" alt="5-2-2 の1枚目" data-cap="5-2-2_20260731_01.png"><figcaption class="cap">1. 5-2-2_20260731_01.png</figcaption></figure>
@@ -631,30 +642,30 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 </div>
 </section>
 <h2 id="s6">6. 共通（10項目）</h2>
-<section class="item">
-<div class="hd"><span class="no">6-1-1</span><span class="ttl">共通／URLから開く／確認用URL</span><span class="tag">操作</span><span class="tag">E04</span></div>
+<section class="item" id="6-1-1" data-no="6-1-1">
+<div class="hd"><span class="no"><a href="#6-1-1">6-1-1</a></span><span class="ttl">共通／URLから開く／確認用URL</span><span class="tag">操作</span><span class="tag">E04</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>?ticket=（正しい値）を直接開く</dd><dt>期待動作</dt><dd>その申込の詳細が開く。アドレスバーのURLはすぐ元に戻る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-1-1_20260731_01.png" alt="6-1-1 の1枚目" data-cap="6-1-1_20260731_01.png"><figcaption class="cap">1. 6-1-1_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-1-4</span><span class="ttl">共通／URLから開く／イベントURL</span><span class="tag">操作</span><span class="tag">E04</span></div>
+<section class="item" id="6-1-4" data-no="6-1-4">
+<div class="hd"><span class="no"><a href="#6-1-4">6-1-4</a></span><span class="ttl">共通／URLから開く／イベントURL</span><span class="tag">操作</span><span class="tag">E04</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>?event=（公開・限定公開）を開く</dd><dt>期待動作</dt><dd>公開ページが開く。限定公開はこの経路でだけ見られる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-1-4_20260731_01.png" alt="6-1-4 の1枚目" data-cap="6-1-4_20260731_01.png"><figcaption class="cap">1. 6-1-4_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="6-1-4_20260731_02.png" alt="6-1-4 の2枚目" data-cap="6-1-4_20260731_02.png"><figcaption class="cap">2. 6-1-4_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-1-7</span><span class="ttl">共通／URLから開く／プレビューURL</span><span class="tag">操作</span><span class="tag">E04</span></div>
+<section class="item" id="6-1-7" data-no="6-1-7">
+<div class="hd"><span class="no"><a href="#6-1-7">6-1-7</a></span><span class="ttl">共通／URLから開く／プレビューURL</span><span class="tag">操作</span><span class="tag">E04</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>?preview= に下書きのIDを入れて開く</dd><dt>期待動作</dt><dd>「下書きのプレビュー」の注記つきで参加者からの見え方が確認できる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-1-7_20260731_01.png" alt="6-1-7 の1枚目" data-cap="6-1-7_20260731_01.png"><figcaption class="cap">1. 6-1-7_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-2-1</span><span class="ttl">共通／ビューの切替／役割ボタン</span><span class="tag">操作</span><span class="tag">I09</span></div>
+<section class="item" id="6-2-1" data-no="6-2-1">
+<div class="hd"><span class="no"><a href="#6-2-1">6-2-1</a></span><span class="ttl">共通／ビューの切替／役割ボタン</span><span class="tag">操作</span><span class="tag">I09</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>主催者⇄参加者を切り替える</dd><dt>期待動作</dt><dd>タブが4つ（主催者）⇄2つ（参加者）に切り替わる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-2-1_20260731_01.png" alt="6-2-1 の1枚目" data-cap="6-2-1_20260731_01.png"><figcaption class="cap">1. 6-2-1_20260731_01.png</figcaption></figure>
@@ -662,8 +673,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="6-2-1_20260731_03.png" alt="6-2-1 の3枚目" data-cap="6-2-1_20260731_03.png"><figcaption class="cap">3. 6-2-1_20260731_03.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-2-2</span><span class="ttl">共通／ビューの切替／スマホ表示</span><span class="tag">表示</span><span class="tag">I09</span></div>
+<section class="item" id="6-2-2" data-no="6-2-2">
+<div class="hd"><span class="no"><a href="#6-2-2">6-2-2</a></span><span class="ttl">共通／ビューの切替／スマホ表示</span><span class="tag">表示</span><span class="tag">I09</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>参加者ビューをスマホ（またはF12のスマホ表示）で開く</dd><dt>期待動作</dt><dd>画面が幅に収まり、入力欄をタップしても勝手に拡大しない。主催者ビューはPC幅のまま</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-2-2_20260731_01.png" alt="6-2-2 の1枚目" data-cap="6-2-2_20260731_01.png"><figcaption class="cap">1. 6-2-2_20260731_01.png</figcaption></figure>
@@ -671,38 +682,38 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="6-2-2_20260731_03.png" alt="6-2-2 の3枚目" data-cap="6-2-2_20260731_03.png"><figcaption class="cap">3. 6-2-2_20260731_03.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-2-3</span><span class="ttl">共通／ビューの切替／高速な連続切替</span><span class="tag">操作</span><span class="tag">I09</span></div>
+<section class="item" id="6-2-3" data-no="6-2-3">
+<div class="hd"><span class="no"><a href="#6-2-3">6-2-3</a></span><span class="ttl">共通／ビューの切替／高速な連続切替</span><span class="tag">操作</span><span class="tag">I09</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>画面やタブをすばやく連打で切り替える</dd><dt>期待動作</dt><dd>最後に押した画面が表示されたまま安定する</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-2-3_20260731_01.png" alt="6-2-3 の1枚目" data-cap="6-2-3_20260731_01.png"><figcaption class="cap">1. 6-2-3_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-3-1</span><span class="ttl">共通／表示と保存／書体</span><span class="tag">表示</span><span class="tag">E03</span></div>
+<section class="item" id="6-3-1" data-no="6-3-1">
+<div class="hd"><span class="no"><a href="#6-3-1">6-3-1</a></span><span class="ttl">共通／表示と保存／書体</span><span class="tag">表示</span><span class="tag">E03</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>各画面の文字を見る</dd><dt>期待動作</dt><dd>英数字は会社サイトと同じ書体、日本語は端末の標準書体。崩れが無い</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-3-1_20260731_01.png" alt="6-3-1 の1枚目" data-cap="6-3-1_20260731_01.png"><figcaption class="cap">1. 6-3-1_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="6-3-1_20260731_02.png" alt="6-3-1 の2枚目" data-cap="6-3-1_20260731_02.png"><figcaption class="cap">2. 6-3-1_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-3-2</span><span class="ttl">共通／表示と保存／再読み込み</span><span class="tag">表示</span><span class="tag">E01</span></div>
+<section class="item" id="6-3-2" data-no="6-3-2">
+<div class="hd"><span class="no"><a href="#6-3-2">6-3-2</a></span><span class="ttl">共通／表示と保存／再読み込み</span><span class="tag">表示</span><span class="tag">E01</span><span class="tag">2枚</span></div>
 <dl><dt>手順</dt><dd>データを作ってからページを再読み込み</dd><dt>期待動作</dt><dd>データが消えずに残っている</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-3-2_20260731_01.png" alt="6-3-2 の1枚目" data-cap="6-3-2_20260731_01.png"><figcaption class="cap">1. 6-3-2_20260731_01.png</figcaption></figure>
 <figure class="shot"><img loading="lazy" src="6-3-2_20260731_02.png" alt="6-3-2 の2枚目" data-cap="6-3-2_20260731_02.png"><figcaption class="cap">2. 6-3-2_20260731_02.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-3-6</span><span class="ttl">共通／表示と保存／スクリプトの埋め込み</span><span class="tag">異常</span><span class="tag">I06</span></div>
+<section class="item" id="6-3-6" data-no="6-3-6">
+<div class="hd"><span class="no"><a href="#6-3-6">6-3-6</a></span><span class="ttl">共通／表示と保存／スクリプトの埋め込み</span><span class="tag">異常</span><span class="tag">I06</span><span class="tag">1枚</span></div>
 <dl><dt>手順</dt><dd>氏名・回答・スレッド等に「&lt;script&gt;alert(1)&lt;/script&gt;」を入力して各画面で表示</dd><dt>条件</dt><dd>不正データ</dd><dt>期待動作</dt><dd>そのまま文字として表示される（ポップアップ等が動かない）</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-3-6_20260731_01.png" alt="6-3-6 の1枚目" data-cap="6-3-6_20260731_01.png"><figcaption class="cap">1. 6-3-6_20260731_01.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">6-4-4</span><span class="ttl">共通／メッセージ表示／取り消せない操作</span><span class="tag">表示</span><span class="tag">I07</span></div>
+<section class="item" id="6-4-4" data-no="6-4-4">
+<div class="hd"><span class="no"><a href="#6-4-4">6-4-4</a></span><span class="ttl">共通／メッセージ表示／取り消せない操作</span><span class="tag">表示</span><span class="tag">I07</span><span class="tag">3枚</span></div>
 <dl><dt>手順</dt><dd>公開・中止・削除・初期化を押す</dd><dt>期待動作</dt><dd>実行前に必ず確認画面が出る</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="6-4-4_20260731_01.png" alt="6-4-4 の1枚目" data-cap="6-4-4_20260731_01.png"><figcaption class="cap">1. 6-4-4_20260731_01.png</figcaption></figure>
@@ -711,8 +722,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 </div>
 </section>
 <h2 id="s7">7. 通しシナリオ（10項目）</h2>
-<section class="item">
-<div class="hd"><span class="no">7-1-1</span><span class="ttl">イベント運営を最初から最後まで通す／作成→公開→申込→受付→出力→中止／基幹シナリオ</span><span class="tag">通し</span><span class="tag">ほぼ全IF</span></div>
+<section class="item" id="7-1-1" data-no="7-1-1">
+<div class="hd"><span class="no"><a href="#7-1-1">7-1-1</a></span><span class="ttl">イベント運営を最初から最後まで通す／作成→公開→申込→受付→出力→中止／基幹シナリオ</span><span class="tag">通し</span><span class="tag">ほぼ全IF</span><span class="tag">7枚</span></div>
 <dl><dt>手順</dt><dd>作成（画像添付・下書き）→締切&gt;開催日で公開を試す（エラー）→直して公開→参加者ビューで確認→告知発行→申込→再読み込み→残席減→検索して受付・取消→内容修正→CSV→満席まで申込→中止表示</dd><dt>条件</dt><dd>デモデータ投入済み</dd><dt>期待動作</dt><dd>全手順が止まらず通り、申込数・残席・受付数がどの画面でも矛盾しない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-1-1_20260731_01.png" alt="7-1-1 の1枚目" data-cap="7-1-1_20260731_01.png"><figcaption class="cap">1. 7-1-1_20260731_01.png</figcaption></figure>
@@ -725,8 +736,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 </div>
 <a class="file" href="7-1-1_20260731_applications_4589816a43a82b65.csv" download>⤓ 7-1-1_20260731_applications_4589816a43a82b65.csv</a> 
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-3-1</span><span class="ttl">URLから開く全パターン／公開ページ・マイ申込／メールやSNSから来た人の入口</span><span class="tag">通し</span><span class="tag">E04,I08,I09</span></div>
+<section class="item" id="7-3-1" data-no="7-3-1">
+<div class="hd"><span class="no"><a href="#7-3-1">7-3-1</a></span><span class="ttl">URLから開く全パターン／公開ページ・マイ申込／メールやSNSから来た人の入口</span><span class="tag">通し</span><span class="tag">E04,I08,I09</span><span class="tag">7枚</span></div>
 <dl><dt>手順</dt><dd>確認用URL（保存済み/未保存/でたらめ/キャンセル済み）→イベントURL（公開/限定公開/下書き/中止/不存在）→プレビュー→再読み込み</dd><dt>期待動作</dt><dd>確認用URLはログイン不要。でたらめな値で他人の情報が出ない。再読み込みで二重処理しない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-3-1_20260731_01.png" alt="7-3-1 の1枚目" data-cap="7-3-1_20260731_01.png"><figcaption class="cap">1. 7-3-1_20260731_01.png</figcaption></figure>
@@ -738,8 +749,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="7-3-1_20260731_07.png" alt="7-3-1 の7枚目" data-cap="7-3-1_20260731_07.png"><figcaption class="cap">7. 7-3-1_20260731_07.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-4-1</span><span class="ttl">イベント作成の入力チェック／イベント作成／保存できる・できないの境目</span><span class="tag">通し</span><span class="tag">I09,I01,I05,I07</span></div>
+<section class="item" id="7-4-1" data-no="7-4-1">
+<div class="hd"><span class="no"><a href="#7-4-1">7-4-1</a></span><span class="ttl">イベント作成の入力チェック／イベント作成／保存できる・できないの境目</span><span class="tag">通し</span><span class="tag">I09,I01,I05,I07</span><span class="tag">4枚</span></div>
 <dl><dt>手順</dt><dd>名前空→公開済みの公開範囲後退→締切&gt;開催日→問い合わせ先空で公開→定員&lt;申込数→正常公開→複製→公開後は戻せない</dd><dt>期待動作</dt><dd>エラーの出る場所が統一されている（欄の下・上部バナー・確認画面）。公開後は一方通行</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-4-1_20260731_01.png" alt="7-4-1 の1枚目" data-cap="7-4-1_20260731_01.png"><figcaption class="cap">1. 7-4-1_20260731_01.png</figcaption></figure>
@@ -748,8 +759,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="7-4-1_20260731_04.png" alt="7-4-1 の4枚目" data-cap="7-4-1_20260731_04.png"><figcaption class="cap">4. 7-4-1_20260731_04.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-5-1</span><span class="ttl">キャンセルと申込み直し／マイ申込・申込一覧／記録の残り方</span><span class="tag">通し</span><span class="tag">I03,I04,I01</span></div>
+<section class="item" id="7-5-1" data-no="7-5-1">
+<div class="hd"><span class="no"><a href="#7-5-1">7-5-1</a></span><span class="ttl">キャンセルと申込み直し／マイ申込・申込一覧／記録の残り方</span><span class="tag">通し</span><span class="tag">I03,I04,I01</span><span class="tag">6枚</span></div>
 <dl><dt>手順</dt><dd>申込→参加者側でキャンセル→残席回復→申込み直し→主催者側でもキャンセル→再申込→名簿で確認</dd><dt>期待動作</dt><dd>何度でも申込み直せて、キャンセルの記録は消えない。名簿では同じ人1行にまとまる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-5-1_20260731_01.png" alt="7-5-1 の1枚目" data-cap="7-5-1_20260731_01.png"><figcaption class="cap">1. 7-5-1_20260731_01.png</figcaption></figure>
@@ -760,8 +771,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="7-5-1_20260731_06.png" alt="7-5-1 の6枚目" data-cap="7-5-1_20260731_06.png"><figcaption class="cap">6. 7-5-1_20260731_06.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-6-1</span><span class="ttl">運営の連絡機能ひととおり／スレッド・Q&amp;A・お知らせ／社内の相談と参加者への連絡</span><span class="tag">通し</span><span class="tag">I10,I01,I09</span></div>
+<section class="item" id="7-6-1" data-no="7-6-1">
+<div class="hd"><span class="no"><a href="#7-6-1">7-6-1</a></span><span class="ttl">運営の連絡機能ひととおり／スレッド・Q&amp;A・お知らせ／社内の相談と参加者への連絡</span><span class="tag">通し</span><span class="tag">I10,I01,I09</span><span class="tag">6枚</span></div>
 <dl><dt>手順</dt><dd>スレッド投稿→別イベントに未読が付かない→開いて消える→Q&amp;A登録・解決→お知らせ→参加者側で掲示確認→運営タブが見えない</dd><dt>期待動作</dt><dd>未読が正しく付き・消える。お知らせだけが参加者に見える</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-6-1_20260731_01.png" alt="7-6-1 の1枚目" data-cap="7-6-1_20260731_01.png"><figcaption class="cap">1. 7-6-1_20260731_01.png</figcaption></figure>
@@ -772,8 +783,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="7-6-1_20260731_06.png" alt="7-6-1 の6枚目" data-cap="7-6-1_20260731_06.png"><figcaption class="cap">6. 7-6-1_20260731_06.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-7-1</span><span class="ttl">タスクの進み具合が各画面に伝わる／タスク→一覧→ダッシュボード／進捗の連動</span><span class="tag">通し</span><span class="tag">I10,I05,I02</span></div>
+<section class="item" id="7-7-1" data-no="7-7-1">
+<div class="hd"><span class="no"><a href="#7-7-1">7-7-1</a></span><span class="ttl">タスクの進み具合が各画面に伝わる／タスク→一覧→ダッシュボード／進捗の連動</span><span class="tag">通し</span><span class="tag">I10,I05,I02</span><span class="tag">6枚</span></div>
 <dl><dt>手順</dt><dd>作成→ドラッグ→再読み込み→タイムライン→期限超過（処理済・完了は除く）→一覧の準備バー→ダッシュボードの残作業</dd><dt>期待動作</dt><dd>タスクの状態が詳細→一覧→ダッシュボードまで一貫して連動する</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-7-1_20260731_01.png" alt="7-7-1 の1枚目" data-cap="7-7-1_20260731_01.png"><figcaption class="cap">1. 7-7-1_20260731_01.png</figcaption></figure>
@@ -784,8 +795,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="7-7-1_20260731_06.png" alt="7-7-1 の6枚目" data-cap="7-7-1_20260731_06.png"><figcaption class="cap">6. 7-7-1_20260731_06.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-8-1</span><span class="ttl">マイ申込のログイン／マイ申込／ログインが要る所・要らない所</span><span class="tag">通し</span><span class="tag">I08,E04,I01</span></div>
+<section class="item" id="7-8-1" data-no="7-8-1">
+<div class="hd"><span class="no"><a href="#7-8-1">7-8-1</a></span><span class="ttl">マイ申込のログイン／マイ申込／ログインが要る所・要らない所</span><span class="tag">通し</span><span class="tag">I08,E04,I01</span><span class="tag">5枚</span></div>
 <dl><dt>手順</dt><dd>未ログイン→ログイン要求→ログイン→本人分のみ→ログアウト→確認URLはログイン無しで開く→誤パスワード→再読み込み</dd><dt>条件</dt><dd>abc@example.com / abc123</dd><dt>期待動作</dt><dd>一覧はログイン必要・URLの1件は不要の使い分けが成立。誤入力の文言はどちらが違うか言わない</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-8-1_20260731_01.png" alt="7-8-1 の1枚目" data-cap="7-8-1_20260731_01.png"><figcaption class="cap">1. 7-8-1_20260731_01.png</figcaption></figure>
@@ -795,8 +806,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="7-8-1_20260731_05.png" alt="7-8-1 の5枚目" data-cap="7-8-1_20260731_05.png"><figcaption class="cap">5. 7-8-1_20260731_05.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-9-1</span><span class="ttl">参加者名簿とCSV／参加者名簿／集計と出力</span><span class="tag">通し</span><span class="tag">I01,I06,E05,I09</span></div>
+<section class="item" id="7-9-1" data-no="7-9-1">
+<div class="hd"><span class="no"><a href="#7-9-1">7-9-1</a></span><span class="ttl">参加者名簿とCSV／参加者名簿／集計と出力</span><span class="tag">通し</span><span class="tag">I01,I06,E05,I09</span><span class="tag">6枚</span></div>
 <dl><dt>手順</dt><dd>admin で解除→集計をデモデータと突合→かな/カナ検索→CSVをExcelで開く→ビュー切替でロック復帰</dd><dt>期待動作</dt><dd>集計が合い、CSVがそのまま正しく読める。ロックも掛かり直す</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-9-1_20260731_01.png" alt="7-9-1 の1枚目" data-cap="7-9-1_20260731_01.png"><figcaption class="cap">1. 7-9-1_20260731_01.png</figcaption></figure>
@@ -808,8 +819,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 </div>
 <a class="file" href="7-9-1_20260731_participants.csv" download>⤓ 7-9-1_20260731_participants.csv</a> 
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-10-1</span><span class="ttl">時期の表示が3箇所で一致する／一覧・公開ページ・主催者一覧／受付前〜中止の見え方</span><span class="tag">通し</span><span class="tag">I05,I01</span></div>
+<section class="item" id="7-10-1" data-no="7-10-1">
+<div class="hd"><span class="no"><a href="#7-10-1">7-10-1</a></span><span class="ttl">時期の表示が3箇所で一致する／一覧・公開ページ・主催者一覧／受付前〜中止の見え方</span><span class="tag">通し</span><span class="tag">I05,I01</span><span class="tag">8枚</span></div>
 <dl><dt>手順</dt><dd>6状態を用意→「イベントを探す」→各公開ページのボタン→主催者一覧のバッジ→締切日の前後で切替を確認</dd><dt>期待動作</dt><dd>3箇所の表示が食い違わない。「探す」に出るのは受付中・受付前・満席のみ</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-10-1_20260731_01.png" alt="7-10-1 の1枚目" data-cap="7-10-1_20260731_01.png"><figcaption class="cap">1. 7-10-1_20260731_01.png</figcaption></figure>
@@ -822,8 +833,8 @@ dialog .cap{color:#fff;font-size:12px;text-align:center;padding:8px}
 <figure class="shot"><img loading="lazy" src="7-10-1_20260731_08.png" alt="7-10-1 の8枚目" data-cap="7-10-1_20260731_08.png"><figcaption class="cap">8. 7-10-1_20260731_08.png</figcaption></figure>
 </div>
 </section>
-<section class="item">
-<div class="hd"><span class="no">7-12-1</span><span class="ttl">データが消えない・消せる／設定・全画面／保存の一生</span><span class="tag">通し</span><span class="tag">E01,I11,I02</span></div>
+<section class="item" id="7-12-1" data-no="7-12-1">
+<div class="hd"><span class="no"><a href="#7-12-1">7-12-1</a></span><span class="ttl">データが消えない・消せる／設定・全画面／保存の一生</span><span class="tag">通し</span><span class="tag">E01,I11,I02</span><span class="tag">5枚</span></div>
 <dl><dt>手順</dt><dd>データを作る→再読み込みで残る→初期化（確認あり）→空→デモデータ投入→また使える</dd><dt>期待動作</dt><dd>再読み込みでは残り、消えるのは意図したときだけ。初期化→投入はいつでもやり直せる</dd></dl>
 <div class="shots">
 <figure class="shot"><img loading="lazy" src="7-12-1_20260731_01.png" alt="7-12-1 の1枚目" data-cap="7-12-1_20260731_01.png"><figcaption class="cap">1. 7-12-1_20260731_01.png</figcaption></figure>
@@ -842,5 +853,23 @@ document.addEventListener('click', ev => {
   if (img) { dlg.querySelector('img').src = img.src;
              dlg.querySelector('.cap').textContent = img.dataset.cap; dlg.showModal(); return; }
   if (ev.target === dlg || ev.target.closest('dialog')) dlg.close();
+});
+
+// 番号で絞り込む。「3-3」のような前方一致でも引ける。
+const q = document.getElementById('q'), hit = document.getElementById('hit');
+const secs = [...document.querySelectorAll('.item')];
+q.addEventListener('input', () => {
+  const v = q.value.trim();
+  let n = 0;
+  for (const s of secs) {
+    const on = !v || s.dataset.no.startsWith(v) || s.textContent.includes(v);
+    s.hidden = !on; if (on) n++;
+  }
+  for (const h of document.querySelectorAll('main h2')) {
+    let el = h.nextElementSibling, any = false;
+    while (el && el.tagName === 'SECTION') { if (!el.hidden) any = true; el = el.nextElementSibling; }
+    h.hidden = !any;
+  }
+  hit.textContent = v ? `${n} 項目` : '';
 });
 </script></body></html>
