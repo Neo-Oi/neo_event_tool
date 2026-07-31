@@ -1,0 +1,25 @@
+﻿氏名,氏名（カナ）,メールアドレス,有効な申込数,来場回数,キャンセル数,最終申込日,案内の受取同意
+中村 大輔,ナカムラ ダイスケ,nakamura@gamma.example.com,11,8,0,2026/07/31,同意
+田中 太郎,タナカ タロウ,abc@example.com,11,9,0,2026/07/27,同意
+鈴木 花子,スズキ ハナコ,suzuki@beta.example.com,10,7,1,2026/07/30,同意
+山田 涼子,ヤマダ リョウコ,yamada@beta.example.com,10,7,1,2026/07/30,同意
+高橋 美咲,タカハシ ミサキ,takahashi@alpha.example.com,9,7,1,2026/07/30,同意
+伊藤 健,イトウ ケン,ito@delta.example.com,9,7,0,2026/07/30,同意
+佐藤 次郎,サトウ ジロウ,sato@gamma.example.com,9,8,0,2026/07/29,同意
+長谷川 淳,ハセガワ ジュン,hasegawa@daigakuin.example.ac.jp,9,8,0,2026/06/08,同意
+池田 和也,イケダ カズヤ,ikeda@gamma.example.com,9,9,0,2026/06/06,同意
+井上 拓也,イノウエ タクヤ,inoue@gamma.example.com,9,7,0,2026/06/04,同意
+渡辺 修,ワタナベ オサム,watanabe@alpha.example.com,9,7,0,2026/05/17,同意
+藤田 隆,フジタ タカシ,fujita@alpha.example.com,9,8,0,2026/05/13,同意
+山口 亮,ヤマグチ リョウ,yamaguchi@beta.example.com,9,7,0,2026/05/11,同意
+林 洋一,ハヤシ ヨウイチ,hayashi@daigaku.example.ac.jp,8,6,0,2026/06/30,同意
+石川 直樹,イシカワ ナオキ,ishikawa@personal.example.net,8,7,0,2026/04/25,同意
+小林 彩,コバヤシ アヤ,kobayashi@alpha.example.com,7,6,2,2026/07/29,同意
+松本 由紀,マツモト ユキ,matsumoto@beta.example.com,7,6,2,2026/06/29,同意
+前田 春香,マエダ ハルカ,maeda@zeta.example.com,7,6,2,2026/06/07,同意
+木村 沙織,キムラ サオリ,kimura@daigaku.example.ac.jp,7,6,2,2026/05/18,同意
+村上 里奈,ムラカミ リナ,murakami@personal.example.net,7,6,1,2026/05/14,同意
+岡田 恵,オカダ メグミ,okada@personal.example.net,7,6,1,2026/04/18,同意
+森 詩織,モリ シオリ,mori@zeta.example.com,6,5,3,2026/07/01,同意
+清水 麻衣,シミズ マイ,shimizu@alpha.example.com,6,4,3,2026/06/05,同意
+橋本 千夏,ハシモト チナツ,hashimoto@delta.example.com,5,4,3,2026/05/12,同意
